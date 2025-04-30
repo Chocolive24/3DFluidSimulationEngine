@@ -55,25 +55,37 @@ target_link_libraries(Renderer PUBLIC Falcor)
 
 add_falcor_executable(Raytracing)
 
+
+
+set(images_files)
+file(GLOB_RECURSE IMAGES_FILES
+            "data/images/*.png"
+            "data/images/*.hdr"
+    )
+
+list(APPEND images_files ${IMAGES_FILES})
+
+# Copy all of the resource files to the destination
+file(COPY ${images_files} DESTINATION "data/images/")
+
+file(GLOB_RECURSE SHADER_FILES Renderer/shaders/*.slang Renderer/shaders/*.hlsl)
+
 target_sources(Raytracing PRIVATE
     main.cpp
-    Raytracing.cpp
-    Raytracing.h
-    Raytracing.3d.slang
-    Raytracing.rt.slang
-    triangle.slang
-    SDF_Functions.slang
+    FluidApplication.cpp
+    FluidApplication.h
+    ${SHADER_FILES}
 )
+
 
 target_include_directories(Raytracing PUBLIC samples/include)
 target_include_directories(Raytracing PUBLIC Physics/include/)
 target_include_directories(Raytracing PUBLIC Common/include/)
 target_link_libraries(Raytracing PUBLIC PhysicsSamples Renderer)
 
-target_copy_shaders(Raytracing Samples/Raytracing)
+target_copy_shaders(Raytracing Samples/Raytracing/shaders)
 
 target_source_group(Raytracing "Samples")
-
 
 # Renderer for future direct x (actually opengl using glut testing)
 # file(GLOB_RECURSE RENDERER_FILES Renderer/include/*.h Renderer/src/*.cpp)

@@ -72,19 +72,13 @@ void Renderer::Init() noexcept
                                 SceneBuilder::Flags::RTDontMergeInstanced | SceneBuilder::Flags::DontOptimizeGraph;
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
-    auto sphere = TriangleMesh::createSphere(3.f);
-    //auto cube = TriangleMesh::createCube(float3(1.f, 1.f, 1.f));
+    auto sphere = TriangleMesh::createSphere(1.f);
 
     // Create a lambertian material
     ref<Material> lambertian = StandardMaterial::create(device_, "Lambertian");
     lambertian->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
     lambertian->setRoughnessMollification(1.f);
     lambertian->setIndexOfRefraction(0.f);
-
-    //ref<Material> water_particle_mat = StandardMaterial::create(device_, "water particle");
-    //water_particle_mat->toBasicMaterial()->setBaseColor3(float3(0.1f, 0.2f, 1.0f));
-    //water_particle_mat->setRoughnessMollification(1.f);
-    //water_particle_mat->setIndexOfRefraction(0.f);
 
     // lambertian->toBasicMaterial()->setBaseColor3(float3(1.f, 0.05f, 0.05f));
 
@@ -178,7 +172,7 @@ void Renderer::Init() noexcept
 
      sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
 
-     auto envMap = EnvMap::createFromFile(device_, "hallstatt4_hd.hdr");
+     auto envMap = EnvMap::createFromFile(device_, "data/images/hallstatt4_hd.hdr");
      envMap->setIntensity(1.0);
      scene_builder_->setEnvMap(envMap);
      
@@ -333,11 +327,12 @@ void Renderer::SynchronizeSceneWithProgram() noexcept
 
     // Create a raytracing program description
     ProgramDesc rtProgDesc;
-    ProgramDesc::ShaderModule s_module = ProgramDesc::ShaderModule("Samples/Raytracing/SDF_Functions.slang");
-    s_module.addFile("Samples/Raytracing/SDF_Functions.slang");
+    ProgramDesc::ShaderModule s_module = ProgramDesc::ShaderModule(
+        "Samples/Raytracing/Renderer/shaders/SDF_Functions.slang");
+    s_module.addFile("Samples/Raytracing/Renderer/shaders/SDF_Functions.slang");
     shaderModules.emplace_back(s_module);
     rtProgDesc.addShaderModules(shaderModules);
-    rtProgDesc.addShaderLibrary("Samples/Raytracing/Raytracing.rt.slang");
+    rtProgDesc.addShaderLibrary("Samples/Raytracing/Renderer/shaders/Raytracing.rt.slang");
     rtProgDesc.addTypeConformances(typeConformances);
     rtProgDesc.setMaxTraceRecursionDepth(kMaxRayBounce + 1);
     rtProgDesc.setMaxPayloadSize(48); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
@@ -387,7 +382,7 @@ NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
     auto transform = Transform();
     transform.setTranslation(pos);
     transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    transform.setScaling(float3(1.f, 1.f, 1.f));
+    transform.setScaling(float3(radius, radius, radius));
     node.transform = transform.getMatrix();
     const auto node_id = scene_builder_->addNode(node);
 
