@@ -27,10 +27,12 @@
  **************************************************************************/
 #pragma once
 #include "Falcor.h"
+#include "Renderer.h"
 #include "Core/SampleApp.h"
 #include "Core/Pass/RasterPass.h"
 #include "RenderGraph/RenderGraph.h"
 #include "Scene/SceneBuilder.h"
+
 
 using namespace Falcor;
 
@@ -44,7 +46,7 @@ class Raytracing : public SampleApp
 {
 public:
     Raytracing(const SampleAppConfig& config);
-    ~Raytracing();
+    ~Raytracing() override;
 
     void onLoad(RenderContext* pRenderContext) override;
     void onResize(uint32_t width, uint32_t height) override;
@@ -54,27 +56,28 @@ public:
     bool onMouseEvent(const MouseEvent& mouseEvent) override;
 
 private:
-    ref<RasterPass> raster_pass_;
+    std::unique_ptr<Renderer> renderer_ = nullptr;
+    //ref<RasterPass> raster_pass_;
 
-    ref<Program> program_;
-    ref<ProgramVars> program_vars_;
-    ref<Buffer> vertex_buffer_;
-    ref<VertexBufferLayout> vertex_buffer_layout_;
-    ref<VertexLayout> vertex_layout_;
-    ref<Vao> vao_;
+    //ref<Program> program_;
+    //ref<ProgramVars> program_vars_;
+    //ref<Buffer> vertex_buffer_;
+    //ref<VertexBufferLayout> vertex_buffer_layout_;
+    //ref<VertexLayout> vertex_layout_;
+    //ref<Vao> vao_;
 
-    ref<Program> rt_program_;
-    ref<RtProgramVars> rt_program_vars_;
+    //ref<Program> rt_program_;
+    //ref<RtProgramVars> rt_program_vars_;
 
-    //SceneBuilder scene_builder_ = SceneBuilder;
-    ref<Scene> mpScene;
-    ref<Camera> mpCamera;
-    bool mUseDOF = false;
-    uint32_t mSampleIndex = 0;
-    ref<Texture> mpRtOut;
-    ref<Texture> mpTexture3D;
+    ////SceneBuilder scene_builder_ = SceneBuilder;
+    //ref<Scene> mpScene;
+    //ref<Camera> mpCamera;
+    //bool mUseDOF = false;
+    //uint32_t mSampleIndex = 0;
+    //ref<Texture> mpRtOut;
+    //ref<Texture> mpTexture3D;
 
-    std::vector<NodeID> sphereNodeIDs;
+    //std::vector<NodeID> sphereNodeIDs;
 
     //ref<SceneBuilder> scene_builder_;
 

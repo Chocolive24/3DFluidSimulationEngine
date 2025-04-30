@@ -1,12 +1,6 @@
 # cmake_minimum_required(VERSION 3.20)
-# project(Bark3D)
 
 set(CMAKE_CXX_STANDARD 17)
-
-#find_package(imgui CONFIG REQUIRED)
-# find_package(GLUT REQUIRED)
-# find_package(OpenGL REQUIRED)
-# find_package(GLEW REQUIRED) 
 
 # Add a CMake option to enable or disable Tracy Profiler
 option(USE_TRACY "Use Tracy Profiler" ON)
@@ -53,6 +47,12 @@ endif()
 
 target_link_libraries(PhysicsSamples PUBLIC Physics Common imgui)
 
+# Renderer
+file(GLOB_RECURSE RENDERER_FILES Renderer/include/*.h Renderer/src/*.cpp)
+add_library(Renderer ${RENDERER_FILES})
+target_include_directories(Renderer PUBLIC Renderer/include/)
+target_link_libraries(Renderer PUBLIC Falcor)
+
 add_falcor_executable(Raytracing)
 
 target_sources(Raytracing PRIVATE
@@ -67,7 +67,7 @@ target_sources(Raytracing PRIVATE
 target_include_directories(Raytracing PUBLIC samples/include)
 target_include_directories(Raytracing PUBLIC Physics/include/)
 target_include_directories(Raytracing PUBLIC Common/include/)
-target_link_libraries(Raytracing PUBLIC PhysicsSamples)
+target_link_libraries(Raytracing PUBLIC PhysicsSamples Renderer)
 
 target_copy_shaders(Raytracing Samples/Raytracing)
 
