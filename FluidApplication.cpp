@@ -66,7 +66,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         }
     }
 
-    renderer_->SynchronizeSceneWithProgram();
+    renderer_->CreateRaytracingProgram();
 }
 
 void FluidApplication::onResize(uint32_t width, uint32_t height)

@@ -16,33 +16,7 @@ void Renderer::Init() noexcept
         FALCOR_THROW("Device does not support raytracing!");
     }
 
-    //    // Create the RenderState
-    //    raster_pass_ = RasterPass::create(device_,
-    //        "Samples/Raytracing/triangle.slang", "vsMain", "psMain");
-    //    auto& pState = raster_pass_->getState();
-    //
-    //    // create the depth-state
-    //    DepthStencilState::Desc dsDesc;
-    //    dsDesc.setDepthEnabled(false);
-    //    pState->setDepthStencilState(DepthStencilState::create(dsDesc));
-    //
-    //    // Rasterizer state
-    //    RasterizerState::Desc rsState;
-    //    rsState.setCullMode(RasterizerState::CullMode::None);
-    //    pState->setRasterizerState(RasterizerState::create(rsState));
-
-    // Blend state
-    // BlendState::Desc blendDesc;
-    // blendDesc.setRtBlend(0, true).setRtParams(
-    //    0,
-    //    BlendState::BlendOp::Add,
-    //    BlendState::BlendOp::Add,
-    //    BlendState::BlendFunc::SrcAlpha,
-    //    BlendState::BlendFunc::OneMinusSrcAlpha,
-    //    BlendState::BlendFunc::One,
-    //    BlendState::BlendFunc::One
-    //);
-    // pState->setBlendState(BlendState::create(blendDesc));
+    createRasterizationProgram();
 
     Settings settings{};
 
@@ -52,6 +26,7 @@ void Renderer::Init() noexcept
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
     auto sphere = TriangleMesh::createSphere(1.f);
+   
 
     // Create a lambertian material
     ref<Material> lambertian = StandardMaterial::create(device_, "Lambertian");
@@ -129,40 +104,92 @@ void Renderer::Init() noexcept
     //// Add Mesh Instances
     // scene_builder__.addMeshInstance(node_id_3, triangle_mesh_id_3);
 
-     //auto node_4 = SceneBuilder::Node();
-     //node_4.name = "cube";
-     //auto transform_4 = Transform();
-     //transform_4.setTranslation(float3(0.f, -1.2f, 0.f));
-     //transform_4.setRotationEuler(float3(0.f, 0.f, 0.f));
-     //transform_4.setScaling(float3(1000.f, 1.f, 1000.f));
-     //node_4.transform = transform_4.getMatrix();
-     //auto node_id_4 = scene_builder_->addNode(node_4);
+    //auto node_4 = SceneBuilder::Node();
+    //node_4.name = "cube";
+    //auto transform_4 = Transform();
+    //transform_4.setTranslation(float3(0.f, -1.2f, 0.f));
+    //transform_4.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //transform_4.setScaling(float3(1000.f, 1.f, 1000.f));
+    //node_4.transform = transform_4.getMatrix();
+    //auto node_id_4 = scene_builder_->addNode(node_4);
 
-     //// Add Mesh Instances
-     //scene_builder_->addMeshInstance(node_id_4, triangle_mesh_id_4);
+    //// Add Mesh Instances
+    //scene_builder_->addMeshInstance(node_id_4, triangle_mesh_id_4);
 
-     auto sphere_mesh = TriangleMesh::createSphere(3.f);
+    auto sphere_mesh = TriangleMesh::createSphere(3.f);
 
-     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
-     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
-     dielectric_blue->setDoubleSided(true);
-     dielectric_blue->setIndexOfRefraction(1.f);
-     dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
+    ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
+    dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
+    dielectric_blue->setDoubleSided(true);
+    dielectric_blue->setIndexOfRefraction(1.f);
+    dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
 
-     sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
+    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
 
-     auto envMap = EnvMap::createFromFile(device_, "data/images/hallstatt4_hd.hdr");
-     envMap->setIntensity(1.0);
-     scene_builder_->setEnvMap(envMap);
-     
-     ref<Camera> camera = ref<Camera>(new Camera("Camera"));
-     camera->setPosition(float3(0, 0.0, -250));
-     camera->setTarget(float3(0, 0.0, 0));
-     camera->setUpVector(float3(0, 1, 0));
-     camera->setFocalLength(35);
-     camera->setDepthRange(0.1f, 10000.f);
-     
-     scene_builder_->addCamera(camera);
+    auto envMap = EnvMap::createFromFile(device_, "data/images/hallstatt4_hd.hdr");
+    envMap->setIntensity(1.0);
+    scene_builder_->setEnvMap(envMap);
+    
+    ref<Camera> camera = ref<Camera>(new Camera("Camera"));
+    camera->setPosition(float3(0, 0.0, -250));
+    camera->setTarget(float3(0, 0.0, 0));
+    camera->setUpVector(float3(0, 1, 0));
+    camera->setFocalLength(35);
+    camera->setDepthRange(0.1f, 10000.f);
+    
+    scene_builder_->addCamera(camera);
+
+    std::vector<float> data(density_map_size * density_map_size * density_map_size, 0.0f);
+
+    for (int z = 0; z < density_map_size; ++z)
+    {
+        for (int y = 0; y < density_map_size; ++y)
+        {
+            for (int x = 0; x < density_map_size; ++x)
+            {
+                int idx = z * density_map_size * density_map_size + y * density_map_size + x;
+
+                // Option 1: Linear ramp along Z
+                // data[idx] = float(z) / float(depth - 1);
+
+                // Option 2: Checker pattern
+                 // data[idx] = ((x + y + z) % 2 == 0) ? 1.0f : 0.0f;
+
+                 // Option 3: Spherical gradient
+                 float cx = density_map_size / 2.0f, cy = density_map_size / 2.0f, cz = density_map_size / 2.0f;
+                 float dx = x - cx, dy = y - cy, dz = z - cz;
+                 float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+                 data[idx] = 1.0f - std::min(dist / (density_map_size / 2.0f), 1.0f);
+                 //data[idx] = 1;
+            }
+        }
+    }
+
+    auto quad = TriangleMesh::createQuad(float2(density_map_size, density_map_size));
+
+    auto id = scene_builder_->addTriangleMesh(quad, dielectric_blue);
+
+    auto node_4 = SceneBuilder::Node();
+    node_4.name = "cube";
+    auto transform_4 = Transform();
+    transform_4.setTranslation(float3(0.f, 0, 0.f));
+    transform_4.setRotationEuler(float3(1.5708, 0.f, 0));
+    transform_4.setScaling(float3(1, 1.f, 1));
+    node_4.transform = transform_4.getMatrix();
+    auto node_id_4 = scene_builder_->addNode(node_4);
+
+    // Add Mesh Instances
+    scene_builder_->addMeshInstance(node_id_4, id);
+
+    density_3d_tex_ = device_->createTexture3D(
+        density_map_size,
+        density_map_size,
+        density_map_size,
+        ResourceFormat::R32Float,
+        1, // mips
+        data.data(),
+        ResourceBindFlags::ShaderResource
+    );
 }
 
 void Renderer::setPerFrameVariables(const double& currentTime) const noexcept {
@@ -203,18 +230,48 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept {
     static int frame = 0;
     var["PerFrameCB"]["iFrame"] = frame++;
 
+    var["PerFrameCB"]["DensityDepth"] = DensityDepth;
+    var["PerFrameCB"]["densityMapSize"] = density_map_size;
+
     var["gOutput"] = rt_output_tex_;
     var["gTexture3D"] = density_3d_tex_;
+}
+
+void Renderer::createRasterizationProgram() const noexcept
+{
+    //    // Create the RenderState
+    //    raster_pass_ = RasterPass::create(device_,
+    //        "Samples/Raytracing/triangle.slang", "vsMain", "psMain");
+    //    auto& pState = raster_pass_->getState();
+    //
+    //    // create the depth-state
+    //    DepthStencilState::Desc dsDesc;
+    //    dsDesc.setDepthEnabled(false);
+    //    pState->setDepthStencilState(DepthStencilState::create(dsDesc));
+    //
+    //    // Rasterizer state
+    //    RasterizerState::Desc rsState;
+    //    rsState.setCullMode(RasterizerState::CullMode::None);
+    //    pState->setRasterizerState(RasterizerState::create(rsState));
+
+    // Blend state
+    // BlendState::Desc blendDesc;
+    // blendDesc.setRtBlend(0, true).setRtParams(
+    //    0,
+    //    BlendState::BlendOp::Add,
+    //    BlendState::BlendOp::Add,
+    //    BlendState::BlendFunc::SrcAlpha,
+    //    BlendState::BlendFunc::OneMinusSrcAlpha,
+    //    BlendState::BlendFunc::One,
+    //    BlendState::BlendFunc::One
+    //);
+    // pState->setBlendState(BlendState::create(blendDesc));
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime) const noexcept
 {
     pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1),
         1.0f, 0, FboAttachmentType::All);
-
-    // raster_pass_->getState()->setVao(vao_);
-    // raster_pass_->getState()->setFbo(pTargetFbo);
-    // raster_pass_->draw(pRenderContext, 3, 0);
 
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
     if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
@@ -227,6 +284,10 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
 
     setPerFrameVariables(currentTime);
 
+    // raster_pass_->getState()->setVao(vao_);
+    // raster_pass_->getState()->setFbo(pTargetFbo);
+    // raster_pass_->draw(pRenderContext, 3, 0);
+
     pRenderContext->clearUAV(rt_output_tex_->getUAV().get(), float4(bg_clear_color, 1));
     scene_->raytrace(pRenderContext, rt_program_.get(), rt_program_vars_,
         uint3(target_fbo_->getWidth(), target_fbo_->getHeight(), 1));
@@ -236,6 +297,8 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
 void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
 {
     app_gui_window->rgbColor("Background color", bg_clear_color);
+
+    app_gui_window->slider("DensityDepth", DensityDepth, 0.f, float(density_map_size));
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     if (draw_fluid_)
@@ -259,6 +322,8 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
         lightDir = math::normalize(ImGUI_LightDir);
 
         app_gui_window->var("IoR", IoR);
+
+
 
         // app_gui_window->checkbox("Use Depth of Field", mUseDOF);
     }
@@ -298,23 +363,23 @@ bool Renderer::onMouseEvent(const MouseEvent& mouseEvent) const noexcept
 
 void Renderer::Deinit() noexcept {}
 
-void Renderer::SynchronizeSceneWithProgram() noexcept
+void Renderer::CreateRaytracingProgram() noexcept
 {
     scene_ = scene_builder_->getScene();
     camera_ = scene_->getCamera();
 
     // Update the controllers
     scene_->setCameraSpeed(50.f);
-    auto pTargetFbo = target_fbo_.get();
+    const auto pTargetFbo = target_fbo_.get();
     camera_->setAspectRatio(static_cast<float>(pTargetFbo->getWidth()) / static_cast<float>(pTargetFbo->getHeight()));
 
     // Get shader modules and type conformances for types used by the scene.
     // These need to be set on the program in order to use Falcor's material system.
     auto shaderModules = scene_->getShaderModules();
-    auto typeConformances = scene_->getTypeConformances();
+    const auto typeConformances = scene_->getTypeConformances();
 
     // Get scene defines. These need to be set on any program using the scene.
-    auto defines = scene_->getSceneDefines();
+    const auto defines = scene_->getSceneDefines();
 
     // Create a raytracing program description
     ProgramDesc rtProgDesc;
@@ -329,30 +394,19 @@ void Renderer::SynchronizeSceneWithProgram() noexcept
     rtProgDesc.setMaxPayloadSize(48); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
                                       // should be set as small as possible for maximum performance.
 
-    ref<RtBindingTable> sbt = RtBindingTable::create(1, 1, scene_->getGeometryCount());
+    const ref<RtBindingTable> sbt = RtBindingTable::create(1, 1, scene_->getGeometryCount());
     sbt->setRayGen(rtProgDesc.addRayGen("rayGen"));
     sbt->setMiss(0, rtProgDesc.addMiss("miss"));
 
-    auto primary = rtProgDesc.addHitGroup("closestHit", "");
+    const auto primary = rtProgDesc.addHitGroup("closestHit", "");
     sbt->setHitGroup(0, scene_->getGeometryIDs(Scene::GeometryType::TriangleMesh), primary);
 
-    auto raymarching_hit_group = rtProgDesc.addHitGroup("RaymarchingClosestHit", "", "RaymarchingIntersection");
+    const auto raymarching_hit_group = rtProgDesc.addHitGroup(
+        "RaymarchingClosestHit", "", "RaymarchingIntersection");
     sbt->setHitGroup(0, scene_->getGeometryIDs(Scene::GeometryType::Custom), raymarching_hit_group);
 
     rt_program_ = Program::create(device_, rtProgDesc, defines);
     rt_program_vars_ = RtProgramVars::create(device_, rt_program_, sbt);
-
-    //// Create the raytracing program
-    // auto rtProgram = Program::create(device_, rtProgDesc);
-
-    //// Create shader variables (for passing data to shaders)
-    // auto rtVars = RtProgramVars::create(device_, rtProgram);
-    /*   if (device_->isFeatureSupported(Device::SupportedFeatures::Raytracing) == false)
-       {
-           FALCOR_THROW("Device does not support raytracing!");
-       }
-
-    loadScene(kDefaultScene, getTargetFbo().get());*/
 }
 
 NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
@@ -385,7 +439,7 @@ NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
     return node_id;
 }
 
-void Renderer::UpdateSceneNodeTransform(const NodeID nodeID, const Transform& transform) noexcept
+void Renderer::UpdateSceneNodeTransform(const NodeID nodeID, const Transform& transform) const noexcept
 {
     scene_->updateNodeTransform(nodeID.get(), transform.getMatrix());
 }

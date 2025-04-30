@@ -14,16 +14,22 @@ public:
     void RenderFrame(RenderContext* pRenderContext, const double& currentTime) const noexcept;
     void RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept;
     void OnResize(uint32_t width, uint32_t height) noexcept;
-    bool onKeyEvent(const KeyboardEvent& keyEvent) const noexcept;
-    bool onMouseEvent(const MouseEvent& mouseEvent) const noexcept;
+    [[nodiscard]] bool onKeyEvent(const KeyboardEvent& keyEvent) const noexcept;
+    [[nodiscard]] bool onMouseEvent(const MouseEvent& mouseEvent) const noexcept;
     void Deinit() noexcept;
 
-    void SynchronizeSceneWithProgram() noexcept;
+    /**
+     * \brief CreateRaytracingProgram is a method which creates the raytracing
+     * program and links it to the scene's BVH. It should be called after all meshes were added to the scene.
+     */
+    void CreateRaytracingProgram() noexcept;
+
     [[nodiscard]] NodeID AddSphereToScene(float3 pos, float radius) noexcept;
-    void UpdateSceneNodeTransform(NodeID nodeID, const Transform& transform) noexcept;
+    void UpdateSceneNodeTransform(NodeID nodeID, const Transform& transform) const noexcept;
 
 private:
     void setPerFrameVariables(const double& currentTime) const noexcept;
+    void createRasterizationProgram() const noexcept;
 
     const ref<Device>& device_;
     const ref<Fbo>& target_fbo_;
@@ -45,6 +51,8 @@ private:
 
     MeshID sphere_mesh_id;
 
+    float DensityDepth = 1;
+
     bool draw_fluid_ = false;
 
     //bool mUseDOF = false;
@@ -53,6 +61,8 @@ private:
     // ===============================================================================
     //                                  Constants.                                   
     // ===============================================================================
+
+    int density_map_size = 200;
 
     float3 bg_clear_color = float3(.2, 1, .1);
 
