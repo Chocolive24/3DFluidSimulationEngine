@@ -29,24 +29,15 @@
 #include "Falcor.h"
 #include "Renderer.h"
 #include "Core/SampleApp.h"
-#include "Core/Pass/RasterPass.h"
 #include "RenderGraph/RenderGraph.h"
-#include "Scene/SceneBuilder.h"
-
 
 using namespace Falcor;
 
-struct Vertex
-{
-    float3 position{};
-    //float3 color{};
-};
-
-class Raytracing : public SampleApp
+class FluidApplication : public SampleApp
 {
 public:
-    Raytracing(const SampleAppConfig& config);
-    ~Raytracing() override;
+    FluidApplication(const SampleAppConfig& config);
+    ~FluidApplication() override;
 
     void onLoad(RenderContext* pRenderContext) override;
     void onResize(uint32_t width, uint32_t height) override;

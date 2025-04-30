@@ -56,6 +56,7 @@ target_link_libraries(Renderer PUBLIC Falcor)
 add_falcor_executable(Raytracing)
 
 target_sources(Raytracing PRIVATE
+    main.cpp
     Raytracing.cpp
     Raytracing.h
     Raytracing.3d.slang
