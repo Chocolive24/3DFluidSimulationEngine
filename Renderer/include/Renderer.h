@@ -18,6 +18,10 @@ public:
     bool onMouseEvent(const MouseEvent& mouseEvent) const noexcept;
     void Deinit() noexcept;
 
+    void SynchronizeSceneWithProgram() noexcept;
+    [[nodiscard]] NodeID AddSphereToScene(float3 pos, float radius) noexcept;
+    void UpdateSceneNodeTransform(NodeID nodeID, const Transform& transform) noexcept;
+
 private:
     const ref<Device>& device_;
     const ref<Fbo>& target_fbo_;
@@ -44,7 +48,10 @@ private:
     ref<Texture> mpRtOut;
     ref<Texture> mpTexture3D;
 
-    std::vector<NodeID> sphereNodeIDs;
+    /*ref<TriangleMesh> sphere_mesh;
+    ref<Material> dielectric_blue;*/
+    MeshID sphere_mesh_id;
+    //std::vector<NodeID> sphereNodeIDs;
 
     // ===============================================================================
     //                                  Constants.                                   

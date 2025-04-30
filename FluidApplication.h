@@ -26,10 +26,10 @@
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
 #pragma once
-#include "Falcor.h"
 #include "Renderer.h"
-#include "Core/SampleApp.h"
-#include "RenderGraph/RenderGraph.h"
+#include "SampleManager.h"
+
+#include <Core/SampleApp.h>
 
 using namespace Falcor;
 
@@ -48,46 +48,7 @@ public:
 
 private:
     std::unique_ptr<Renderer> renderer_ = nullptr;
-    //ref<RasterPass> raster_pass_;
+    SampleManager sample_manager_;
 
-    //ref<Program> program_;
-    //ref<ProgramVars> program_vars_;
-    //ref<Buffer> vertex_buffer_;
-    //ref<VertexBufferLayout> vertex_buffer_layout_;
-    //ref<VertexLayout> vertex_layout_;
-    //ref<Vao> vao_;
-
-    //ref<Program> rt_program_;
-    //ref<RtProgramVars> rt_program_vars_;
-
-    ////SceneBuilder scene_builder_ = SceneBuilder;
-    //ref<Scene> mpScene;
-    //ref<Camera> mpCamera;
-    //bool mUseDOF = false;
-    //uint32_t mSampleIndex = 0;
-    //ref<Texture> mpRtOut;
-    //ref<Texture> mpTexture3D;
-
-    //std::vector<NodeID> sphereNodeIDs;
-
-    //ref<SceneBuilder> scene_builder_;
-
-    //void loadScene(const std::filesystem::path& path, const Fbo* pTargetFbo);
-    //void setPerFrameVars(const Fbo* pTargetFbo);
-    ////void renderRaster(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo);
-    //void renderRT(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo);
-
-    //ref<Scene> mpScene;
-    //ref<Camera> mpCamera;
-
-    ////ref<RasterPass> mpRasterPass;
-
-    //ref<Program> mpRaytraceProgram;
-    //ref<RtProgramVars> mpRtVars;
-    //ref<Texture> mpRtOut;
-
-    //bool mRayTrace = true;
-    //bool mUseDOF = false;
-
-    //uint32_t mSampleIndex = 0xdeadbeef;
+    std::vector<NodeID> sphereNodeIDs;
 };

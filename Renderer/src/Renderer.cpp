@@ -73,7 +73,7 @@ void Renderer::Init() noexcept
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
     auto sphere = TriangleMesh::createSphere(3.f);
-    auto cube = TriangleMesh::createCube(float3(1.f, 1.f, 1.f));
+    //auto cube = TriangleMesh::createCube(float3(1.f, 1.f, 1.f));
 
     // Create a lambertian material
     ref<Material> lambertian = StandardMaterial::create(device_, "Lambertian");
@@ -81,10 +81,10 @@ void Renderer::Init() noexcept
     lambertian->setRoughnessMollification(1.f);
     lambertian->setIndexOfRefraction(0.f);
 
-    ref<Material> water_particle_mat = StandardMaterial::create(device_, "water particle");
-    water_particle_mat->toBasicMaterial()->setBaseColor3(float3(0.1f, 0.2f, 1.0f));
-    water_particle_mat->setRoughnessMollification(1.f);
-    water_particle_mat->setIndexOfRefraction(0.f);
+    //ref<Material> water_particle_mat = StandardMaterial::create(device_, "water particle");
+    //water_particle_mat->toBasicMaterial()->setBaseColor3(float3(0.1f, 0.2f, 1.0f));
+    //water_particle_mat->setRoughnessMollification(1.f);
+    //water_particle_mat->setIndexOfRefraction(0.f);
 
     // lambertian->toBasicMaterial()->setBaseColor3(float3(1.f, 0.05f, 0.05f));
 
@@ -94,17 +94,17 @@ void Renderer::Init() noexcept
     // dielectric_red->setIndexOfRefraction(1.f);
     ////dielectric_red->toBasicMaterial()->setDiffuseTransmission(1.f);
 
-    ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
-    dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
-    dielectric_blue->setDoubleSided(true);
-    dielectric_blue->setIndexOfRefraction(1.f);
-    dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
+    //ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
+    //dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
+    //dielectric_blue->setDoubleSided(true);
+    //dielectric_blue->setIndexOfRefraction(1.f);
+    //dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
 
     // auto triangle_mesh_id_1 = scene_builder__.addTriangleMesh(sphere, dielectric_red);
     // auto triangle_mesh_id_2 = scene_builder__.addTriangleMesh(cube, dielectric_blue);
     // auto triangle_mesh_id_3 = scene_builder__.addTriangleMesh(cube, dielectric_blue);
-    auto triangle_mesh_id_4 = scene_builder_->addTriangleMesh(cube, lambertian);
-    auto sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue);
+    //auto triangle_mesh_id_4 = scene_builder_->addTriangleMesh(cube, lambertian);
+    //auto sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue);
 
     // AABB raymarching_AABB = AABB(float3(-50, -5, -5) + float3(0, 10, 0),
     //     float3(50, 5, 5) + float3(0, 10, 0));
@@ -156,86 +156,40 @@ void Renderer::Init() noexcept
     //// Add Mesh Instances
     // scene_builder__.addMeshInstance(node_id_3, triangle_mesh_id_3);
 
-    // auto node_4 = SceneBuilder::Node();
-    // node_4.name = "cube";
-    // auto transform_4 = Transform();
-    // transform_4.setTranslation(float3(0.f, -1.2f, 0.f));
-    // transform_4.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // transform_4.setScaling(float3(1000.f, 1.f, 1000.f));
-    // node_4.transform = transform_4.getMatrix();
-    // auto node_id_4 = scene_builder_->addNode(node_4);
+     //auto node_4 = SceneBuilder::Node();
+     //node_4.name = "cube";
+     //auto transform_4 = Transform();
+     //transform_4.setTranslation(float3(0.f, -1.2f, 0.f));
+     //transform_4.setRotationEuler(float3(0.f, 0.f, 0.f));
+     //transform_4.setScaling(float3(1000.f, 1.f, 1000.f));
+     //node_4.transform = transform_4.getMatrix();
+     //auto node_id_4 = scene_builder_->addNode(node_4);
 
-    //// Add Mesh Instances
-    // scene_builder_->addMeshInstance(node_id_4, triangle_mesh_id_4);
+     //// Add Mesh Instances
+     //scene_builder_->addMeshInstance(node_id_4, triangle_mesh_id_4);
 
-    auto envMap = EnvMap::createFromFile(device_, "hallstatt4_hd.hdr");
-    envMap->setIntensity(1.0);
-    scene_builder_->setEnvMap(envMap);
+     auto sphere_mesh = TriangleMesh::createSphere(3.f);
 
-    ref<Camera> camera = ref<Camera>(new Camera("Camera"));
-    camera->setPosition(float3(0, 0.0, -250));
-    camera->setTarget(float3(0, 0.0, 0));
-    camera->setUpVector(float3(0, 1, 0));
-    camera->setFocalLength(35);
-    camera->setDepthRange(0.1f, 10000.f);
+     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
+     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
+     dielectric_blue->setDoubleSided(true);
+     dielectric_blue->setIndexOfRefraction(1.f);
+     dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
 
-    scene_builder_->addCamera(camera);
+     sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
 
-    mpScene = scene_builder_->getScene();
-
-    mpCamera = mpScene->getCamera();
-
-    // Update the controllers
-    float radius = mpScene->getSceneBounds().radius();
-    mpScene->setCameraSpeed(50.f);
-    auto pTargetFbo = target_fbo_.get();
-    mpCamera->setAspectRatio(static_cast<float>(pTargetFbo->getWidth()) / static_cast<float>(pTargetFbo->getHeight()));
-
-    // Get shader modules and type conformances for types used by the scene.
-    // These need to be set on the program in order to use Falcor's material system.
-    auto shaderModules = mpScene->getShaderModules();
-    auto typeConformances = mpScene->getTypeConformances();
-
-    // Get scene defines. These need to be set on any program using the scene.
-    auto defines = mpScene->getSceneDefines();
-
-    // Create a triangle using a Scene object
-    // Create a raytracing program description
-    ProgramDesc rtProgDesc;
-    ProgramDesc::ShaderModule s_module = ProgramDesc::ShaderModule("Samples/Raytracing/SDF_Functions.slang");
-    s_module.addFile("Samples/Raytracing/SDF_Functions.slang");
-    shaderModules.emplace_back(s_module);
-    rtProgDesc.addShaderModules(shaderModules);
-    rtProgDesc.addShaderLibrary("Samples/Raytracing/Raytracing.rt.slang");
-    rtProgDesc.addTypeConformances(typeConformances);
-    rtProgDesc.setMaxTraceRecursionDepth(kMaxRayBounce + 1);
-    rtProgDesc.setMaxPayloadSize(48); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
-                                      // should be set as small as possible for maximum performance.
-
-    ref<RtBindingTable> sbt = RtBindingTable::create(1, 1, mpScene->getGeometryCount());
-    sbt->setRayGen(rtProgDesc.addRayGen("rayGen"));
-    sbt->setMiss(0, rtProgDesc.addMiss("miss"));
-
-    auto primary = rtProgDesc.addHitGroup("closestHit", "");
-    sbt->setHitGroup(0, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh), primary);
-
-    auto raymarching_hit_group = rtProgDesc.addHitGroup("RaymarchingClosestHit", "", "RaymarchingIntersection");
-    sbt->setHitGroup(0, mpScene->getGeometryIDs(Scene::GeometryType::Custom), raymarching_hit_group);
-
-    rt_program_ = Program::create(device_, rtProgDesc, defines);
-    rt_program_vars_ = RtProgramVars::create(device_, rt_program_, sbt);
-
-    //// Create the raytracing program
-    // auto rtProgram = Program::create(device_, rtProgDesc);
-
-    //// Create shader variables (for passing data to shaders)
-    // auto rtVars = RtProgramVars::create(device_, rtProgram);
-    /*   if (device_->isFeatureSupported(Device::SupportedFeatures::Raytracing) == false)
-       {
-           FALCOR_THROW("Device does not support raytracing!");
-       }
-
-       loadScene(kDefaultScene, getTargetFbo().get());*/
+     auto envMap = EnvMap::createFromFile(device_, "hallstatt4_hd.hdr");
+     envMap->setIntensity(1.0);
+     scene_builder_->setEnvMap(envMap);
+     
+     ref<Camera> camera = ref<Camera>(new Camera("Camera"));
+     camera->setPosition(float3(0, 0.0, -250));
+     camera->setTarget(float3(0, 0.0, 0));
+     camera->setUpVector(float3(0, 1, 0));
+     camera->setFocalLength(35);
+     camera->setDepthRange(0.1f, 10000.f);
+     
+     scene_builder_->addCamera(camera);
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime) noexcept
@@ -359,4 +313,93 @@ bool Renderer::onMouseEvent(const MouseEvent& mouseEvent) const noexcept
 
 void Renderer::Deinit() noexcept {}
 
+void Renderer::SynchronizeSceneWithProgram() noexcept
+{
+    mpScene = scene_builder_->getScene();
+    mpCamera = mpScene->getCamera();
 
+    // Update the controllers
+    mpScene->setCameraSpeed(50.f);
+    auto pTargetFbo = target_fbo_.get();
+    mpCamera->setAspectRatio(static_cast<float>(pTargetFbo->getWidth()) / static_cast<float>(pTargetFbo->getHeight()));
+
+    // Get shader modules and type conformances for types used by the scene.
+    // These need to be set on the program in order to use Falcor's material system.
+    auto shaderModules = mpScene->getShaderModules();
+    auto typeConformances = mpScene->getTypeConformances();
+
+    // Get scene defines. These need to be set on any program using the scene.
+    auto defines = mpScene->getSceneDefines();
+
+    // Create a raytracing program description
+    ProgramDesc rtProgDesc;
+    ProgramDesc::ShaderModule s_module = ProgramDesc::ShaderModule("Samples/Raytracing/SDF_Functions.slang");
+    s_module.addFile("Samples/Raytracing/SDF_Functions.slang");
+    shaderModules.emplace_back(s_module);
+    rtProgDesc.addShaderModules(shaderModules);
+    rtProgDesc.addShaderLibrary("Samples/Raytracing/Raytracing.rt.slang");
+    rtProgDesc.addTypeConformances(typeConformances);
+    rtProgDesc.setMaxTraceRecursionDepth(kMaxRayBounce + 1);
+    rtProgDesc.setMaxPayloadSize(48); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
+                                      // should be set as small as possible for maximum performance.
+
+    ref<RtBindingTable> sbt = RtBindingTable::create(1, 1, mpScene->getGeometryCount());
+    sbt->setRayGen(rtProgDesc.addRayGen("rayGen"));
+    sbt->setMiss(0, rtProgDesc.addMiss("miss"));
+
+    auto primary = rtProgDesc.addHitGroup("closestHit", "");
+    sbt->setHitGroup(0, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh), primary);
+
+    auto raymarching_hit_group = rtProgDesc.addHitGroup("RaymarchingClosestHit", "", "RaymarchingIntersection");
+    sbt->setHitGroup(0, mpScene->getGeometryIDs(Scene::GeometryType::Custom), raymarching_hit_group);
+
+    rt_program_ = Program::create(device_, rtProgDesc, defines);
+    rt_program_vars_ = RtProgramVars::create(device_, rt_program_, sbt);
+
+    //// Create the raytracing program
+    // auto rtProgram = Program::create(device_, rtProgDesc);
+
+    //// Create shader variables (for passing data to shaders)
+    // auto rtVars = RtProgramVars::create(device_, rtProgram);
+    /*   if (device_->isFeatureSupported(Device::SupportedFeatures::Raytracing) == false)
+       {
+           FALCOR_THROW("Device does not support raytracing!");
+       }
+
+    loadScene(kDefaultScene, getTargetFbo().get());*/
+}
+
+NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
+{
+    //ref<TriangleMesh> sphere_mesh = TriangleMesh::createSphere(radius);
+
+    //ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
+    //dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
+    //dielectric_blue->setDoubleSided(true);
+    //dielectric_blue->setIndexOfRefraction(1.f);
+    //dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
+
+    //MeshID sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
+
+    auto node = SceneBuilder::Node();
+    const std::string name = "Sphere "/* + std::to_string(i)*/;
+    node.name = name;
+    auto transform = Transform();
+    transform.setTranslation(pos);
+    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    transform.setScaling(float3(1.f, 1.f, 1.f));
+    node.transform = transform.getMatrix();
+    const auto node_id = scene_builder_->addNode(node);
+
+    //sphereNodeIDs.push_back(node_id);
+
+    // Add Mesh Instances
+    scene_builder_->addMeshInstance(node_id, sphere_mesh_id);
+
+    return node_id;
+}
+
+void Renderer::UpdateSceneNodeTransform(const NodeID nodeID, const Transform& transform) noexcept
+{
+    mpScene->updateNodeTransform(nodeID.get(), transform.getMatrix());
+}
