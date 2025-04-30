@@ -16,27 +16,6 @@ void Renderer::Init() noexcept
         FALCOR_THROW("Device does not support raytracing!");
     }
 
-    //    static constexpr std::array<Vertex, 3> vertices
-    //    {
-    //                Vertex{float3(0.0f, 0.5f, 0.0f)},  // Top vertex (red)
-    //                Vertex{float3(0.5f, -0.5f, 0.0f)}, // Bottom right (green)
-    //                Vertex{float3(-0.5f, -0.5f, 0.0f)} // Bottom left (blue)
-    //    };
-    //
-    //    vertex_buffer_ = device_->createBuffer(
-    //                sizeof(Vertex) * vertices.size(),
-    //                ResourceBindFlags::Vertex,
-    //                MemoryType::Upload,
-    //                vertices.data());
-    //
-    //    ref<VertexLayout> pLayout = VertexLayout::create();
-    //    ref<VertexBufferLayout> pBufLayout = VertexBufferLayout::create();
-    //    pBufLayout->addElement("POSITION", 0, ResourceFormat::RGB32Float, 1, 0);
-    //    pLayout->addBufferLayout(0, pBufLayout);
-    //    Vao::BufferVec buffers{vertex_buffer_};
-    //
-    //    vao_ = Vao::create(Vao::Topology::TriangleList, pLayout, buffers);
-    //
     //    // Create the RenderState
     //    raster_pass_ = RasterPass::create(device_,
     //        "Samples/Raytracing/triangle.slang", "vsMain", "psMain");
@@ -186,35 +165,22 @@ void Renderer::Init() noexcept
      scene_builder_->addCamera(camera);
 }
 
-void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime) noexcept
-{
-    pRenderContext->clearFbo(target_fbo_.get(), float4(kClearColor, 1),
-        1.0f, 0, FboAttachmentType::All);
+void Renderer::setPerFrameVariables(const double& currentTime) const noexcept {
+    const auto var = rt_program_vars_->getRootVar();
 
-    // raster_pass_->getState()->setVao(vao_);
-    // raster_pass_->getState()->setFbo(pTargetFbo);
-    // raster_pass_->draw(pRenderContext, 3, 0);
-
-    IScene::UpdateFlags updates = mpScene->update(pRenderContext, currentTime);
-    if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
-        FALCOR_THROW("This sample does not support scene geometry changes.");
-    if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
-        FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
-
-    FALCOR_ASSERT(mpScene)
-    // FALCOR_PROFILE(pRenderContext, "renderRT");
-
-    auto var = rt_program_vars_->getRootVar();
-    var["PerFrameCB"]["invView"] = inverse(mpCamera->getViewMatrix());
+    var["PerFrameCB"]["invView"] = inverse(camera_->getViewMatrix());
     var["PerFrameCB"]["viewportDims"] = float2(target_fbo_->getWidth(), target_fbo_->getHeight());
-    float fovY = focalLengthToFovY(mpCamera->getFocalLength(), Camera::kDefaultFrameHeight);
+    const float fovY = focalLengthToFovY(camera_->getFocalLength(), Camera::kDefaultFrameHeight);
     var["PerFrameCB"]["tanHalfFovY"] = std::tan(fovY * 0.5f);
-    var["PerFrameCB"]["sampleIndex"] = mSampleIndex++;
-    var["PerFrameCB"]["useDOF"] = mUseDOF;
 
-    var["PerFrameCB"]["backgroundColor"] = kClearColor;
+    /*var["PerFrameCB"]["sampleIndex"] = mSampleIndex++;
+    var["PerFrameCB"]["useDOF"] = mUseDOF;*/
 
-    var["PerFrameCB"]["waterTurbulence"] = waterTurbulence;
+    var["PerFrameCB"]["drawFluid"] = draw_fluid_;
+
+    var["PerFrameCB"]["backgroundColor"] = bg_clear_color;
+
+    var["PerFrameCB"]["waterTurbulence"] = water_turbulence_;
 
     var["PerFrameCB"]["maxRayBounce"] = kMaxRayBounce;
 
@@ -237,42 +203,67 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     static int frame = 0;
     var["PerFrameCB"]["iFrame"] = frame++;
 
-    var["gOutput"] = mpRtOut;
-    var["gTexture3D"] = mpTexture3D;
+    var["gOutput"] = rt_output_tex_;
+    var["gTexture3D"] = density_3d_tex_;
+}
 
-    pRenderContext->clearUAV(mpRtOut->getUAV().get(), float4(kClearColor, 1));
-    mpScene->raytrace(pRenderContext, rt_program_.get(), rt_program_vars_,
+void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime) const noexcept
+{
+    pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1),
+        1.0f, 0, FboAttachmentType::All);
+
+    // raster_pass_->getState()->setVao(vao_);
+    // raster_pass_->getState()->setFbo(pTargetFbo);
+    // raster_pass_->draw(pRenderContext, 3, 0);
+
+    IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
+    if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
+        FALCOR_THROW("This sample does not support scene geometry changes.");
+    if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
+        FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
+
+    FALCOR_ASSERT(mpScene)
+    // FALCOR_PROFILE(pRenderContext, "renderRT");
+
+    setPerFrameVariables(currentTime);
+
+    pRenderContext->clearUAV(rt_output_tex_->getUAV().get(), float4(bg_clear_color, 1));
+    scene_->raytrace(pRenderContext, rt_program_.get(), rt_program_vars_,
         uint3(target_fbo_->getWidth(), target_fbo_->getHeight(), 1));
-    pRenderContext->blit(mpRtOut->getSRV(), target_fbo_->getRenderTargetView(0));
+    pRenderContext->blit(rt_output_tex_->getSRV(), target_fbo_->getRenderTargetView(0));
 }
 
 void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
 {
-    app_gui_window->rgbColor("Background color", kClearColor);
+    app_gui_window->rgbColor("Background color", bg_clear_color);
 
-    app_gui_window->var("Water Turbulance", waterTurbulence);
+    app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
+    if (draw_fluid_)
+    {
+        app_gui_window->var("Water Turbulance", water_turbulence_);
 
-    app_gui_window->var("MaxRayBounce", kMaxRayBounce);
+        app_gui_window->var("MaxRayBounce", kMaxRayBounce);
 
-    app_gui_window->var("absorptionCoeff", absorptionCoeff);
-    app_gui_window->var("scatteringCoeff", scatteringCoeff);
-    app_gui_window->var("Phase G ", phaseG);
+        app_gui_window->var("absorptionCoeff", absorptionCoeff);
+        app_gui_window->var("scatteringCoeff", scatteringCoeff);
+        app_gui_window->var("Phase G ", phaseG);
 
-    app_gui_window->var("maxRaymarchingDistance", maxRayMarchingDistance);
-    app_gui_window->var("MarchSize", kMarchSize);
-    app_gui_window->var("maxLighMarchingDistance", maxLighMarchingDistance);
-    app_gui_window->var("sunLightMarchSize", sunLightMarchSize);
+        app_gui_window->var("maxRaymarchingDistance", maxRayMarchingDistance);
+        app_gui_window->var("MarchSize", kMarchSize);
+        app_gui_window->var("maxLighMarchingDistance", maxLighMarchingDistance);
+        app_gui_window->var("sunLightMarchSize", sunLightMarchSize);
 
-    app_gui_window->rgbColor("Light color", lightColor);
-    static float3 ImGUI_LightDir = lightDir;
-    app_gui_window->var("Light Direction", ImGUI_LightDir);
-    lightDir = math::normalize(ImGUI_LightDir);
+        app_gui_window->rgbColor("Light color", lightColor);
+        static float3 ImGUI_LightDir = lightDir;
+        app_gui_window->var("Light Direction", ImGUI_LightDir);
+        lightDir = math::normalize(ImGUI_LightDir);
 
-    app_gui_window->var("IoR", IoR);
+        app_gui_window->var("IoR", IoR);
 
-    app_gui_window->checkbox("Use Depth of Field", mUseDOF);
+        // app_gui_window->checkbox("Use Depth of Field", mUseDOF);
+    }
 
-    mpScene->renderUI(*app_gui_window);
+    scene_->renderUI(*app_gui_window);
 }
 
 void Renderer::OnResize(uint32_t width, uint32_t height) noexcept
@@ -280,14 +271,14 @@ void Renderer::OnResize(uint32_t width, uint32_t height) noexcept
     const float h = static_cast<float>(height);
     const float w = static_cast<float>(width);
 
-    if (mpCamera)
+    if (camera_)
     {
-        mpCamera->setFocalLength(18);
+        camera_->setFocalLength(18);
         const float aspectRatio = (w / h);
-        mpCamera->setAspectRatio(aspectRatio);
+        camera_->setAspectRatio(aspectRatio);
     }
 
-    mpRtOut = device_->createTexture2D(width, height, ResourceFormat::RGBA16Float,
+    rt_output_tex_ = device_->createTexture2D(width, height, ResourceFormat::RGBA16Float,
         1, 1, nullptr,
         ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
     );
@@ -295,35 +286,35 @@ void Renderer::OnResize(uint32_t width, uint32_t height) noexcept
 
 bool Renderer::onKeyEvent(const KeyboardEvent& keyEvent) const noexcept
 {
-    if (mpScene && mpScene->onKeyEvent(keyEvent))
+    if (scene_ && scene_->onKeyEvent(keyEvent))
         return true;
 
     return false;
 }
 bool Renderer::onMouseEvent(const MouseEvent& mouseEvent) const noexcept
 {
-    return mpScene && mpScene->onMouseEvent(mouseEvent);
+    return scene_ && scene_->onMouseEvent(mouseEvent);
 }
 
 void Renderer::Deinit() noexcept {}
 
 void Renderer::SynchronizeSceneWithProgram() noexcept
 {
-    mpScene = scene_builder_->getScene();
-    mpCamera = mpScene->getCamera();
+    scene_ = scene_builder_->getScene();
+    camera_ = scene_->getCamera();
 
     // Update the controllers
-    mpScene->setCameraSpeed(50.f);
+    scene_->setCameraSpeed(50.f);
     auto pTargetFbo = target_fbo_.get();
-    mpCamera->setAspectRatio(static_cast<float>(pTargetFbo->getWidth()) / static_cast<float>(pTargetFbo->getHeight()));
+    camera_->setAspectRatio(static_cast<float>(pTargetFbo->getWidth()) / static_cast<float>(pTargetFbo->getHeight()));
 
     // Get shader modules and type conformances for types used by the scene.
     // These need to be set on the program in order to use Falcor's material system.
-    auto shaderModules = mpScene->getShaderModules();
-    auto typeConformances = mpScene->getTypeConformances();
+    auto shaderModules = scene_->getShaderModules();
+    auto typeConformances = scene_->getTypeConformances();
 
     // Get scene defines. These need to be set on any program using the scene.
-    auto defines = mpScene->getSceneDefines();
+    auto defines = scene_->getSceneDefines();
 
     // Create a raytracing program description
     ProgramDesc rtProgDesc;
@@ -338,15 +329,15 @@ void Renderer::SynchronizeSceneWithProgram() noexcept
     rtProgDesc.setMaxPayloadSize(48); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
                                       // should be set as small as possible for maximum performance.
 
-    ref<RtBindingTable> sbt = RtBindingTable::create(1, 1, mpScene->getGeometryCount());
+    ref<RtBindingTable> sbt = RtBindingTable::create(1, 1, scene_->getGeometryCount());
     sbt->setRayGen(rtProgDesc.addRayGen("rayGen"));
     sbt->setMiss(0, rtProgDesc.addMiss("miss"));
 
     auto primary = rtProgDesc.addHitGroup("closestHit", "");
-    sbt->setHitGroup(0, mpScene->getGeometryIDs(Scene::GeometryType::TriangleMesh), primary);
+    sbt->setHitGroup(0, scene_->getGeometryIDs(Scene::GeometryType::TriangleMesh), primary);
 
     auto raymarching_hit_group = rtProgDesc.addHitGroup("RaymarchingClosestHit", "", "RaymarchingIntersection");
-    sbt->setHitGroup(0, mpScene->getGeometryIDs(Scene::GeometryType::Custom), raymarching_hit_group);
+    sbt->setHitGroup(0, scene_->getGeometryIDs(Scene::GeometryType::Custom), raymarching_hit_group);
 
     rt_program_ = Program::create(device_, rtProgDesc, defines);
     rt_program_vars_ = RtProgramVars::create(device_, rt_program_, sbt);
@@ -396,5 +387,5 @@ NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
 
 void Renderer::UpdateSceneNodeTransform(const NodeID nodeID, const Transform& transform) noexcept
 {
-    mpScene->updateNodeTransform(nodeID.get(), transform.getMatrix());
+    scene_->updateNodeTransform(nodeID.get(), transform.getMatrix());
 }

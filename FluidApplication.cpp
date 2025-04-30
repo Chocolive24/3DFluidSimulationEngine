@@ -43,11 +43,10 @@ FluidApplication::FluidApplication(const SampleAppConfig& config) : SampleApp(co
     
 }
 
-FluidApplication::~FluidApplication() {}
-
 void FluidApplication::onLoad(RenderContext* pRenderContext)
 {
     sample_manager_.SetUp();
+
     renderer_ = std::make_unique<Renderer>(getDevice(), getTargetFbo());
     renderer_->Init();
 

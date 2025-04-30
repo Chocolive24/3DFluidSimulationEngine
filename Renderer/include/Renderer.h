@@ -11,7 +11,7 @@ public:
     Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept;
 
     void Init() noexcept;
-    void RenderFrame(RenderContext* pRenderContext, const double& currentTime) noexcept;
+    void RenderFrame(RenderContext* pRenderContext, const double& currentTime) const noexcept;
     void RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept;
     void OnResize(uint32_t width, uint32_t height) noexcept;
     bool onKeyEvent(const KeyboardEvent& keyEvent) const noexcept;
@@ -23,6 +23,8 @@ public:
     void UpdateSceneNodeTransform(NodeID nodeID, const Transform& transform) noexcept;
 
 private:
+    void setPerFrameVariables(const double& currentTime) const noexcept;
+
     const ref<Device>& device_;
     const ref<Fbo>& target_fbo_;
 
@@ -30,48 +32,37 @@ private:
 
     ref<Program> program_;
     ref<ProgramVars> program_vars_;
-    ref<Buffer> vertex_buffer_;
-    ref<VertexBufferLayout> vertex_buffer_layout_;
-    ref<VertexLayout> vertex_layout_;
-    ref<Vao> vao_;
 
     ref<Program> rt_program_;
     ref<RtProgramVars> rt_program_vars_;
 
     SceneBuilder* scene_builder_ = nullptr;
-    ref<Scene> mpScene;
-    ref<Camera> mpCamera;
+    ref<Scene> scene_;
+    ref<Camera> camera_;
 
-    bool mUseDOF = false;
-    uint32_t mSampleIndex = 0;
+    ref<Texture> rt_output_tex_;
+    ref<Texture> density_3d_tex_;
 
-    ref<Texture> mpRtOut;
-    ref<Texture> mpTexture3D;
-
-    /*ref<TriangleMesh> sphere_mesh;
-    ref<Material> dielectric_blue;*/
     MeshID sphere_mesh_id;
-    //std::vector<NodeID> sphereNodeIDs;
+
+    bool draw_fluid_ = false;
+
+    //bool mUseDOF = false;
+    //uint32_t mSampleIndex = 0;
 
     // ===============================================================================
     //                                  Constants.                                   
     // ===============================================================================
 
-    uint32_t mSampleGuiWidth = 250;
-    uint32_t mSampleGuiHeight = 200;
-    uint32_t mSampleGuiPositionX = 20;
-    uint32_t mSampleGuiPositionY = 40;
+    float3 bg_clear_color = float3(.2, 1, .1);
 
-    float3 kClearColor = float3(.2, 1, .1);
-
-    float waterTurbulence = 2.5f;
-
-    uint kMaxRayBounce = 4;
+    uint kMaxRayBounce = 3;
 
     float3 absorptionCoeff = float3(1.0, 0.4, 0.05);
     float3 scatteringCoeff = float3(0.1, 0.2, 0.8);
     float phaseG = 0.8f;
 
+    float water_turbulence_ = 2.5f;
     float maxRayMarchingDistance = 5.f;
     float kMarchSize = 0.1f;
     float maxLighMarchingDistance = 3.f;
@@ -81,6 +72,4 @@ private:
     float3 lightDir = normalize(float3(1, -1, -1));
 
     float IoR = 1.33f;
-
-    const std::string kEnvMapPath = "hallstatt4_hd.hdr";
 };

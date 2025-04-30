@@ -37,7 +37,7 @@ class FluidApplication : public SampleApp
 {
 public:
     FluidApplication(const SampleAppConfig& config);
-    ~FluidApplication() override;
+    ~FluidApplication() override = default;
 
     void onLoad(RenderContext* pRenderContext) override;
     void onResize(uint32_t width, uint32_t height) override;

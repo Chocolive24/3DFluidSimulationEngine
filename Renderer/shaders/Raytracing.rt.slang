@@ -44,6 +44,7 @@ cbuffer PerFrameCB
     float tanHalfFovY;
     uint sampleIndex;
     bool useDOF;
+    bool drawFluid;
     float3 backgroundColor;
     float waterTurbulence;
     uint maxRayBounce;
@@ -214,6 +215,14 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
     float3 rayDir = WorldRayDirection();
     float currentRayDistance = RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
+
+    if (!drawFluid)
+    {
+        hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
+        hitData.hitT = currentRayDistance;
+        hitData.absorptionDistance = 0;
+        return;
+    }
 
     if (hitData.depth >= maxRayBounce)
     {
