@@ -319,11 +319,11 @@ void Renderer::SynchronizeSceneWithProgram() noexcept
     // Create a raytracing program description
     ProgramDesc rtProgDesc;
     ProgramDesc::ShaderModule s_module = ProgramDesc::ShaderModule(
-        "Samples/Raytracing/Renderer/shaders/SDF_Functions.slang");
-    s_module.addFile("Samples/Raytracing/Renderer/shaders/SDF_Functions.slang");
+        "Samples/3DFluidSimulationEngine/Renderer/shaders/SDF_Functions.slang");
+    s_module.addFile("Samples/3DFluidSimulationEngine/Renderer/shaders/SDF_Functions.slang");
     shaderModules.emplace_back(s_module);
     rtProgDesc.addShaderModules(shaderModules);
-    rtProgDesc.addShaderLibrary("Samples/Raytracing/Renderer/shaders/Raytracing.rt.slang");
+    rtProgDesc.addShaderLibrary("Samples/3DFluidSimulationEngine/Renderer/shaders/Raytracing.rt.slang");
     rtProgDesc.addTypeConformances(typeConformances);
     rtProgDesc.setMaxTraceRecursionDepth(kMaxRayBounce + 1);
     rtProgDesc.setMaxPayloadSize(48); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size

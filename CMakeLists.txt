@@ -53,9 +53,7 @@ add_library(Renderer ${RENDERER_FILES})
 target_include_directories(Renderer PUBLIC Renderer/include/)
 target_link_libraries(Renderer PUBLIC Falcor)
 
-add_falcor_executable(Raytracing)
-
-
+add_falcor_executable(3DFluidSimulationEngine)
 
 set(images_files)
 file(GLOB_RECURSE IMAGES_FILES
@@ -70,7 +68,7 @@ file(COPY ${images_files} DESTINATION "data/images/")
 
 file(GLOB_RECURSE SHADER_FILES Renderer/shaders/*.slang Renderer/shaders/*.hlsl)
 
-target_sources(Raytracing PRIVATE
+target_sources(3DFluidSimulationEngine PRIVATE
     main.cpp
     FluidApplication.cpp
     FluidApplication.h
@@ -78,14 +76,14 @@ target_sources(Raytracing PRIVATE
 )
 
 
-target_include_directories(Raytracing PUBLIC samples/include)
-target_include_directories(Raytracing PUBLIC Physics/include/)
-target_include_directories(Raytracing PUBLIC Common/include/)
-target_link_libraries(Raytracing PUBLIC PhysicsSamples Renderer)
+target_include_directories(3DFluidSimulationEngine PUBLIC samples/include)
+target_include_directories(3DFluidSimulationEngine PUBLIC Physics/include/)
+target_include_directories(3DFluidSimulationEngine PUBLIC Common/include/)
+target_link_libraries(3DFluidSimulationEngine PUBLIC PhysicsSamples Renderer)
 
-target_copy_shaders(Raytracing Samples/Raytracing/shaders)
+target_copy_shaders(3DFluidSimulationEngine Samples/3DFluidSimulationEngine/shaders)
 
-target_source_group(Raytracing "Samples")
+target_source_group(3DFluidSimulationEngine "Samples")
 
 # Renderer for future direct x (actually opengl using glut testing)
 # file(GLOB_RECURSE RENDERER_FILES Renderer/include/*.h Renderer/src/*.cpp)
