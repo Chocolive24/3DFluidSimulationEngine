@@ -61,6 +61,8 @@ void WaterBathSample::SampleSetUp() noexcept {
 	//// Roof
 	//CreateWall({ 0,WALLDIST + WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, false);
 
+        _particle_densities.reserve(NbParticles);
+
 	for (size_t i = 0; i < NbParticles; i++) {
 		CreateBall({ Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
 					 Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
@@ -122,6 +124,7 @@ void WaterBathSample::SampleUpdate() noexcept {
 		{
 			body.Velocity = XMVectorSetZ(body.Velocity, -Abs(XMVectorGetZ(body.Velocity)));
 		}
+
 		AllGraphicsData[i].Shape = std::get<SphereF>(shape) + col.BodyPosition;
 
 		break;

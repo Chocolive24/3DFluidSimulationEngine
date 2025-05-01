@@ -25,8 +25,15 @@ void Renderer::Init() noexcept
                                 SceneBuilder::Flags::RTDontMergeInstanced | SceneBuilder::Flags::DontOptimizeGraph;
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
-    auto sphere = TriangleMesh::createSphere(1.f);
-   
+    auto sphere_mesh = TriangleMesh::createSphere(1.f);
+
+    ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
+    dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
+    dielectric_blue->setDoubleSided(true);
+    dielectric_blue->setIndexOfRefraction(1.f);
+    dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
+
+    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
 
     // Create a lambertian material
     ref<Material> lambertian = StandardMaterial::create(device_, "Lambertian");
@@ -54,31 +61,31 @@ void Renderer::Init() noexcept
     //auto triangle_mesh_id_4 = scene_builder_->addTriangleMesh(cube, lambertian);
     //auto sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue);
 
-    // AABB raymarching_AABB = AABB(float3(-50, -5, -5) + float3(0, 10, 0),
-    //     float3(50, 5, 5) + float3(0, 10, 0));
-    // uint32_t raymarching_AABB_ID = 1;
-    // scene_builder__.addCustomPrimitive(raymarching_AABB_ID, raymarching_AABB);
+     //AABB raymarching_AABB = AABB(float3(-50, -5, -5) + float3(0, 10, 0),
+     //    float3(50, 5, 5) + float3(0, 10, 0));
+     //uint32_t raymarching_AABB_ID = 1;
+     //scene_builder_->addCustomPrimitive(raymarching_AABB_ID, raymarching_AABB);
 
-    // auto raymarching_node = SceneBuilder::Node();
-    // raymarching_node.name = "RaymarchingNode";
-    // auto raymarching_transform = Transform();
-    // raymarching_transform.setTranslation(float3(0.f, 10.f, 0.f));
-    // raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
-    // raymarching_node.transform = raymarching_transform.getMatrix();
-    // auto raymarching_node_id = scene_builder__.addNode(raymarching_node);
+     //auto raymarching_node = SceneBuilder::Node();
+     //raymarching_node.name = "RaymarchingNode";
+     //auto raymarching_transform = Transform();
+     //raymarching_transform.setTranslation(float3(0.f, 10.f, 0.f));
+     //raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+     //raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
+     //raymarching_node.transform = raymarching_transform.getMatrix();
+     //auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
 
     // auto node = SceneBuilder::Node();
     // node.name = "Sphere1";
     // auto transform = Transform();
-    // transform.setTranslation(float3(0.f, 0.f, 0.f));
+    // transform.setTranslation(float3(0.f, 0.f, -100.f));
     // transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // transform.setScaling(float3(1.f, 1.f, 1.f));
+    // transform.setScaling(float3(1, 1.f, 1.f));
     // node.transform = transform.getMatrix();
     // auto node_id = scene_builder_->addNode(node);
 
     //// Add Mesh Instances
-    // scene_builder_->addMeshInstance(node_id, triangle_mesh_id_1);
+    // scene_builder_->addMeshInstance(node_id, sphere_mesh_id);
 
     // auto node_2 = SceneBuilder::Node();
     // node_2.name = "Sphere1";
@@ -116,15 +123,19 @@ void Renderer::Init() noexcept
     //// Add Mesh Instances
     //scene_builder_->addMeshInstance(node_id_4, triangle_mesh_id_4);
 
-    auto sphere_mesh = TriangleMesh::createSphere(3.f);
+    const auto half_density_map_size = 0.5f * density_map_size;
+    AABB raymarching_AABB = AABB(float3(-half_density_map_size), float3(half_density_map_size));
+    uint32_t raymarching_AABB_ID = 1;
+    scene_builder_->addCustomPrimitive(raymarching_AABB_ID, raymarching_AABB);
 
-    ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
-    dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
-    dielectric_blue->setDoubleSided(true);
-    dielectric_blue->setIndexOfRefraction(1.f);
-    dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
-
-    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
+    auto raymarching_node = SceneBuilder::Node();
+    raymarching_node.name = "RaymarchingNode";
+    auto raymarching_transform = Transform();
+    raymarching_transform.setTranslation(float3(0.f, 0, 0.f));
+    raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
+    raymarching_node.transform = raymarching_transform.getMatrix();
+    auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
 
     auto envMap = EnvMap::createFromFile(device_, "data/images/hallstatt4_hd.hdr");
     envMap->setIntensity(1.0);
@@ -150,36 +161,36 @@ void Renderer::Init() noexcept
                 int idx = z * density_map_size * density_map_size + y * density_map_size + x;
 
                 // Option 1: Linear ramp along Z
-                // data[idx] = float(z) / float(depth - 1);
+                data[idx] = float(x) / float(density_map_size);
 
-                // Option 2: Checker pattern
+                 // Option 2: Checker pattern
                  // data[idx] = ((x + y + z) % 2 == 0) ? 1.0f : 0.0f;
 
                  // Option 3: Spherical gradient
-                 float cx = density_map_size / 2.0f, cy = density_map_size / 2.0f, cz = density_map_size / 2.0f;
+                 /*float cx = density_map_size / 2.0f, cy = density_map_size / 2.0f, cz = density_map_size / 2.0f;
                  float dx = x - cx, dy = y - cy, dz = z - cz;
                  float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
-                 data[idx] = 1.0f - std::min(dist / (density_map_size / 2.0f), 1.0f);
+                 data[idx] = 1.0f - std::min(dist / (density_map_size / 2.0f), 1.0f);*/
                  //data[idx] = 1;
             }
         }
     }
 
-    auto quad = TriangleMesh::createQuad(float2(density_map_size, density_map_size));
+    //auto quad = TriangleMesh::createQuad(float2(density_map_size, density_map_size));
 
-    auto id = scene_builder_->addTriangleMesh(quad, dielectric_blue);
+    //auto id = scene_builder_->addTriangleMesh(quad, dielectric_blue);
 
-    auto node_4 = SceneBuilder::Node();
-    node_4.name = "cube";
-    auto transform_4 = Transform();
-    transform_4.setTranslation(float3(0.f, 0, 0.f));
-    transform_4.setRotationEuler(float3(1.5708, 0.f, 0));
-    transform_4.setScaling(float3(1, 1.f, 1));
-    node_4.transform = transform_4.getMatrix();
-    auto node_id_4 = scene_builder_->addNode(node_4);
+    //auto node_4 = SceneBuilder::Node();
+    //node_4.name = "cube";
+    //auto transform_4 = Transform();
+    //transform_4.setTranslation(float3(0.f, 0, 0.f));
+    //transform_4.setRotationEuler(float3(1.5708, 0.f, 0));
+    //transform_4.setScaling(float3(1, 1.f, 1));
+    //node_4.transform = transform_4.getMatrix();
+    //auto node_id_4 = scene_builder_->addNode(node_4);
 
-    // Add Mesh Instances
-    scene_builder_->addMeshInstance(node_id_4, id);
+    //// Add Mesh Instances
+    //scene_builder_->addMeshInstance(node_id_4, id);
 
     density_3d_tex_ = device_->createTexture3D(
         density_map_size,
@@ -190,82 +201,6 @@ void Renderer::Init() noexcept
         data.data(),
         ResourceBindFlags::ShaderResource
     );
-}
-
-void Renderer::setPerFrameVariables(const double& currentTime) const noexcept {
-    const auto var = rt_program_vars_->getRootVar();
-
-    var["PerFrameCB"]["invView"] = inverse(camera_->getViewMatrix());
-    var["PerFrameCB"]["viewportDims"] = float2(target_fbo_->getWidth(), target_fbo_->getHeight());
-    const float fovY = focalLengthToFovY(camera_->getFocalLength(), Camera::kDefaultFrameHeight);
-    var["PerFrameCB"]["tanHalfFovY"] = std::tan(fovY * 0.5f);
-
-    /*var["PerFrameCB"]["sampleIndex"] = mSampleIndex++;
-    var["PerFrameCB"]["useDOF"] = mUseDOF;*/
-
-    var["PerFrameCB"]["drawFluid"] = draw_fluid_;
-
-    var["PerFrameCB"]["backgroundColor"] = bg_clear_color;
-
-    var["PerFrameCB"]["waterTurbulence"] = water_turbulence_;
-
-    var["PerFrameCB"]["maxRayBounce"] = kMaxRayBounce;
-
-    var["PerFrameCB"]["absorptionCoeff"] = absorptionCoeff;
-    var["PerFrameCB"]["scatteringCoeff"] = scatteringCoeff;
-    var["PerFrameCB"]["phaseG"] = phaseG;
-
-    var["PerFrameCB"]["maxRaymarchingDistance"] = maxRayMarchingDistance;
-    var["PerFrameCB"]["marchSize"] = kMarchSize;
-
-    var["PerFrameCB"]["maxLighMarchingDistance"] = maxLighMarchingDistance;
-    var["PerFrameCB"]["sunLightMarchSize"] = sunLightMarchSize;
-
-    var["PerFrameCB"]["lightColor"] = lightColor;
-    var["PerFrameCB"]["lightDir"] = lightDir;
-
-    var["PerFrameCB"]["IoR"] = IoR;
-
-    var["PerFrameCB"]["time"] = static_cast<float>(currentTime);
-    static int frame = 0;
-    var["PerFrameCB"]["iFrame"] = frame++;
-
-    var["PerFrameCB"]["DensityDepth"] = DensityDepth;
-    var["PerFrameCB"]["densityMapSize"] = density_map_size;
-
-    var["gOutput"] = rt_output_tex_;
-    var["gTexture3D"] = density_3d_tex_;
-}
-
-void Renderer::createRasterizationProgram() const noexcept
-{
-    //    // Create the RenderState
-    //    raster_pass_ = RasterPass::create(device_,
-    //        "Samples/Raytracing/triangle.slang", "vsMain", "psMain");
-    //    auto& pState = raster_pass_->getState();
-    //
-    //    // create the depth-state
-    //    DepthStencilState::Desc dsDesc;
-    //    dsDesc.setDepthEnabled(false);
-    //    pState->setDepthStencilState(DepthStencilState::create(dsDesc));
-    //
-    //    // Rasterizer state
-    //    RasterizerState::Desc rsState;
-    //    rsState.setCullMode(RasterizerState::CullMode::None);
-    //    pState->setRasterizerState(RasterizerState::create(rsState));
-
-    // Blend state
-    // BlendState::Desc blendDesc;
-    // blendDesc.setRtBlend(0, true).setRtParams(
-    //    0,
-    //    BlendState::BlendOp::Add,
-    //    BlendState::BlendOp::Add,
-    //    BlendState::BlendFunc::SrcAlpha,
-    //    BlendState::BlendFunc::OneMinusSrcAlpha,
-    //    BlendState::BlendFunc::One,
-    //    BlendState::BlendFunc::One
-    //);
-    // pState->setBlendState(BlendState::create(blendDesc));
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime) const noexcept
@@ -298,7 +233,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
 {
     app_gui_window->rgbColor("Background color", bg_clear_color);
 
-    app_gui_window->slider("DensityDepth", DensityDepth, 0.f, float(density_map_size));
+    app_gui_window->slider("DensityDepth", DensityDepth, 0.f, float(1));
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     if (draw_fluid_)
@@ -442,4 +377,80 @@ NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
 void Renderer::UpdateSceneNodeTransform(const NodeID nodeID, const Transform& transform) const noexcept
 {
     scene_->updateNodeTransform(nodeID.get(), transform.getMatrix());
+}
+
+void Renderer::setPerFrameVariables(const double& currentTime) const noexcept {
+    const auto var = rt_program_vars_->getRootVar();
+
+    var["PerFrameCB"]["invView"] = inverse(camera_->getViewMatrix());
+    var["PerFrameCB"]["viewportDims"] = float2(target_fbo_->getWidth(), target_fbo_->getHeight());
+    const float fovY = focalLengthToFovY(camera_->getFocalLength(), Camera::kDefaultFrameHeight);
+    var["PerFrameCB"]["tanHalfFovY"] = std::tan(fovY * 0.5f);
+
+    /*var["PerFrameCB"]["sampleIndex"] = mSampleIndex++;
+    var["PerFrameCB"]["useDOF"] = mUseDOF;*/
+
+    var["PerFrameCB"]["drawFluid"] = draw_fluid_;
+
+    var["PerFrameCB"]["backgroundColor"] = bg_clear_color;
+
+    var["PerFrameCB"]["waterTurbulence"] = water_turbulence_;
+
+    var["PerFrameCB"]["maxRayBounce"] = kMaxRayBounce;
+
+    var["PerFrameCB"]["absorptionCoeff"] = absorptionCoeff;
+    var["PerFrameCB"]["scatteringCoeff"] = scatteringCoeff;
+    var["PerFrameCB"]["phaseG"] = phaseG;
+
+    var["PerFrameCB"]["maxRaymarchingDistance"] = maxRayMarchingDistance;
+    var["PerFrameCB"]["marchSize"] = kMarchSize;
+
+    var["PerFrameCB"]["maxLighMarchingDistance"] = maxLighMarchingDistance;
+    var["PerFrameCB"]["sunLightMarchSize"] = sunLightMarchSize;
+
+    var["PerFrameCB"]["lightColor"] = lightColor;
+    var["PerFrameCB"]["lightDir"] = lightDir;
+
+    var["PerFrameCB"]["IoR"] = IoR;
+
+    var["PerFrameCB"]["time"] = static_cast<float>(currentTime);
+    static int frame = 0;
+    var["PerFrameCB"]["iFrame"] = frame++;
+
+    var["PerFrameCB"]["DensityDepth"] = DensityDepth;
+    var["PerFrameCB"]["densityMapSize"] = density_map_size;
+
+    var["gOutput"] = rt_output_tex_;
+    var["gTexture3D"] = density_3d_tex_;
+}
+
+void Renderer::createRasterizationProgram() const noexcept
+{
+    //    // Create the RenderState
+    //    raster_pass_ = RasterPass::create(device_,
+    //        "Samples/Raytracing/triangle.slang", "vsMain", "psMain");
+    //    auto& pState = raster_pass_->getState();
+    //
+    //    // create the depth-state
+    //    DepthStencilState::Desc dsDesc;
+    //    dsDesc.setDepthEnabled(false);
+    //    pState->setDepthStencilState(DepthStencilState::create(dsDesc));
+    //
+    //    // Rasterizer state
+    //    RasterizerState::Desc rsState;
+    //    rsState.setCullMode(RasterizerState::CullMode::None);
+    //    pState->setRasterizerState(RasterizerState::create(rsState));
+
+    // Blend state
+    // BlendState::Desc blendDesc;
+    // blendDesc.setRtBlend(0, true).setRtParams(
+    //    0,
+    //    BlendState::BlendOp::Add,
+    //    BlendState::BlendOp::Add,
+    //    BlendState::BlendFunc::SrcAlpha,
+    //    BlendState::BlendFunc::OneMinusSrcAlpha,
+    //    BlendState::BlendFunc::One,
+    //    BlendState::BlendFunc::One
+    //);
+    // pState->setBlendState(BlendState::create(blendDesc));
 }

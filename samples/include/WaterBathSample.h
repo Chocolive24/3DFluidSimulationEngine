@@ -12,6 +12,7 @@ class WaterBathSample : public PhysicsSample, public ContactListener
 {
 private:
 	std::vector<GraphicsData> _quadTreeGraphicsData;
+        std::vector<float> _particle_densities{};
 public:
 
 	int NbParticles = 1000;

@@ -470,33 +470,76 @@ void RaymarchingIntersection()
 
     float3 finalColor = float3(0, 0, 0);
 
-    float t = RayTMin(); // total distance travelled
+    float t = RayTMin();
+    float tMax = RayTCurrent();
+    float distInsideAABB = abs(tMax - t);
+    int nbrOfRaymarchingSteps = 50;
+    float stepSize = distInsideAABB / nbrOfRaymarchingSteps;
 
-    // Raymarching.
-    for (int i = 0; i < 80 && t < RayTCurrent(); i++)
+    for (int i = 0; i < nbrOfRaymarchingSteps; i++)
     {
-        float3 p = rayOrigin + rayDir * t; // Position along the ray.
+        float3 p = rayOrigin + rayDir * t;
 
-        float d = map(p, waterTurbulence, time, iFrame); // Current distance to the scene.
+        float halfDensityMapSize = densityMapSize * 0.5f;
 
-        // Early stop if close enough or if too far.
-        if (d < 0.001f)
+        // Define the world-space bounds of the volume
+        float3 volumeMin = float3(-halfDensityMapSize);
+        float3 volumeMax = float3(halfDensityMapSize);
+
+        // Normalize position `p` to [0,1] texture coordinates (UVW)
+        float3 uvw = (p - volumeMin) / (volumeMax - volumeMin); // Don't saturate yet!
+
+        // Get texture dimensions (assuming cube texture)
+        int3 volumeDim = int3(densityMapSize, densityMapSize, densityMapSize);
+
+        // Convert UVW to texel coordinates
+        int3 texCoord = int3(uvw * (volumeDim - 1));
+
+        // Clamp to avoid out-of-bounds access
+        texCoord = clamp(texCoord, int3(0, 0, 0), volumeDim - 1);
+
+        // Sample using Load()
+        float density = gTexture3D.Load(int4(texCoord, 0));
+
+        // Example early exit
+        if (density > DensityDepth)
         {
             attr.w_position = p;
-            attr.w_normal = sdCalculateNormal(p, waterTurbulence, time, iFrame);
+            //attr.w_normal = sdCalculateNormal(p, waterTurbulence, time, iFrame);
             attr.t = max(t, 0.001f);
 
             ReportHit(t, /*hitKind*/ 0, attr);
             break;
         }
 
-        t += max(d, 0.01f); // March the ray.
-
-        if (t > 100.f)
-        {
-            break;
-        }
+        t += stepSize;
     }
+
+    // Raymarching.
+    // for (int i = 0; i < 80 && t < RayTCurrent(); i++)
+    // {
+    //     float3 p = rayOrigin + rayDir * t; // Position along the ray.
+
+    //     float d = map(p, waterTurbulence, time, iFrame); // Current distance to the scene.
+
+    //     // Early stop if close enough or if too far.
+    //     if (d < 0.001f)
+    //     {
+    //         attr.w_position = p;
+    //         attr.w_normal = sdCalculateNormal(p, waterTurbulence, time, iFrame);
+    //         attr.t = max(t, 0.001f);
+
+    //         ReportHit(t, /*hitKind*/ 0, attr);
+    //         break;
+    //     }
+
+    //     t += max(d, 0.01f); // March the ray.
+
+    //     if (t > 100.f)
+    //     {
+    //         break;
+    //     }
+    // }
 }
 
 // Ray generation (just a simple ray going through the scene)
@@ -513,38 +556,38 @@ void rayGen()
     hitData.depth = 0;
     TraceRay(gScene.rtAccel, RAY_FLAG_NONE /*rayFlags*/, 0xFF, /*Test all Geometry*/ 0 /* ray index*/, rayTypeCount, 0, ray, hitData);
     
-    if (hitData.hitT > 0)
-    {
-        float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
+    // if (hitData.hitT > 0)
+    // {
+    //     float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
 
-        float halfDensityMapSize = densityMapSize * 0.5f;
+    //     float halfDensityMapSize = densityMapSize * 0.5f;
 
-        // Define your volume bounds (must match what you used in CPU to generate the texture)
-        float3 volumeMin = float3(-halfDensityMapSize, -halfDensityMapSize, -halfDensityMapSize);
-        float3 volumeMax = float3(halfDensityMapSize, halfDensityMapSize, halfDensityMapSize);
+    //     // Define your volume bounds (must match what you used in CPU to generate the texture)
+    //     float3 volumeMin = float3(-halfDensityMapSize, -halfDensityMapSize, -halfDensityMapSize);
+    //     float3 volumeMax = float3(halfDensityMapSize, halfDensityMapSize, halfDensityMapSize);
 
-        // Normalize to [0,1]
-        float3 uvw = saturate((worldPos - volumeMin) / (volumeMax - volumeMin));
+    //     // Normalize to [0,1]
+    //     float3 uvw = saturate((worldPos - volumeMin) / (volumeMax - volumeMin));
 
-        // Option 1: sample if allowed
-        // float density = gTexture3D.SampleLevel(gSampler, uvw, 0.0);
+    //     // Option 1: sample if allowed
+    //     // float density = gTexture3D.SampleLevel(gSampler, uvw, 0.0);
 
-        // Option 2: Load (lib_6_6 compatible)
-        float3 volumeDim = float3(densityMapSize, densityMapSize, densityMapSize);
-        int3 texCoord = int3(uvw * float3(volumeDim)); // volumeDim is (width, height, depth)
-        texCoord = clamp(texCoord, int3(0), volumeDim - 1);
+    //     // Option 2: Load (lib_6_6 compatible)
+    //     float3 volumeDim = float3(densityMapSize, densityMapSize, densityMapSize);
+    //     int3 texCoord = int3(uvw * float3(volumeDim)); // volumeDim is (width, height, depth)
+    //     texCoord = clamp(texCoord, int3(0), volumeDim - 1);
 
-        texCoord.z = DensityDepth;
+    //     texCoord.z = DensityDepth;
 
-        float density = gTexture3D.Load(int4(texCoord, 0));
+    //     float density = gTexture3D.Load(int4(texCoord, 0));
 
-        gOutput[launchIndex.xy] = float4(density, density, density, 1); // or use for absorption, etc.
-    }
-    else 
-    {
-        gOutput[launchIndex.xy] = hitData.color;
-    }
-    
-    
+    //     gOutput[launchIndex.xy] = float4(density, density, density, 1); // or use for absorption, etc.
+    // }
+    // else 
+    // {
+    //     gOutput[launchIndex.xy] = hitData.color;
+    // }
+
+    gOutput[launchIndex.xy] = hitData.color;
 }
 
