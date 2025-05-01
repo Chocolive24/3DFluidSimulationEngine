@@ -27,7 +27,8 @@ void Renderer::Init() noexcept
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
     auto sphere_mesh = TriangleMesh::createSphere(Metrics::MetersToPixels(0.05f));
-    auto cube_mesh = TriangleMesh::createCube(float3(Metrics::MetersToPixels(1.0f)) * 2.f);
+    //auto cube_mesh = TriangleMesh::createCube(float3(Metrics::MetersToPixels(1.0f)) * 2.f);
+    auto cube_mesh = TriangleMesh::createCube(float3(density_map_size));
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
@@ -126,7 +127,7 @@ void Renderer::Init() noexcept
     //// Add Mesh Instances
     //scene_builder_->addMeshInstance(node_id_4, triangle_mesh_id_4);
 
-    //const auto half_density_map_size = 0.5f * density_map_size;
+    //const auto half_density_map_size = 0.5f * sim_bounds;
     //AABB raymarching_AABB = AABB(float3(-half_density_map_size), float3(half_density_map_size));
     //uint32_t raymarching_AABB_ID = 1;
     //scene_builder_->addCustomPrimitive(raymarching_AABB_ID, raymarching_AABB);
@@ -194,21 +195,21 @@ void Renderer::Init() noexcept
     //    }
     //}
 
-    auto quad = TriangleMesh::createQuad(float2(density_map_size, density_map_size));
+    //auto quad = TriangleMesh::createQuad(float2(density_map_size, density_map_size));
 
-    auto id = scene_builder_->addTriangleMesh(quad, dielectric_blue);
+    //auto id = scene_builder_->addTriangleMesh(quad, dielectric_blue);
 
-    auto node_4 = SceneBuilder::Node();
-    node_4.name = "cube";
-    auto transform_4 = Transform();
-    transform_4.setTranslation(float3(0.f, 0, 0.f));
-    transform_4.setRotationEuler(float3(1.5708, 0.f, 0));
-    transform_4.setScaling(float3(1, 1.f, 1));
-    node_4.transform = transform_4.getMatrix();
-    auto node_id_4 = scene_builder_->addNode(node_4);
+    //auto node_4 = SceneBuilder::Node();
+    //node_4.name = "cube";
+    //auto transform_4 = Transform();
+    //transform_4.setTranslation(float3(0.f, 0, 0.f));
+    //transform_4.setRotationEuler(float3(1.5708, 0.f, 0));
+    //transform_4.setScaling(float3(1, 1.f, 1));
+    //node_4.transform = transform_4.getMatrix();
+    //auto node_id_4 = scene_builder_->addNode(node_4);
 
-    // Add Mesh Instances
-    scene_builder_->addMeshInstance(node_id_4, id);
+    //// Add Mesh Instances
+    //scene_builder_->addMeshInstance(node_id_4, id);
 
     //density_3d_tex_ = device_->createTexture3D(
     //    density_map_size,
@@ -221,9 +222,9 @@ void Renderer::Init() noexcept
     //);
 
     density_3d_tex_ = device_->createTexture3D(
-        10,
-        10,
-        10,
+        density_map_size,
+        density_map_size,
+        density_map_size,
         ResourceFormat::R32Float,
         1, // mips
         particle_densities_->data(),
@@ -236,7 +237,7 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1),
         1.0f, 0, FboAttachmentType::All);
 
-    //pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
+    pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
 
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
     if (is_set(updates, IScene::UpdateFlags::GeometryChanged))

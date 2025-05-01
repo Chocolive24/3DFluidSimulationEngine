@@ -578,7 +578,7 @@ void rayGen()
         int3 texCoord = int3(uvw * float3(volumeDim)); // volumeDim is (width, height, depth)
         texCoord = clamp(texCoord, int3(0), volumeDim - 1);
 
-        texCoord.z = DensityDepth;
+        //texCoord.z = DensityDepth;
 
         float density = gTexture3D.Load(int4(texCoord, 0));
 

@@ -74,8 +74,8 @@ private:
     //                                  Constants.                                   
     // ===============================================================================
 
-    int density_map_size = 200;
-    AABB sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
+    int density_map_size = 64;
+    float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
 

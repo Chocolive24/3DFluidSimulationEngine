@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #include "Body.h"
 #include "Particle.h"
 #include "refs.h"
@@ -59,6 +61,23 @@ public:
 	void SetContactListener(ContactListener* listener) {
 		_contactListener = listener;
 	}
+
+        [[nodiscard]] float CalculateDensityAtPosition(XMVECTOR position) noexcept
+        {
+            const std::vector<BodyRef> neighbors = grid.findNeighbors(position);
+
+            float density = 0;
+
+            for (const auto& otherRef : neighbors)
+            {
+                const float distance = XMVectorGetX(XMVector3Length(XMVectorSubtract(position, GetBody(otherRef).Position)));
+                const float influence = SmoothingKernel(SPH::SmoothingRadius, distance);
+                /*std::cout << "DISTANCE: " << distance << std::endl;
+                std::cout << "influence: " << influence << std::endl;*/
+                density += influence;
+            }
+            return density;
+        }
 
 private:
 

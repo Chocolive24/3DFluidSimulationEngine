@@ -16,5 +16,6 @@ namespace Metrics // Meter in physical world != meter irl
 
     constexpr int Width = MetersToPixels(19.20f);
     constexpr int Height = MetersToPixels(10.80f);
+
     //test
 }

@@ -53,5 +53,8 @@ private:
     std::vector<float> particle_densities{};
     std::vector<NodeID> sphereNodeIDs;
 
+    int density_map_size = 64;
+    float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
+
     World* world_ = nullptr;
 };

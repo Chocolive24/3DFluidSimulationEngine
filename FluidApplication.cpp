@@ -50,16 +50,18 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     sample_manager_.SetUp();
     world_ = &sample_manager_.GetWorldRef();
 
-    for (const auto& bodyRef : sample_manager_.GetSampleBodyRefs())
-    {
-        const auto& body = world_->GetBody(bodyRef);
+    particle_densities.resize(density_map_size * density_map_size * density_map_size);
 
-        if (body.Type == BodyType::FLUID)
-        {
-            float density = world_->_particlesData.at(bodyRef).Density;
-            particle_densities.push_back(density);
-        }
-    }
+    //for (const auto& bodyRef : sample_manager_.GetSampleBodyRefs())
+    //{
+    //    const auto& body = world_->GetBody(bodyRef);
+
+    //    if (body.Type == BodyType::FLUID)
+    //    {
+    //        float density = world_->_particlesData.at(bodyRef).Density;
+    //        particle_densities.push_back(density);
+    //    }
+    //}
 
     renderer_->RegisterParticleDensities(&particle_densities);
 
@@ -67,7 +69,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     for (const auto& gd : sample_manager_.GetSampleData())
     {
-        if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
+        /*if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
         {
             auto& sphere_gd = std::get<SphereF>(gd.Shape);
             const auto positionX = XMVectorGetX(sphere_gd.Center());
@@ -78,7 +80,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
             const auto sphere_node_id = renderer_->AddSphereToScene(pos, 1);
             sphereNodeIDs.push_back(sphere_node_id);
-        }
+        }*/
         /*else if (gd.Shape.index() == static_cast<int>(ShapeType::Cuboid))
         {
             auto& cube_gd = std::get<CuboidF>(gd.Shape);
@@ -104,26 +106,49 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 {
     sample_manager_.UpdateSample();
 
-    int sphere_iterator = 0;
-    for (const auto& gd : sample_manager_.GetSampleData())
+    for (int z = 0; z < density_map_size; ++z)
     {
-        if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
+        for (int y = 0; y < density_map_size; ++y)
         {
-            const auto& sphere_gd = std::get<SphereF>(gd.Shape);
-            const auto positionX = XMVectorGetX(sphere_gd.Center());
-            const auto positionY = XMVectorGetY(sphere_gd.Center());
-            const auto positionZ = XMVectorGetZ(sphere_gd.Center());
+            for (int x = 0; x < density_map_size; ++x)
+            {
+                float3 id = float3(x, y, z);
+                float3 texturePos = id / float3(density_map_size - 1);            // normalized [0,1]
+                float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
 
-            Transform transform;
-            transform.setTranslation(float3(positionX, positionY, positionZ));
-            transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-            transform.setScaling(float3(1.f, 1.f, 1.f));
+                // TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
 
-            // Update node transform
-            renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-            sphere_iterator++;
+                XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
+
+                float density = world_->CalculateDensityAtPosition(xm_pos) * 100;
+                size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
+                particle_densities[index] = density;
+
+                //std::cout << density << std::endl;
+            }
         }
     }
+
+    //int sphere_iterator = 0;
+    //for (const auto& gd : sample_manager_.GetSampleData())
+    //{
+    //    if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
+    //    {
+    //        const auto& sphere_gd = std::get<SphereF>(gd.Shape);
+    //        const auto positionX = XMVectorGetX(sphere_gd.Center());
+    //        const auto positionY = XMVectorGetY(sphere_gd.Center());
+    //        const auto positionZ = XMVectorGetZ(sphere_gd.Center());
+
+    //        Transform transform;
+    //        transform.setTranslation(float3(positionX, positionY, positionZ));
+    //        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //        transform.setScaling(float3(1.f, 1.f, 1.f));
+
+    //        // Update node transform
+    //        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+    //        sphere_iterator++;
+    //    }
+    //}
 
     renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime());
 
