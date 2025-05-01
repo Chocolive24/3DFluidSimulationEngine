@@ -50,6 +50,7 @@ private:
     std::unique_ptr<Renderer> renderer_ = nullptr;
     SampleManager sample_manager_;
 
+    std::vector<float> particle_densities{};
     std::vector<NodeID> sphereNodeIDs;
 
     World* world_ = nullptr;

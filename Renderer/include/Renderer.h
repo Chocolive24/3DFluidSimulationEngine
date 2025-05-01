@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Metrics.h"
 #include "Core/Pass/RasterPass.h"
 #include "Scene/SceneBuilder.h"
 
@@ -25,7 +26,16 @@ public:
     void CreateRaytracingProgram() noexcept;
 
     [[nodiscard]] NodeID AddSphereToScene(float3 pos, float radius) noexcept;
+    [[nodiscard]] NodeID AddCubeToScene(float3 pos) noexcept;
     void UpdateSceneNodeTransform(NodeID nodeID, const Transform& transform) const noexcept;
+
+    void RegisterParticleDensities(std::vector<float>* particle_densities) noexcept
+    {
+        particle_densities_ = particle_densities;
+    }
+
+    void CreateDensityMap(const std::vector<float>& particle_densities) noexcept;
+    void ResetDensityMap(const std::vector<float>& particle_densities) noexcept;
 
 private:
     void setPerFrameVariables(const double& currentTime) const noexcept;
@@ -48,8 +58,10 @@ private:
 
     ref<Texture> rt_output_tex_;
     ref<Texture> density_3d_tex_;
+    std::vector<float>* particle_densities_ = nullptr;
 
     MeshID sphere_mesh_id;
+    MeshID cube_mesh_id;
 
     float DensityDepth = 1;
 
@@ -63,6 +75,7 @@ private:
     // ===============================================================================
 
     int density_map_size = 200;
+    AABB sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
 

@@ -17,7 +17,7 @@
  */
 
 class World {
-private:
+public:
 	std::vector<Body> _bodies; /**< A collection of all the bodies in the world. */
 	std::vector<Collider> _colliders; /**< A collection of all the colliders in the world. */
 

@@ -27,6 +27,7 @@ void Renderer::Init() noexcept
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
     auto sphere_mesh = TriangleMesh::createSphere(Metrics::MetersToPixels(0.05f));
+    auto cube_mesh = TriangleMesh::createCube(float3(Metrics::MetersToPixels(1.0f)) * 2.f);
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
@@ -35,6 +36,7 @@ void Renderer::Init() noexcept
     dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
 
     sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
+    cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue);
 
     // Create a lambertian material
     ref<Material> lambertian = StandardMaterial::create(device_, "Lambertian");
@@ -76,17 +78,17 @@ void Renderer::Init() noexcept
      //raymarching_node.transform = raymarching_transform.getMatrix();
      //auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
 
-    // auto node = SceneBuilder::Node();
-    // node.name = "Sphere1";
-    // auto transform = Transform();
-    // transform.setTranslation(float3(0.f, 0.f, -100.f));
-    // transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // transform.setScaling(float3(1, 1.f, 1.f));
-    // node.transform = transform.getMatrix();
-    // auto node_id = scene_builder_->addNode(node);
+     auto node = SceneBuilder::Node();
+     node.name = "Cube simul bounds";
+     auto transform = Transform();
+     transform.setTranslation(float3(0.f, 0.f, 0));
+     transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+     transform.setScaling(float3(1, 1.f, 1.f));
+     node.transform = transform.getMatrix();
+     auto node_id = scene_builder_->addNode(node);
 
-    //// Add Mesh Instances
-    // scene_builder_->addMeshInstance(node_id, sphere_mesh_id);
+    // Add Mesh Instances
+     scene_builder_->addMeshInstance(node_id, cube_mesh_id);
 
     // auto node_2 = SceneBuilder::Node();
     // node_2.name = "Sphere1";
@@ -166,53 +168,65 @@ void Renderer::Init() noexcept
 
     std::vector<float> data(density_map_size * density_map_size * density_map_size, 0.0f);
 
-    for (int z = 0; z < density_map_size; ++z)
-    {
-        for (int y = 0; y < density_map_size; ++y)
-        {
-            for (int x = 0; x < density_map_size; ++x)
-            {
-                int idx = z * density_map_size * density_map_size + y * density_map_size + x;
+    
 
-                // Option 1: Linear ramp along Z
-                data[idx] = float(x) / float(density_map_size);
+    //for (int z = 0; z < density_map_size; ++z)
+    //{
+    //    for (int y = 0; y < density_map_size; ++y)
+    //    {
+    //        for (int x = 0; x < density_map_size; ++x)
+    //        {
+    //            int idx = z * density_map_size * density_map_size + y * density_map_size + x;
 
-                 // Option 2: Checker pattern
-                 // data[idx] = ((x + y + z) % 2 == 0) ? 1.0f : 0.0f;
+    //            // Option 1: Linear ramp along Z
+    //            data[idx] = float(x) / float(density_map_size);
 
-                 // Option 3: Spherical gradient
-                 /*float cx = density_map_size / 2.0f, cy = density_map_size / 2.0f, cz = density_map_size / 2.0f;
-                 float dx = x - cx, dy = y - cy, dz = z - cz;
-                 float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
-                 data[idx] = 1.0f - std::min(dist / (density_map_size / 2.0f), 1.0f);*/
-                 //data[idx] = 1;
-            }
-        }
-    }
+    //             // Option 2: Checker pattern
+    //             // data[idx] = ((x + y + z) % 2 == 0) ? 1.0f : 0.0f;
 
-    //auto quad = TriangleMesh::createQuad(float2(density_map_size, density_map_size));
+    //             // Option 3: Spherical gradient
+    //             /*float cx = density_map_size / 2.0f, cy = density_map_size / 2.0f, cz = density_map_size / 2.0f;
+    //             float dx = x - cx, dy = y - cy, dz = z - cz;
+    //             float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
+    //             data[idx] = 1.0f - std::min(dist / (density_map_size / 2.0f), 1.0f);*/
+    //             //data[idx] = 1;
+    //        }
+    //    }
+    //}
 
-    //auto id = scene_builder_->addTriangleMesh(quad, dielectric_blue);
+    auto quad = TriangleMesh::createQuad(float2(density_map_size, density_map_size));
 
-    //auto node_4 = SceneBuilder::Node();
-    //node_4.name = "cube";
-    //auto transform_4 = Transform();
-    //transform_4.setTranslation(float3(0.f, 0, 0.f));
-    //transform_4.setRotationEuler(float3(1.5708, 0.f, 0));
-    //transform_4.setScaling(float3(1, 1.f, 1));
-    //node_4.transform = transform_4.getMatrix();
-    //auto node_id_4 = scene_builder_->addNode(node_4);
+    auto id = scene_builder_->addTriangleMesh(quad, dielectric_blue);
 
-    //// Add Mesh Instances
-    //scene_builder_->addMeshInstance(node_id_4, id);
+    auto node_4 = SceneBuilder::Node();
+    node_4.name = "cube";
+    auto transform_4 = Transform();
+    transform_4.setTranslation(float3(0.f, 0, 0.f));
+    transform_4.setRotationEuler(float3(1.5708, 0.f, 0));
+    transform_4.setScaling(float3(1, 1.f, 1));
+    node_4.transform = transform_4.getMatrix();
+    auto node_id_4 = scene_builder_->addNode(node_4);
+
+    // Add Mesh Instances
+    scene_builder_->addMeshInstance(node_id_4, id);
+
+    //density_3d_tex_ = device_->createTexture3D(
+    //    density_map_size,
+    //    density_map_size,
+    //    density_map_size,
+    //    ResourceFormat::R32Float,
+    //    1, // mips
+    //    data.data(),
+    //    ResourceBindFlags::ShaderResource
+    //);
 
     density_3d_tex_ = device_->createTexture3D(
-        density_map_size,
-        density_map_size,
-        density_map_size,
+        10,
+        10,
+        10,
         ResourceFormat::R32Float,
         1, // mips
-        data.data(),
+        particle_densities_->data(),
         ResourceBindFlags::ShaderResource
     );
 }
@@ -221,6 +235,8 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
 {
     pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1),
         1.0f, 0, FboAttachmentType::All);
+
+    //pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
 
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
     if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
@@ -388,10 +404,51 @@ NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
     return node_id;
 }
 
+NodeID Renderer::AddCubeToScene(const float3 pos) noexcept
+{
+    // ref<TriangleMesh> sphere_mesh = TriangleMesh::createSphere(radius);
+
+    // ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
+    // dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
+    // dielectric_blue->setDoubleSided(true);
+    // dielectric_blue->setIndexOfRefraction(1.f);
+    // dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
+
+    // MeshID sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
+
+    auto node = SceneBuilder::Node();
+    const std::string name = "Cube " /* + std::to_string(i)*/;
+    node.name = name;
+    auto transform = Transform();
+    transform.setTranslation(pos);
+    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    transform.setScaling(float3(1, 1, 1));
+    node.transform = transform.getMatrix();
+    const auto node_id = scene_builder_->addNode(node);
+
+    // sphereNodeIDs.push_back(node_id);
+
+    // Add Mesh Instances
+    scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+
+    return node_id;
+}
+
 void Renderer::UpdateSceneNodeTransform(const NodeID nodeID, const Transform& transform) const noexcept
 {
     scene_->updateNodeTransform(nodeID.get(), transform.getMatrix());
 }
+
+//void Renderer::CreateDensityMap(const std::vector<float>& particle_densities) noexcept
+//{
+//
+//}
+
+//void Renderer::ResetDensityMap(const std::vector<float>& particle_densities) noexcept
+//{
+//   
+//    density_3d_tex_.reset(particle_densities);
+//}
 
 void Renderer::setPerFrameVariables(const double& currentTime) const noexcept {
     const auto var = rt_program_vars_->getRootVar();

@@ -60,6 +60,7 @@ class PhysicsSample {
   virtual ~PhysicsSample() noexcept = default;
 
   [[nodiscard]] World& GetWorldRef() noexcept { return _world; }
+  [[nodiscard]] std::vector<BodyRef>& GetBodyRefs() noexcept { return _bodyRefs; }
 
  protected:
   virtual void SampleSetUp() noexcept = 0;

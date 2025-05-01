@@ -557,38 +557,38 @@ void rayGen()
     hitData.depth = 0;
     TraceRay(gScene.rtAccel, RAY_FLAG_NONE /*rayFlags*/, 0xFF, /*Test all Geometry*/ 0 /* ray index*/, rayTypeCount, 0, ray, hitData);
     
-    // if (hitData.hitT > 0)
-    // {
-    //     float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
+    if (hitData.hitT > 0)
+    {
+        float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
 
-    //     float halfDensityMapSize = densityMapSize * 0.5f;
+        float halfDensityMapSize = densityMapSize * 0.5f;
 
-    //     // Define your volume bounds (must match what you used in CPU to generate the texture)
-    //     float3 volumeMin = float3(-halfDensityMapSize, -halfDensityMapSize, -halfDensityMapSize);
-    //     float3 volumeMax = float3(halfDensityMapSize, halfDensityMapSize, halfDensityMapSize);
+        // Define your volume bounds (must match what you used in CPU to generate the texture)
+        float3 volumeMin = float3(-halfDensityMapSize, -halfDensityMapSize, -halfDensityMapSize);
+        float3 volumeMax = float3(halfDensityMapSize, halfDensityMapSize, halfDensityMapSize);
 
-    //     // Normalize to [0,1]
-    //     float3 uvw = saturate((worldPos - volumeMin) / (volumeMax - volumeMin));
+        // Normalize to [0,1]
+        float3 uvw = saturate((worldPos - volumeMin) / (volumeMax - volumeMin));
 
-    //     // Option 1: sample if allowed
-    //     // float density = gTexture3D.SampleLevel(gSampler, uvw, 0.0);
+        // Option 1: sample if allowed
+        // float density = gTexture3D.SampleLevel(gSampler, uvw, 0.0);
 
-    //     // Option 2: Load (lib_6_6 compatible)
-    //     float3 volumeDim = float3(densityMapSize, densityMapSize, densityMapSize);
-    //     int3 texCoord = int3(uvw * float3(volumeDim)); // volumeDim is (width, height, depth)
-    //     texCoord = clamp(texCoord, int3(0), volumeDim - 1);
+        // Option 2: Load (lib_6_6 compatible)
+        float3 volumeDim = float3(densityMapSize, densityMapSize, densityMapSize);
+        int3 texCoord = int3(uvw * float3(volumeDim)); // volumeDim is (width, height, depth)
+        texCoord = clamp(texCoord, int3(0), volumeDim - 1);
 
-    //     texCoord.z = DensityDepth;
+        texCoord.z = DensityDepth;
 
-    //     float density = gTexture3D.Load(int4(texCoord, 0));
+        float density = gTexture3D.Load(int4(texCoord, 0));
 
-    //     gOutput[launchIndex.xy] = float4(density, density, density, 1); // or use for absorption, etc.
-    // }
-    // else 
-    // {
-    //     gOutput[launchIndex.xy] = hitData.color;
-    // }
+        gOutput[launchIndex.xy] = float4(density, density, density, 1); // or use for absorption, etc.
+    }
+    else 
+    {
+        gOutput[launchIndex.xy] = hitData.color;
+    }
 
-    gOutput[launchIndex.xy] = hitData.color;
+    //gOutput[launchIndex.xy] = hitData.color;
 }
 

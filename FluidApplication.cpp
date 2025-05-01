@@ -45,18 +45,30 @@ FluidApplication::FluidApplication(const SampleAppConfig& config) : SampleApp(co
 
 void FluidApplication::onLoad(RenderContext* pRenderContext)
 {
+    renderer_ = std::make_unique<Renderer>(getDevice(), getTargetFbo());
+
     sample_manager_.SetUp();
     world_ = &sample_manager_.GetWorldRef();
 
-    renderer_ = std::make_unique<Renderer>(getDevice(), getTargetFbo());
+    for (const auto& bodyRef : sample_manager_.GetSampleBodyRefs())
+    {
+        const auto& body = world_->GetBody(bodyRef);
+
+        if (body.Type == BodyType::FLUID)
+        {
+            float density = world_->_particlesData.at(bodyRef).Density;
+            particle_densities.push_back(density);
+        }
+    }
+
+    renderer_->RegisterParticleDensities(&particle_densities);
+
     renderer_->Init();
 
-    int i = 0;
     for (const auto& gd : sample_manager_.GetSampleData())
     {
         if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
         {
-            std::cout << i++ << std::endl;
             auto& sphere_gd = std::get<SphereF>(gd.Shape);
             const auto positionX = XMVectorGetX(sphere_gd.Center());
             const auto positionY = XMVectorGetY(sphere_gd.Center());
@@ -67,6 +79,17 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
             const auto sphere_node_id = renderer_->AddSphereToScene(pos, 1);
             sphereNodeIDs.push_back(sphere_node_id);
         }
+        /*else if (gd.Shape.index() == static_cast<int>(ShapeType::Cuboid))
+        {
+            auto& cube_gd = std::get<CuboidF>(gd.Shape);
+            const auto positionX = XMVectorGetX(cube_gd.Center());
+            const auto positionY = XMVectorGetY(cube_gd.Center());
+            const auto positionZ = XMVectorGetZ(cube_gd.Center());
+
+            const float3 pos = float3(positionX, positionY, positionZ);
+
+            const auto cube_node_id = renderer_->AddCubeToScene(pos);
+        }*/
     }
 
     renderer_->CreateRaytracingProgram();

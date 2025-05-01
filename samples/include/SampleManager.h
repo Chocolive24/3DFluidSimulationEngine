@@ -44,4 +44,8 @@ public:
 	void StopSample() const noexcept;
 
         [[nodiscard]] World& GetWorldRef() const noexcept { return _samples[_sampleIdx]->GetWorldRef(); }
+        [[nodiscard]] std::vector<BodyRef>& GetSampleBodyRefs() const noexcept
+        {
+            return _samples[_sampleIdx]->GetBodyRefs();
+        }
 };
