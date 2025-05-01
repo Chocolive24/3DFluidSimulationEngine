@@ -500,6 +500,7 @@ void RaymarchingIntersection()
 
         // Sample using Load()
         float density = gTexture3D.Load(int4(texCoord, 0));
+        //float density = gTexture3D.Sample(s, p);
 
         // Example early exit
         if (density > DensityDepth)

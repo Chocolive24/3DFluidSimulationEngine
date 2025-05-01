@@ -42,4 +42,6 @@ public:
 
 	void GiveRightMouseClickToSample() const noexcept;
 	void StopSample() const noexcept;
+
+        [[nodiscard]] World& GetWorldRef() const noexcept { return _samples[_sampleIdx]->GetWorldRef(); }
 };

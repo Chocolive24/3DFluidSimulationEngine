@@ -51,4 +51,6 @@ private:
     SampleManager sample_manager_;
 
     std::vector<NodeID> sphereNodeIDs;
+
+    World* world_ = nullptr;
 };

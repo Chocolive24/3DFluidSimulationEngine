@@ -123,19 +123,32 @@ void Renderer::Init() noexcept
     //// Add Mesh Instances
     //scene_builder_->addMeshInstance(node_id_4, triangle_mesh_id_4);
 
-    const auto half_density_map_size = 0.5f * density_map_size;
-    AABB raymarching_AABB = AABB(float3(-half_density_map_size), float3(half_density_map_size));
-    uint32_t raymarching_AABB_ID = 1;
-    scene_builder_->addCustomPrimitive(raymarching_AABB_ID, raymarching_AABB);
+    //const auto half_density_map_size = 0.5f * density_map_size;
+    //AABB raymarching_AABB = AABB(float3(-half_density_map_size), float3(half_density_map_size));
+    //uint32_t raymarching_AABB_ID = 1;
+    //scene_builder_->addCustomPrimitive(raymarching_AABB_ID, raymarching_AABB);
 
-    auto raymarching_node = SceneBuilder::Node();
-    raymarching_node.name = "RaymarchingNode";
-    auto raymarching_transform = Transform();
-    raymarching_transform.setTranslation(float3(0.f, 0, 0.f));
-    raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
-    raymarching_node.transform = raymarching_transform.getMatrix();
-    auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
+    //auto raymarching_node = SceneBuilder::Node();
+    //raymarching_node.name = "RaymarchingNode";
+    //auto raymarching_transform = Transform();
+    //raymarching_transform.setTranslation(float3(0.f, 0, 0.f));
+    //raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
+    //raymarching_node.transform = raymarching_transform.getMatrix();
+    //auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
+
+    //auto aabb_mesh = TriangleMesh::createCube(float3(density_map_size));
+
+    //auto aabb_mesh_id = scene_builder_->addTriangleMesh(aabb_mesh, dielectric_blue);
+
+    //auto raymarching_node = SceneBuilder::Node();
+    //raymarching_node.name = "RaymarchingNode";
+    //auto raymarching_transform = Transform();
+    //raymarching_transform.setTranslation(float3(0.f, 0, 0.f));
+    //raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
+    //raymarching_node.transform = raymarching_transform.getMatrix();
+    //auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
 
     auto envMap = EnvMap::createFromFile(device_, "data/images/hallstatt4_hd.hdr");
     envMap->setIntensity(1.0);

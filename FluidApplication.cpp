@@ -46,6 +46,7 @@ FluidApplication::FluidApplication(const SampleAppConfig& config) : SampleApp(co
 void FluidApplication::onLoad(RenderContext* pRenderContext)
 {
     sample_manager_.SetUp();
+    world_ = &sample_manager_.GetWorldRef();
 
     renderer_ = std::make_unique<Renderer>(getDevice(), getTargetFbo());
     renderer_->Init();
@@ -172,10 +173,28 @@ void FluidApplication::onGuiRender(Gui* pGui)
 
 bool FluidApplication::onKeyEvent(const KeyboardEvent& keyEvent)
 {
+    if (keyEvent.type == KeyboardEvent::Type::KeyPressed)
+    {
+        if (keyEvent.key == Input::Key::F)
+        {
+            sample_manager_.StopSample();
+        }
+        else if (keyEvent.key == Input::Key::R)
+        {
+            sample_manager_.RegenerateSample();
+        }
+    }
+
+
+
+
     return renderer_->onKeyEvent(keyEvent);
 }
 
 bool FluidApplication::onMouseEvent(const MouseEvent& mouseEvent)
 {
+    XMVECTOR mouse_pos = XMVectorSet(mouseEvent.screenPos.x, mouseEvent.screenPos.y, 0.f, 0.f);
+    sample_manager_.GiveMousePositionToSample(mouse_pos);
+
     return renderer_->onMouseEvent(mouseEvent);
 }

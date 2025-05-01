@@ -59,6 +59,8 @@ class PhysicsSample {
 
   virtual ~PhysicsSample() noexcept = default;
 
+  [[nodiscard]] World& GetWorldRef() noexcept { return _world; }
+
  protected:
   virtual void SampleSetUp() noexcept = 0;
 
