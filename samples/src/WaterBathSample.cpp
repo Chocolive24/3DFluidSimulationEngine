@@ -44,22 +44,22 @@ void WaterBathSample::SampleSetUp() noexcept {
 	_world.SetContactListener(this);
 	GraphicsData gd;
 	// Ground
-	//CreateWall({ 0,-WALLDIST - WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, true);
+	CreateWall({ 0,-WALLDIST - WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, true);
 
-	//// Wall 1
-	//CreateWall({ -WALLDIST - WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
+	// Wall 1
+	CreateWall({ -WALLDIST - WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
 
-	//// Wall 2
-	//CreateWall({ WALLDIST + WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
+	// Wall 2
+	CreateWall({ WALLDIST + WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
 
-	//// Wall 3
-	//CreateWall({ 0,0,-WALLDIST - WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST, WALLDIST, WALLSIZE }, false);
+	// Wall 3
+	CreateWall({ 0,0,-WALLDIST - WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST, WALLDIST, WALLSIZE }, false);
 
-	//// Wall 4
-	//CreateWall({ 0,0,WALLDIST + WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST,WALLDIST, WALLSIZE }, false);
+	// Wall 4
+	CreateWall({ 0,0,WALLDIST + WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST,WALLDIST, WALLSIZE }, false);
 
-	//// Roof
-	//CreateWall({ 0,WALLDIST + WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, false);
+	// Roof
+	CreateWall({ 0,WALLDIST + WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, false);
 
         _particle_densities.reserve(NbParticles);
 
@@ -99,7 +99,7 @@ void WaterBathSample::SampleUpdate() noexcept {
 			_world.GetBody(col.BodyRef).Velocity = XMVectorZero();
 		}
 
-		if (XMVectorGetX(col.BodyPosition) <= -WALLDIST)
+		/*if (XMVectorGetX(col.BodyPosition) <= -WALLDIST)
 		{
 			body.Velocity = XMVectorSetX(body.Velocity, Abs(XMVectorGetX(body.Velocity)));
 		}
@@ -123,7 +123,7 @@ void WaterBathSample::SampleUpdate() noexcept {
 		else if (XMVectorGetZ(col.BodyPosition) >= WALLDIST)
 		{
 			body.Velocity = XMVectorSetZ(body.Velocity, -Abs(XMVectorGetZ(body.Velocity)));
-		}
+		}*/
 
 		AllGraphicsData[i].Shape = std::get<SphereF>(shape) + col.BodyPosition;
 
@@ -188,6 +188,7 @@ void WaterBathSample::CreateWall(XMVECTOR position, XMVECTOR minBound, XMVECTOR 
 	GraphicsData gd;
 	gd.Color = { 160,160,160 };
 	gd.Filled = isFilled;
+        gd.Shape = wallCol.Shape;
 
 	AllGraphicsData.emplace_back(gd);
 }

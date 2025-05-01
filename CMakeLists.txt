@@ -51,7 +51,7 @@ target_link_libraries(PhysicsSamples PUBLIC Physics Common imgui)
 file(GLOB_RECURSE RENDERER_FILES Renderer/include/*.h Renderer/src/*.cpp)
 add_library(Renderer ${RENDERER_FILES})
 target_include_directories(Renderer PUBLIC Renderer/include/)
-target_link_libraries(Renderer PUBLIC Falcor)
+target_link_libraries(Renderer PUBLIC Falcor Common)
 
 add_falcor_executable(3DFluidSimulationEngine)
 

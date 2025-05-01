@@ -1,4 +1,5 @@
 #include "Renderer.h"
+#include "Metrics.h"
 
 #include "Core/Program/Program.h"
 #include "Scene/Material/StandardMaterial.h"
@@ -25,7 +26,7 @@ void Renderer::Init() noexcept
                                 SceneBuilder::Flags::RTDontMergeInstanced | SceneBuilder::Flags::DontOptimizeGraph;
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
-    auto sphere_mesh = TriangleMesh::createSphere(1.f);
+    auto sphere_mesh = TriangleMesh::createSphere(Metrics::MetersToPixels(0.05f));
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));

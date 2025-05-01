@@ -51,10 +51,12 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     renderer_ = std::make_unique<Renderer>(getDevice(), getTargetFbo());
     renderer_->Init();
 
-    for (auto& gd : sample_manager_.GetSampleData())
+    int i = 0;
+    for (const auto& gd : sample_manager_.GetSampleData())
     {
         if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
         {
+            std::cout << i++ << std::endl;
             auto& sphere_gd = std::get<SphereF>(gd.Shape);
             const auto positionX = XMVectorGetX(sphere_gd.Center());
             const auto positionY = XMVectorGetY(sphere_gd.Center());
@@ -62,7 +64,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
             const float3 pos = float3(positionX, positionY, positionZ);
 
-            const auto sphere_node_id = renderer_->AddSphereToScene(pos, 3);
+            const auto sphere_node_id = renderer_->AddSphereToScene(pos, 1);
             sphereNodeIDs.push_back(sphere_node_id);
         }
     }
@@ -79,10 +81,9 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 {
     sample_manager_.UpdateSample();
 
-    for (size_t i = 0; i < sample_manager_.GetSampleData().size(); i++)
+    int sphere_iterator = 0;
+    for (const auto& gd : sample_manager_.GetSampleData())
     {
-        const auto& gd = sample_manager_.GetSampleData()[i];
-
         if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
         {
             const auto& sphere_gd = std::get<SphereF>(gd.Shape);
@@ -96,7 +97,8 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
             transform.setScaling(float3(1.f, 1.f, 1.f));
 
             // Update node transform
-            renderer_->UpdateSceneNodeTransform(sphereNodeIDs[i], transform);
+            renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+            sphere_iterator++;
         }
     }
 
@@ -120,8 +122,8 @@ void FluidApplication::onGuiRender(Gui* pGui)
 
     if (adjustWindow)
     {
-        ImGui::SetNextWindowSize(ImVec2(Metrics::Width / 2, static_cast<float>(Metrics::Height) / 2.5f));
-        ImGui::SetNextWindowPos(ImVec2(0, 500));
+        ImGui::SetNextWindowSize(ImVec2(Metrics::Width / 2.f, static_cast<float>(Metrics::Height) / 3.f));
+        ImGui::SetNextWindowPos(ImVec2(Metrics::Width / 2.f, 0.f));
         adjustWindow = false;
     }
 
@@ -184,9 +186,6 @@ bool FluidApplication::onKeyEvent(const KeyboardEvent& keyEvent)
             sample_manager_.RegenerateSample();
         }
     }
-
-
-
 
     return renderer_->onKeyEvent(keyEvent);
 }
