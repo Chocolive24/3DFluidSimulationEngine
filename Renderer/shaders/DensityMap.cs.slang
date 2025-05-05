@@ -34,7 +34,48 @@ cbuffer PerFrameCB
 {
     int densityMapSize;
     float3 simBounds;
+    float deltaTime;
+}
 
+enum class BodyType { DYNAMIC, STATIC, FLUID, NONE };
+
+struct Body {
+    float3 Position = float3(0, 0, 0);
+    float3 Velocity = float3(0, 0, 0);
+
+    float3 PredictedPosition = float3(0, 0, 0);
+
+    float Mass = -1.f; // Body is disabled if mass is negative
+    BodyType Type = BodyType::DYNAMIC;
+
+    float3 Force = float3(0, 0, 0); // Total force acting on the body
+};
+struct ParticleData
+{
+    float Density = 1.0f;
+    float NearDensity = 1.0f;
+    float Pressure = 1.0f;
+    float SmoothingLength = 1.0f;
+    float Viscosity = 0.1f;
+    float3 Position = {0, 0, 0};
+    // XMVECTOR Acceleration = XMVectorZero();
+};
+
+RWStructuredBuffer<Body> bodies;
+
+[numthreads(8, 8, 8)]
+void updateBodies(uint3 threadID: SV_DispatchThreadID)
+{
+    uint index = threadID.x; // Or flatten (x + y * width + z * width * height) for 3D
+    Body body = bodies[index];
+    body.Force += ( 0,-500, 0 );
+
+    float3 acceleration = body.Force * (1 / body.Mass);
+
+    body.Velocity += acceleration * deltaTime;
+    body.Position += body.Velocity * deltaTime;
+    //body.PredictedPosition = XMVectorAdd(body.Position, XMVectorScale(body.Velocity, deltaTime));
+    body.Force = (0, 0, 0);
 }
 
 [numthreads(8, 8, 8)]
