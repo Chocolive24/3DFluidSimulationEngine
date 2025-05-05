@@ -3,7 +3,7 @@
 set(CMAKE_CXX_STANDARD 17)
 
 # Add a CMake option to enable or disable Tracy Profiler
-option(USE_TRACY "Use Tracy Profiler" ON)
+option(USE_TRACY "Use Tracy Profiler" OFF)
 
 if (USE_TRACY)
     # Enable Tracy profiling by setting the preprocessor directive

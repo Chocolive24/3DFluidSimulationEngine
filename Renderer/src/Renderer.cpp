@@ -344,7 +344,7 @@ void Renderer::CreateRaytracingProgram() noexcept
     camera_ = scene_->getCamera();
 
     // Update the controllers
-    scene_->setCameraSpeed(50.f);
+    scene_->setCameraSpeed(200.f);
     const auto pTargetFbo = target_fbo_.get();
     camera_->setAspectRatio(static_cast<float>(pTargetFbo->getWidth()) / static_cast<float>(pTargetFbo->getHeight()));
 
