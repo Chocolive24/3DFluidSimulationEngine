@@ -63,36 +63,58 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     //    }
     //}
 
+    for (int z = 0; z < density_map_size; ++z)
+    {
+        for (int y = 0; y < density_map_size; ++y)
+        {
+            for (int x = 0; x < density_map_size; ++x)
+            {
+                // float3 id = float3(x, y, z);
+                // float3 texturePos = id / float3(density_map_size - 1);      // normalized [0,1]
+                // float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
+
+                //// TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
+
+                // XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
+
+                // float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
+                size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
+                particle_densities[index] = Random::Range(0.f, 1.f);
+            }
+        }
+    }
+
+
     renderer_->RegisterParticleDensities(&particle_densities);
 
     renderer_->Init();
 
-    for (const auto& gd : sample_manager_.GetSampleData())
-    {
-        /*if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
-        {
-            auto& sphere_gd = std::get<SphereF>(gd.Shape);
-            const auto positionX = XMVectorGetX(sphere_gd.Center());
-            const auto positionY = XMVectorGetY(sphere_gd.Center());
-            const auto positionZ = XMVectorGetZ(sphere_gd.Center());
+    //for (const auto& gd : sample_manager_.GetSampleData())
+    //{
+    //    /*if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
+    //    {
+    //        auto& sphere_gd = std::get<SphereF>(gd.Shape);
+    //        const auto positionX = XMVectorGetX(sphere_gd.Center());
+    //        const auto positionY = XMVectorGetY(sphere_gd.Center());
+    //        const auto positionZ = XMVectorGetZ(sphere_gd.Center());
 
-            const float3 pos = float3(positionX, positionY, positionZ);
+    //        const float3 pos = float3(positionX, positionY, positionZ);
 
-            const auto sphere_node_id = renderer_->AddSphereToScene(pos, 1);
-            sphereNodeIDs.push_back(sphere_node_id);
-        }*/
-        /*else if (gd.Shape.index() == static_cast<int>(ShapeType::Cuboid))
-        {
-            auto& cube_gd = std::get<CuboidF>(gd.Shape);
-            const auto positionX = XMVectorGetX(cube_gd.Center());
-            const auto positionY = XMVectorGetY(cube_gd.Center());
-            const auto positionZ = XMVectorGetZ(cube_gd.Center());
+    //        const auto sphere_node_id = renderer_->AddSphereToScene(pos, 1);
+    //        sphereNodeIDs.push_back(sphere_node_id);
+    //    }*/
+    //    /*else if (gd.Shape.index() == static_cast<int>(ShapeType::Cuboid))
+    //    {
+    //        auto& cube_gd = std::get<CuboidF>(gd.Shape);
+    //        const auto positionX = XMVectorGetX(cube_gd.Center());
+    //        const auto positionY = XMVectorGetY(cube_gd.Center());
+    //        const auto positionZ = XMVectorGetZ(cube_gd.Center());
 
-            const float3 pos = float3(positionX, positionY, positionZ);
+    //        const float3 pos = float3(positionX, positionY, positionZ);
 
-            const auto cube_node_id = renderer_->AddCubeToScene(pos);
-        }*/
-    }
+    //        const auto cube_node_id = renderer_->AddCubeToScene(pos);
+    //    }*/
+    //}
 
     renderer_->CreateRaytracingProgram();
 }

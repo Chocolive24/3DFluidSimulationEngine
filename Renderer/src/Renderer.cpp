@@ -8,6 +8,7 @@
 Renderer::Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept
     : device_(device), target_fbo_(target_fbo), render_graph_(device, "FluidRenderGraph")
 {
+    
 }
 
 void Renderer::Init() noexcept
@@ -226,11 +227,11 @@ void Renderer::Init() noexcept
         ResourceFormat::R32Float,
         1, // mips
         particle_densities_->data(),
-        ResourceBindFlags::ShaderResource
+        ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
     );
 
-    //density_map_pass_ = ComputePass::create(device_,
-    //    "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "createDensityMap");
+    density_map_pass_ = ComputePass::create(device_,
+        "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "createDensityMap");
 
     //render_graph_.addPass(density_map_pass_, "ComputeDensityMap");
 }
@@ -240,12 +241,14 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1),
         1.0f, 0, FboAttachmentType::All);
 
-    //const auto compute_var = density_map_pass_->getRootVar();
-    //compute_var["gTexture3D"] = density_3d_tex_;
-    //compute_var["PerFrameCB"]["densityMapSize"] = density_map_size;
+    const auto compute_var = density_map_pass_->getRootVar();
+    compute_var["gTexture3D"] = density_3d_tex_;
+    compute_var["PerFrameCB"]["densityMapSize"] = density_map_size;
+    compute_var["PerFrameCB"]["simBounds"] = sim_bounds;
+    compute_var["particleDensities"] = particle_density_buffer_;
 
-    //const uint32_t thread_groups = (density_map_size + 7) / 8;
-    //density_map_pass_->execute(pRenderContext, thread_groups, thread_groups, thread_groups);
+    const uint32_t thread_groups = (density_map_size + 7) / 8;
+    density_map_pass_->execute(pRenderContext, 64, 64, 64);
 
     //pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
 
@@ -255,14 +258,10 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
         FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
 
-    FALCOR_ASSERT(mpScene)
+    //ALCOR_ASSERT(mpScene)
     // FALCOR_PROFILE(pRenderContext, "renderRT");
 
     setPerFrameVariables(currentTime);
-
-    // raster_pass_->getState()->setVao(vao_);
-    // raster_pass_->getState()->setFbo(pTargetFbo);
-    // raster_pass_->draw(pRenderContext, 3, 0);
 
     pRenderContext->clearUAV(rt_output_tex_->getUAV().get(), float4(bg_clear_color, 1));
     scene_->raytrace(pRenderContext, rt_program_.get(), rt_program_vars_,

@@ -28,9 +28,13 @@
 
 RWTexture3D<float> gTexture3D;
 
+StructuredBuffer<float> particleDensities;
+
 cbuffer PerFrameCB
 {
     int densityMapSize;
+    float3 simBounds;
+
 }
 
 [numthreads(8, 8, 8)]
@@ -38,5 +42,12 @@ void createDensityMap(uint3 threadID: SV_DispatchThreadID)
 {
     if (any(threadID >= densityMapSize)) return;
 
-    gTexture3D[threadID] = float(threadID.x) / float(densityMapSize);;
+    float3 texturePos = threadID / float3(densityMapSize - 1);      // normalized [0,1]
+    float3 worldPos = (texturePos - 0.5f) * simBounds; // map to [-100,100]
+
+    // float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
+    size_t index = threadID.x + threadID.y * densityMapSize + threadID.z * densityMapSize * densityMapSize;
+    gTexture3D[threadID] = particleDensities[index];
+
+    //gTexture3D[threadID] = float(threadID.x) / float(densityMapSize);
 }

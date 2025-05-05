@@ -33,6 +33,15 @@ public:
     void RegisterParticleDensities(std::vector<float>* particle_densities) noexcept
     {
         particle_densities_ = particle_densities;
+        particle_density_buffer_ = make_ref<Buffer>(
+            device_,
+            sizeof(float),
+            particle_densities->size(),
+            ResourceBindFlags::ShaderResource,
+            MemoryType::DeviceLocal,
+            particle_densities->data(),
+            false
+        );
     }
 
 private:
@@ -45,7 +54,7 @@ private:
     RenderGraph render_graph_;
 
     //ref<RasterPass> raster_pass_;
-    //ref<ComputePass> density_map_pass_;
+    ref<ComputePass> density_map_pass_;
 
     ref<Program> program_;
     ref<ProgramVars> program_vars_;
@@ -60,6 +69,7 @@ private:
     ref<Texture> rt_output_tex_;
     ref<Texture> density_3d_tex_;
     std::vector<float>* particle_densities_ = nullptr;
+    ref<Buffer> particle_density_buffer_;
 
     MeshID sphere_mesh_id;
     MeshID cube_mesh_id;
