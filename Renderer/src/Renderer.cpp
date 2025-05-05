@@ -80,17 +80,17 @@ void Renderer::Init() noexcept
      //raymarching_node.transform = raymarching_transform.getMatrix();
      //auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
 
-     auto node = SceneBuilder::Node();
-     node.name = "Cube simul bounds";
-     auto transform = Transform();
-     transform.setTranslation(float3(0.f, 0.f, 0));
-     transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-     transform.setScaling(float3(1, 1.f, 1.f));
-     node.transform = transform.getMatrix();
-     auto node_id = scene_builder_->addNode(node);
+    // auto node = SceneBuilder::Node();
+    // node.name = "Cube simul bounds";
+    // auto transform = Transform();
+    // transform.setTranslation(float3(0.f, 0.f, 0));
+    // transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    // transform.setScaling(float3(1, 1.f, 1.f));
+    // node.transform = transform.getMatrix();
+    // auto node_id = scene_builder_->addNode(node);
 
-    // Add Mesh Instances
-     scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+    //// Add Mesh Instances
+    // scene_builder_->addMeshInstance(node_id, cube_mesh_id);
 
     // auto node_2 = SceneBuilder::Node();
     // node_2.name = "Sphere1";
@@ -241,14 +241,14 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1),
         1.0f, 0, FboAttachmentType::All);
 
-    const auto compute_var = density_map_pass_->getRootVar();
-    compute_var["gTexture3D"] = density_3d_tex_;
-    compute_var["PerFrameCB"]["densityMapSize"] = density_map_size;
-    compute_var["PerFrameCB"]["simBounds"] = sim_bounds;
-    compute_var["particleDensities"] = particle_density_buffer_;
+    //const auto compute_var = density_map_pass_->getRootVar();
+    //compute_var["gTexture3D"] = density_3d_tex_;
+    //compute_var["PerFrameCB"]["densityMapSize"] = density_map_size;
+    //compute_var["PerFrameCB"]["simBounds"] = sim_bounds;
+    //compute_var["particleDensities"] = particle_density_buffer_;
 
-    const uint32_t thread_groups = (density_map_size + 7) / 8;
-    density_map_pass_->execute(pRenderContext, 64, 64, 64);
+    //const uint32_t thread_groups = (density_map_size + 7) / 8;
+    //density_map_pass_->execute(pRenderContext, 64, 64, 64);
 
     //pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
 

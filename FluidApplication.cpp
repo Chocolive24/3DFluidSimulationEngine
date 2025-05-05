@@ -34,14 +34,11 @@
 #ifdef TRACY_ENABLE
 #include <Tracy.hpp>
 #include <TracyC.h>
-#endif 
+#endif
 
 FALCOR_EXPORT_D3D12_AGILITY_SDK
 
-FluidApplication::FluidApplication(const SampleAppConfig& config) : SampleApp(config)
-{
-    
-}
+FluidApplication::FluidApplication(const SampleAppConfig& config) : SampleApp(config) {}
 
 void FluidApplication::onLoad(RenderContext* pRenderContext)
 {
@@ -52,57 +49,75 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     particle_densities.resize(density_map_size * density_map_size * density_map_size);
 
-    //for (const auto& bodyRef : sample_manager_.GetSampleBodyRefs())
-    //{
-    //    const auto& body = world_->GetBody(bodyRef);
+    compute_pass_ =
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "updateBodies");
 
-    //    if (body.Type == BodyType::FLUID)
-    //    {
-    //        float density = world_->_particlesData.at(bodyRef).Density;
-    //        particle_densities.push_back(density);
+    bodies_buffer_ = make_ref<Buffer>(
+        getDevice(),
+        sizeof(Body),
+        world_->_bodies.size(),
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::DeviceLocal,
+        world_->_bodies.data(),
+        false
+    );
+
+    // for (int z = 0; z < density_map_size; ++z)
+    //{
+    //     for (int y = 0; y < density_map_size; ++y)
+    //     {
+    //         for (int x = 0; x < density_map_size; ++x)
+    //         {
+    //             // float3 id = float3(x, y, z);
+    //             // float3 texturePos = id / float3(density_map_size - 1);      // normalized [0,1]
+    //             // float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
+
+    //            //// TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
+
+    //            // XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
+
+    //            // float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
+    //            size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
+    //            particle_densities[index] = Random::Range(0.f, 1.f);
+    //        }
     //    }
     //}
-
-    for (int z = 0; z < density_map_size; ++z)
-    {
-        for (int y = 0; y < density_map_size; ++y)
-        {
-            for (int x = 0; x < density_map_size; ++x)
-            {
-                // float3 id = float3(x, y, z);
-                // float3 texturePos = id / float3(density_map_size - 1);      // normalized [0,1]
-                // float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
-
-                //// TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
-
-                // XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
-
-                // float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
-                size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
-                particle_densities[index] = Random::Range(0.f, 1.f);
-            }
-        }
-    }
-
 
     renderer_->RegisterParticleDensities(&particle_densities);
 
     renderer_->Init();
 
-    //for (const auto& gd : sample_manager_.GetSampleData())
+    // Assuming `mpBuffer` is a ref<Buffer> and contains Body structs
+    void* pData = bodies_buffer_->map(); // or ReadWrite if needed
+
+    Body* bodies = reinterpret_cast<Body*>(pData);
+    for (uint32_t i = 0; i < world_->_bodies.size(); ++i)
+    {
+        const Body& body = bodies[i];
+
+        const auto sphere_node_id =
+            renderer_->AddSphereToScene({XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)}, 1);
+        sphereNodeIDs.push_back(sphere_node_id);
+    }
+
+    bodies_buffer_->unmap();
+
+
+
+    // for (const auto& gd : sample_manager_.GetSampleData())
     //{
-    //    /*if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
-    //    {
-    //        auto& sphere_gd = std::get<SphereF>(gd.Shape);
-    //        const auto positionX = XMVectorGetX(sphere_gd.Center());
-    //        const auto positionY = XMVectorGetY(sphere_gd.Center());
-    //        const auto positionZ = XMVectorGetZ(sphere_gd.Center());
+    //     if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
+    //     {
+    //         auto& sphere_gd = std::get<SphereF>(gd.Shape);
+    //         const auto positionX = XMVectorGetX(sphere_gd.Center());
+    //         const auto positionY = XMVectorGetY(sphere_gd.Center());
+    //         const auto positionZ = XMVectorGetZ(sphere_gd.Center());
 
     //        const float3 pos = float3(positionX, positionY, positionZ);
 
     //        const auto sphere_node_id = renderer_->AddSphereToScene(pos, 1);
     //        sphereNodeIDs.push_back(sphere_node_id);
-    //    }*/
+    //    }
     //    /*else if (gd.Shape.index() == static_cast<int>(ShapeType::Cuboid))
     //    {
     //        auto& cube_gd = std::get<CuboidF>(gd.Shape);
@@ -128,51 +143,57 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 {
     sample_manager_.UpdateSample();
 
-//#ifdef TRACY_ENABLE
-//    ZoneScoped;
-//
-//    for (int z = 0; z < density_map_size; ++z)
-//    {
-//        for (int y = 0; y < density_map_size; ++y)
-//        {
-//            for (int x = 0; x < density_map_size; ++x)
-//            {
-//                float3 id = float3(x, y, z);
-//                float3 texturePos = id / float3(density_map_size - 1);      // normalized [0,1]
-//                float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
-//
-//                // TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
-//
-//                XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
-//
-//                float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
-//                size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
-//                particle_densities[index] = density;
-//            }
-//        }
-//    }
-//#endif
+    // #ifdef TRACY_ENABLE
+    //     ZoneScoped;
+    //
+    //     for (int z = 0; z < density_map_size; ++z)
+    //     {
+    //         for (int y = 0; y < density_map_size; ++y)
+    //         {
+    //             for (int x = 0; x < density_map_size; ++x)
+    //             {
+    //                 float3 id = float3(x, y, z);
+    //                 float3 texturePos = id / float3(density_map_size - 1);      // normalized [0,1]
+    //                 float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
+    //
+    //                 // TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
+    //
+    //                 XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
+    //
+    //                 float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
+    //                 size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
+    //                 particle_densities[index] = density;
+    //             }
+    //         }
+    //     }
+    // #endif
 
-    //int sphere_iterator = 0;
-    //for (const auto& gd : sample_manager_.GetSampleData())
-    //{
-    //    if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
-    //    {
-    //        const auto& sphere_gd = std::get<SphereF>(gd.Shape);
-    //        const auto positionX = XMVectorGetX(sphere_gd.Center());
-    //        const auto positionY = XMVectorGetY(sphere_gd.Center());
-    //        const auto positionZ = XMVectorGetZ(sphere_gd.Center());
+     int sphere_iterator = 0;
+     for (const auto& gd : sample_manager_.GetSampleData())
+    {
+         if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
+         {
+             const auto& sphere_gd = std::get<SphereF>(gd.Shape);
+             const auto positionX = XMVectorGetX(sphere_gd.Center());
+             const auto positionY = XMVectorGetY(sphere_gd.Center());
+             const auto positionZ = XMVectorGetZ(sphere_gd.Center());
 
-    //        Transform transform;
-    //        transform.setTranslation(float3(positionX, positionY, positionZ));
-    //        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    //        transform.setScaling(float3(1.f, 1.f, 1.f));
+            Transform transform;
+            transform.setTranslation(float3(positionX, positionY, positionZ));
+            transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+            transform.setScaling(float3(1.f, 1.f, 1.f));
 
-    //        // Update node transform
-    //        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-    //        sphere_iterator++;
-    //    }
-    //}
+            // Update node transform
+            renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+            sphere_iterator++;
+        }
+    }
+
+    const auto compute_var = compute_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+    compute_var["PerFrameCB"]["deltaTime"] = 1.f/60.f;
+
+    compute_pass_->execute(pRenderContext, 8, 8, 8);
 
     renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime());
 

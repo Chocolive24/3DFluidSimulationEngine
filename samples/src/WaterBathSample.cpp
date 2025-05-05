@@ -43,25 +43,25 @@ void WaterBathSample::OnCollisionExit(ColliderRef col1,
 void WaterBathSample::SampleSetUp() noexcept {
 	_world.SetContactListener(this);
 	GraphicsData gd;
-	// Ground
-	CreateWall({ 0,-WALLDIST - WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, true);
+	//// Ground
+	//CreateWall({ 0,-WALLDIST - WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, true);
 
-	// Wall 1
-	CreateWall({ -WALLDIST - WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
+	//// Wall 1
+	//CreateWall({ -WALLDIST - WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
 
-	// Wall 2
-	CreateWall({ WALLDIST + WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
+	//// Wall 2
+	//CreateWall({ WALLDIST + WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
 
-	// Wall 3
-	CreateWall({ 0,0,-WALLDIST - WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST, WALLDIST, WALLSIZE }, false);
+	//// Wall 3
+	//CreateWall({ 0,0,-WALLDIST - WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST, WALLDIST, WALLSIZE }, false);
 
-	// Wall 4
-	CreateWall({ 0,0,WALLDIST + WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST,WALLDIST, WALLSIZE }, false);
+	//// Wall 4
+	//CreateWall({ 0,0,WALLDIST + WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST,WALLDIST, WALLSIZE }, false);
 
-	// Roof
-	CreateWall({ 0,WALLDIST + WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, false);
+	//// Roof
+	//CreateWall({ 0,WALLDIST + WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, false);
 
-        _particle_densities.reserve(NbParticles);
+    _particle_densities.reserve(NbParticles);
 
 	for (size_t i = 0; i < NbParticles; i++) {
 		CreateBall({ Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),

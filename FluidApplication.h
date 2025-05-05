@@ -57,4 +57,7 @@ private:
     float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
 
     World* world_ = nullptr;
+
+    ref<ComputePass> compute_pass_ = nullptr;
+    ref<Buffer> bodies_buffer_ = nullptr;
 };
