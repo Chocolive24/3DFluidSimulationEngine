@@ -2,6 +2,7 @@
 
 #include "Metrics.h"
 #include "Core/Pass/RasterPass.h"
+#include "RenderGraph/RenderGraph.h"
 #include "Scene/SceneBuilder.h"
 
 using namespace Falcor;
@@ -34,9 +35,6 @@ public:
         particle_densities_ = particle_densities;
     }
 
-    void CreateDensityMap(const std::vector<float>& particle_densities) noexcept;
-    void ResetDensityMap(const std::vector<float>& particle_densities) noexcept;
-
 private:
     void setPerFrameVariables(const double& currentTime) const noexcept;
     void createRasterizationProgram() const noexcept;
@@ -44,7 +42,10 @@ private:
     const ref<Device>& device_;
     const ref<Fbo>& target_fbo_;
 
-    ref<RasterPass> raster_pass_;
+    RenderGraph render_graph_;
+
+    //ref<RasterPass> raster_pass_;
+    //ref<ComputePass> density_map_pass_;
 
     ref<Program> program_;
     ref<ProgramVars> program_vars_;

@@ -106,28 +106,30 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 {
     sample_manager_.UpdateSample();
 
-    for (int z = 0; z < density_map_size; ++z)
-    {
-        for (int y = 0; y < density_map_size; ++y)
-        {
-            for (int x = 0; x < density_map_size; ++x)
-            {
-                float3 id = float3(x, y, z);
-                float3 texturePos = id / float3(density_map_size - 1);            // normalized [0,1]
-                float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
-
-                // TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
-
-                XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
-
-                float density = world_->CalculateDensityAtPosition(xm_pos) * 100;
-                size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
-                particle_densities[index] = density;
-
-                //std::cout << density << std::endl;
-            }
-        }
-    }
+//#ifdef TRACY_ENABLE
+//    ZoneScoped;
+//
+//    for (int z = 0; z < density_map_size; ++z)
+//    {
+//        for (int y = 0; y < density_map_size; ++y)
+//        {
+//            for (int x = 0; x < density_map_size; ++x)
+//            {
+//                float3 id = float3(x, y, z);
+//                float3 texturePos = id / float3(density_map_size - 1);      // normalized [0,1]
+//                float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
+//
+//                // TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
+//
+//                XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
+//
+//                float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
+//                size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
+//                particle_densities[index] = density;
+//            }
+//        }
+//    }
+//#endif
 
     //int sphere_iterator = 0;
     //for (const auto& gd : sample_manager_.GetSampleData())

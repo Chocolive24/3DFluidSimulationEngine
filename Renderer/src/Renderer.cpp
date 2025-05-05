@@ -6,7 +6,7 @@
 #include "Utils/Math/FalcorMath.h"
 
 Renderer::Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept
-    : device_(device), target_fbo_(target_fbo)
+    : device_(device), target_fbo_(target_fbo), render_graph_(device, "FluidRenderGraph")
 {
 }
 
@@ -169,8 +169,6 @@ void Renderer::Init() noexcept
 
     std::vector<float> data(density_map_size * density_map_size * density_map_size, 0.0f);
 
-    
-
     //for (int z = 0; z < density_map_size; ++z)
     //{
     //    for (int y = 0; y < density_map_size; ++y)
@@ -230,6 +228,11 @@ void Renderer::Init() noexcept
         particle_densities_->data(),
         ResourceBindFlags::ShaderResource
     );
+
+    //density_map_pass_ = ComputePass::create(device_,
+    //    "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "createDensityMap");
+
+    //render_graph_.addPass(density_map_pass_, "ComputeDensityMap");
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime) const noexcept
@@ -237,7 +240,14 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1),
         1.0f, 0, FboAttachmentType::All);
 
-    pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
+    //const auto compute_var = density_map_pass_->getRootVar();
+    //compute_var["gTexture3D"] = density_3d_tex_;
+    //compute_var["PerFrameCB"]["densityMapSize"] = density_map_size;
+
+    //const uint32_t thread_groups = (density_map_size + 7) / 8;
+    //density_map_pass_->execute(pRenderContext, thread_groups, thread_groups, thread_groups);
+
+    //pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
 
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
     if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
