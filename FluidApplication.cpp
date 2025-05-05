@@ -49,19 +49,6 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     particle_densities.resize(density_map_size * density_map_size * density_map_size);
 
-    compute_pass_ =
-        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "updateBodies");
-
-    bodies_buffer_ = make_ref<Buffer>(
-        getDevice(),
-        sizeof(Body),
-        world_->_bodies.size(),
-        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-        MemoryType::DeviceLocal,
-        world_->_bodies.data(),
-        false
-    );
-
     // for (int z = 0; z < density_map_size; ++z)
     //{
     //     for (int y = 0; y < density_map_size; ++y)
@@ -84,25 +71,47 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     //}
 
     renderer_->RegisterParticleDensities(&particle_densities);
-
     renderer_->Init();
 
-    // Assuming `mpBuffer` is a ref<Buffer> and contains Body structs
-    void* pData = bodies_buffer_->map(); // or ReadWrite if needed
-
-    Body* bodies = reinterpret_cast<Body*>(pData);
-    for (uint32_t i = 0; i < world_->_bodies.size(); ++i)
+    for (const auto& body : world_->_bodies)
     {
-        const Body& body = bodies[i];
-
-        const auto sphere_node_id =
-            renderer_->AddSphereToScene({XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)}, 1);
-        sphereNodeIDs.push_back(sphere_node_id);
+        if (!body.IsEnabled())
+        {
+            continue;
+        }
+       
+         const auto sphere_node_id =
+             renderer_->AddSphereToScene({XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)}, 1);
+         sphereNodeIDs.push_back(sphere_node_id);
+         enabled_bodies_.push_back(body);
     }
 
-    bodies_buffer_->unmap();
+    compute_pass_ =
+        ComputePass::create(getDevice(),
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "updateBodies");
 
+    bodies_buffer_ = make_ref<Buffer>(
+        getDevice(),
+        sizeof(Body),
+        enabled_bodies_.size(),
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::DeviceLocal,
+        enabled_bodies_.data(),
+        false
+    );
 
+    readback_bodies_buffer_ = make_ref<Buffer>(
+        getDevice(),
+        sizeof(Body),
+        enabled_bodies_.size(),
+        ResourceBindFlags::None, // No need for shader access
+        MemoryType::ReadBack,    // CPU-readable
+        nullptr,                 // No initial data
+        false
+    );
+
+    const auto compute_var = compute_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
 
     // for (const auto& gd : sample_manager_.GetSampleData())
     //{
@@ -168,32 +177,66 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     //     }
     // #endif
 
-     int sphere_iterator = 0;
-     for (const auto& gd : sample_manager_.GetSampleData())
-    {
-         if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
-         {
-             const auto& sphere_gd = std::get<SphereF>(gd.Shape);
-             const auto positionX = XMVectorGetX(sphere_gd.Center());
-             const auto positionY = XMVectorGetY(sphere_gd.Center());
-             const auto positionZ = XMVectorGetZ(sphere_gd.Center());
-
-            Transform transform;
-            transform.setTranslation(float3(positionX, positionY, positionZ));
-            transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-            transform.setScaling(float3(1.f, 1.f, 1.f));
-
-            // Update node transform
-            renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-            sphere_iterator++;
-        }
-    }
-
     const auto compute_var = compute_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
-    compute_var["PerFrameCB"]["deltaTime"] = 1.f/60.f;
+    compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
 
-    compute_pass_->execute(pRenderContext, 8, 8, 8);
+    uint32_t nThreadX = 8;
+    uint32_t nThreadY = 8;
+    uint32_t nThreadZ = 8; // Using 8 threads in the Z dimension
+
+    // Calculate how many groups are needed (1024 elements / 512 threads per group = 2 groups)
+    uint32_t nGroupsX = (100 + (nThreadX * nThreadY * nThreadZ) - 1) / (nThreadX * nThreadY * nThreadZ); // Total groups in the X dimension
+    uint32_t nGroupsY = nGroupsX; // Since you're dispatching in one row of thread groups in the Y dimension
+    uint32_t nGroupsZ = 1; // One group in the Z dimension
+
+    compute_pass_->execute(pRenderContext, 64, 64, 1);
+
+    pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
+
+    const Body* body_data = static_cast<const Body*>(readback_bodies_buffer_->map());
+
+    int sphere_iterator = 0;
+    for (uint32_t i = 0; i < enabled_bodies_.size(); i++)
+    {
+        const auto pos = body_data[i].Position;
+
+        const auto positionX = XMVectorGetX(pos);
+        const auto positionY = XMVectorGetY(pos);
+        const auto positionZ = XMVectorGetZ(pos);
+
+        Transform transform;
+        transform.setTranslation(float3(positionX, positionY, positionZ));
+        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+        transform.setScaling(float3(1.f, 1.f, 1.f));
+
+        // Update node transform
+        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+        sphere_iterator++;
+    }
+
+    readback_bodies_buffer_->unmap();
+
+    // int sphere_iterator = 0;
+    // for (const auto& gd : sample_manager_.GetSampleData())
+    //{
+    //     if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
+    //     {
+    //         const auto& sphere_gd = std::get<SphereF>(gd.Shape);
+    //         const auto positionX = XMVectorGetX(sphere_gd.Center());
+    //         const auto positionY = XMVectorGetY(sphere_gd.Center());
+    //         const auto positionZ = XMVectorGetZ(sphere_gd.Center());
+
+    //        Transform transform;
+    //        transform.setTranslation(float3(positionX, positionY, positionZ));
+    //        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //        transform.setScaling(float3(1.f, 1.f, 1.f));
+
+    //        // Update node transform
+    //        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+    //        sphere_iterator++;
+    //    }
+    //}
 
     renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime());
 

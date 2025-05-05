@@ -60,4 +60,7 @@ private:
 
     ref<ComputePass> compute_pass_ = nullptr;
     ref<Buffer> bodies_buffer_ = nullptr;
+    ref<Buffer> readback_bodies_buffer_ = nullptr;
+
+    std::vector<Body> enabled_bodies_{};
 };

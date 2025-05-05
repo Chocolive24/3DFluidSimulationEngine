@@ -40,16 +40,14 @@ cbuffer PerFrameCB
 enum class BodyType { DYNAMIC, STATIC, FLUID, NONE };
 
 struct Body {
-    float3 Position = float3(0, 0, 0);
-    float3 Velocity = float3(0, 0, 0);
-
-    float3 PredictedPosition = float3(0, 0, 0);
-
-    float Mass = -1.f; // Body is disabled if mass is negative
-    BodyType Type = BodyType::DYNAMIC;
-
-    float3 Force = float3(0, 0, 0); // Total force acting on the body
+    float3 Position = float3(0.f, 0.f, 0.f); float pad0;
+    float3 Velocity = float3(0.f, 0.f, 0.f); float pad1;
+    float3 PredictedPosition = float3(0.f, 0.f, 0.f); float pad2;
+    float Mass = 0.f;
+    uint Type = 0; float pad3[2]; // Align to 16 bytes total
+    float3 Force = float3(0.f, 0.f, 0.f); float pad4;
 };
+
 struct ParticleData
 {
     float Density = 1.0f;
@@ -63,19 +61,26 @@ struct ParticleData
 
 RWStructuredBuffer<Body> bodies;
 
-[numthreads(8, 8, 8)]
-void updateBodies(uint3 threadID: SV_DispatchThreadID)
+[numthreads(8, 8, 1)]
+void updateBodies(uint3 threadID: SV_DispatchThreadID, uint3 groupID: SV_GroupID)
 {
-    uint index = threadID.x; // Or flatten (x + y * width + z * width * height) for 3D
-    Body body = bodies[index];
-    body.Force += ( 0,-500, 0 );
+    uint index = threadID.x + threadID.y * 8; // Local thread index in the group (0-63)
+    index += groupID.x * 64;                  // Global thread index across groups (0-1023)
 
-    float3 acceleration = body.Force * (1 / body.Mass);
+    if (index >= 1024) return; // Ensure we do not go out of bounds
 
-    body.Velocity += acceleration * deltaTime;
-    body.Position += body.Velocity * deltaTime;
-    //body.PredictedPosition = XMVectorAdd(body.Position, XMVectorScale(body.Velocity, deltaTime));
-    body.Force = (0, 0, 0);
+    Body body = bodies[index]; // Access the body at the calculated index
+
+    body.Force += float3(0, -5, 0); // Apply gravity or force
+
+    float3 acceleration = body.Force * (1 / body.Mass); // Calculate acceleration
+
+    body.Velocity += acceleration * deltaTime;  // Update velocity
+    body.Position += body.Velocity * deltaTime; // Update position
+
+    body.Force = float3(0, 0, 0); // Reset force after applying
+
+    bodies[index] = body; // Write the updated body back to the buffer
 }
 
 [numthreads(8, 8, 8)]

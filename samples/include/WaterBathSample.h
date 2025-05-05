@@ -15,7 +15,7 @@ private:
         std::vector<float> _particle_densities{};
 public:
 
-	int NbParticles = 1000;
+	int NbParticles = 1024;
 
 	std::string GetName() noexcept override;
 	std::string GetDescription() noexcept override;

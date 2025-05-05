@@ -99,7 +99,7 @@ void WaterBathSample::SampleUpdate() noexcept {
 			_world.GetBody(col.BodyRef).Velocity = XMVectorZero();
 		}
 
-		/*if (XMVectorGetX(col.BodyPosition) <= -WALLDIST)
+		if (XMVectorGetX(col.BodyPosition) <= -WALLDIST)
 		{
 			body.Velocity = XMVectorSetX(body.Velocity, Abs(XMVectorGetX(body.Velocity)));
 		}
@@ -123,7 +123,7 @@ void WaterBathSample::SampleUpdate() noexcept {
 		else if (XMVectorGetZ(col.BodyPosition) >= WALLDIST)
 		{
 			body.Velocity = XMVectorSetZ(body.Velocity, -Abs(XMVectorGetZ(body.Velocity)));
-		}*/
+		}
 
 		AllGraphicsData[i].Shape = std::get<SphereF>(shape) + col.BodyPosition;
 

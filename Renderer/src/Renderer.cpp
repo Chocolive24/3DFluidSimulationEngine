@@ -220,18 +220,18 @@ void Renderer::Init() noexcept
     //    ResourceBindFlags::ShaderResource
     //);
 
-    density_3d_tex_ = device_->createTexture3D(
-        density_map_size,
-        density_map_size,
-        density_map_size,
-        ResourceFormat::R32Float,
-        1, // mips
-        particle_densities_->data(),
-        ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
-    );
+    //density_3d_tex_ = device_->createTexture3D(
+    //    density_map_size,
+    //    density_map_size,
+    //    density_map_size,
+    //    ResourceFormat::R32Float,
+    //    1, // mips
+    //    particle_densities_->data(),
+    //    ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
+    //);
 
-    density_map_pass_ = ComputePass::create(device_,
-        "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "createDensityMap");
+    //density_map_pass_ = ComputePass::create(device_,
+    //    "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "createDensityMap");
 
     //render_graph_.addPass(density_map_pass_, "ComputeDensityMap");
 }
