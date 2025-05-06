@@ -52,7 +52,6 @@ struct ParticleBody
     float pad1;
     float pad2;
     // 16 bytes
-
 };
 
 class FluidApplication : public SampleApp
