@@ -224,10 +224,10 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     int sphere_iterator = 0;
     for (uint32_t i = 0; i < particle_bodies_.size(); i++)
     {
-        if (i % 15 == 0)
+        /*if (i % 15 == 0)
         {
             std::cout << body_data[i].Density << '\n';
-        }
+        }*/
         
 
         const auto pos = body_data[i].Position;
