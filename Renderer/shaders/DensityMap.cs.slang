@@ -25,7 +25,6 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-
 RWTexture3D<float> gTexture3D;
 
 StructuredBuffer<float> particleDensities;
@@ -62,10 +61,9 @@ struct ParticleData
 RWStructuredBuffer<Body> bodies;
 
 [numthreads(8, 8, 1)]
-void updateBodies(uint3 threadID: SV_DispatchThreadID, uint3 groupID: SV_GroupID)
+void updateBodies(uint3 threadID: SV_DispatchThreadID)
 {
-    uint index = threadID.x + threadID.y * 8; // Local thread index in the group (0-63)
-    index += groupID.x * 64;                  // Global thread index across groups (0-1023)
+    uint index = threadID.x + threadID.y * 32;
 
     if (index >= 1024) return; // Ensure we do not go out of bounds
 

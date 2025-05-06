@@ -181,16 +181,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     compute_var["bodies"] = bodies_buffer_;
     compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
 
-    uint32_t nThreadX = 8;
-    uint32_t nThreadY = 8;
-    uint32_t nThreadZ = 8; // Using 8 threads in the Z dimension
-
-    // Calculate how many groups are needed (1024 elements / 512 threads per group = 2 groups)
-    uint32_t nGroupsX = (100 + (nThreadX * nThreadY * nThreadZ) - 1) / (nThreadX * nThreadY * nThreadZ); // Total groups in the X dimension
-    uint32_t nGroupsY = nGroupsX; // Since you're dispatching in one row of thread groups in the Y dimension
-    uint32_t nGroupsZ = 1; // One group in the Z dimension
-
-    compute_pass_->execute(pRenderContext, 64, 64, 1);
+    compute_pass_->execute(pRenderContext, 32, 32, 1);
 
     pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
