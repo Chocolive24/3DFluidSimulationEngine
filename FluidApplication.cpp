@@ -100,9 +100,15 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         particle_bodies_.push_back(pb);
     }
     
-    compute_pass_ =
+    update_particle_bodies_pass_ =
         ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "updateBodies");
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang",
+            "updateBodies");
+
+    compute_neighbors_density_pass_ =
+        ComputePass::create(getDevice(),
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang",
+            "computeNeighborsDensity");
 
     bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
@@ -124,7 +130,10 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         false
     );
 
-    const auto compute_var = compute_pass_->getRootVar();
+    auto compute_var = update_particle_bodies_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+
+    compute_var = compute_neighbors_density_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
 
     // for (const auto& gd : sample_manager_.GetSampleData())
@@ -162,9 +171,22 @@ void FluidApplication::onResize(uint32_t width, uint32_t height)
     renderer_->OnResize(width, height);
 }
 
+void FluidApplication::executeParticleComputePass(const ref<ComputePass>& compute_pass,
+    RenderContext* pRenderContext,
+    const uint32_t total_threads_x) const noexcept
+{
+    const auto compute_var = compute_pass->getRootVar();
+    //compute_var["bodies"] = bodies_buffer_;
+    compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
+    compute_var["PerFrameCB"]["nbParticles"] = numBodies;
+    compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
+
+    compute_pass->execute(pRenderContext, total_threads_x, 1, 1);
+}
+
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
-    sample_manager_.UpdateSample();
+    //sample_manager_.UpdateSample();
 
     // #ifdef TRACY_ENABLE
     //     ZoneScoped;
@@ -191,21 +213,9 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     //     }
     // #endif
 
-       
-    constexpr uint32_t numBodies = 1024;
+    executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
 
-    const auto compute_var = compute_pass_->getRootVar();
-    compute_var["bodies"] = bodies_buffer_;
-    compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
-    compute_var["PerFrameCB"]["nbParticles"] = numBodies;
-    compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
-
-    constexpr uint32_t groupSize = 64;
-
-    // Round up to the next multiple of 64
-    constexpr uint32_t totalThreadsX = ((numBodies + groupSize - 1) / groupSize) * groupSize;
-
-    compute_pass_->execute(pRenderContext, totalThreadsX, 1, 1);
+    executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
 
     pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
@@ -214,6 +224,12 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     int sphere_iterator = 0;
     for (uint32_t i = 0; i < particle_bodies_.size(); i++)
     {
+        if (i % 15 == 0)
+        {
+            std::cout << body_data[i].Density << '\n';
+        }
+        
+
         const auto pos = body_data[i].Position;
 
         /*const auto positionX = XMVectorGetX(pos);

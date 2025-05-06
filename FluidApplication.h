@@ -63,6 +63,7 @@ public:
 
     void onLoad(RenderContext* pRenderContext) override;
     void onResize(uint32_t width, uint32_t height) override;
+
     void onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo) override;
   
     void onGuiRender(Gui* pGui) override;
@@ -70,6 +71,8 @@ public:
     bool onMouseEvent(const MouseEvent& mouseEvent) override;
 
 private:
+    void executeParticleComputePass(const ref<ComputePass>& compute_pass,
+        RenderContext* pRenderContext, uint32_t total_threads_x) const noexcept;
     void renderPhysicsSampleGui();
 
     std::unique_ptr<Renderer> renderer_ = nullptr;
@@ -83,9 +86,15 @@ private:
 
     World* world_ = nullptr;
 
-    ref<ComputePass> compute_pass_ = nullptr;
+    ref<ComputePass> update_particle_bodies_pass_ = nullptr;
+    ref<ComputePass> compute_neighbors_density_pass_ = nullptr;
     ref<Buffer> bodies_buffer_ = nullptr;
     ref<Buffer> readback_bodies_buffer_ = nullptr;
 
     std::vector<ParticleBody> particle_bodies_{};
+
+    static constexpr uint32_t numBodies = 1024;
+    static constexpr uint32_t groupSize = 64;
+
+    static constexpr uint32_t totalThreadsX = ((numBodies + groupSize - 1) / groupSize) * groupSize;
 };

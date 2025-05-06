@@ -136,9 +136,11 @@ float SmoothingKernel(float radius, float distance)
 }
 
 [numthreads(64, 1, 1)]
-void computeNeighborsDensity(uint3 threadID: SV_DispatchThreadID) {
-    if (threadID.x >= nbParticles) return;                     // Ensure we do not go out of bounds
-    ParticleBody Particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
+void computeNeighborsDensity(uint3 threadID: SV_DispatchThreadID) 
+{
+    if (threadID.x >= nbParticles) return;  // Ensure we do not go out of bounds
+
+    ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
 
     // std::vector<ParticleBodyRef> neighbors = grid.findNeighbors(data.Position);
 
@@ -147,11 +149,12 @@ void computeNeighborsDensity(uint3 threadID: SV_DispatchThreadID) {
         
         if (i == threadID.x)
             continue;
+        
         ParticleBody otherParticleBody = bodies[i];
 
-        float dx = Particlebody.Position.x - otherParticleBody.Position.x;
-        float dy = Particlebody.Position.y - otherParticleBody.Position.y;
-        float dz = Particlebody.Position.z - otherParticleBody.Position.z;
+        float dx = particlebody.Position.x - otherParticleBody.Position.x;
+        float dy = particlebody.Position.y - otherParticleBody.Position.y;
+        float dz = particlebody.Position.z - otherParticleBody.Position.z;
 
         float distance = sqrt(dx * dx + dy * dy + dz * dz);
 
@@ -159,14 +162,14 @@ void computeNeighborsDensity(uint3 threadID: SV_DispatchThreadID) {
         density += influence;
     }
 
-    Particlebody.Density = density;
+    particlebody.Density = density;
 
 
     // for (auto &otherRef: neighbors)
     // {
 
     // }
-    bodies[threadID.x] = Particlebody; // Write the updated Particlebody back to the buffer
+    bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 }
 
 [numthreads(8, 8, 8)]
