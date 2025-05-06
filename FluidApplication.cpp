@@ -184,6 +184,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     compute_var["bodies"] = bodies_buffer_;
     compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
     compute_var["PerFrameCB"]["nbParticles"] = numBodies;
+    compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
 
     constexpr uint32_t groupSize = 64;
 
