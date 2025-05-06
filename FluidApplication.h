@@ -33,6 +33,28 @@
 
 using namespace Falcor;
 
+struct ParticleBody
+{
+    float3 Position = float3(0.f, 0.f, 0.f);
+    float Density = 1.0f;
+    // 16 bytes
+    float3 Velocity = float3(0.f, 0.f, 0.f);
+    float NearDensity = 1.0f;
+    // 16 bytes
+    float3 PredictedPosition = float3(0.f, 0.f, 0.f);
+    float Pressure = 1.0f;
+    // 16 bytes
+    float3 Force = float3(0.f, 0.f, 0.f);
+    float Mass = 0.f;
+    // 16 bytes
+    float SmoothingLength = 1.0f;
+    float Viscosity = 0.1f;
+    float pad1;
+    float pad2;
+    // 16 bytes
+
+};
+
 class FluidApplication : public SampleApp
 {
 public:
@@ -65,5 +87,5 @@ private:
     ref<Buffer> bodies_buffer_ = nullptr;
     ref<Buffer> readback_bodies_buffer_ = nullptr;
 
-    std::vector<Body> enabled_bodies_{};
+    std::vector<ParticleBody> particle_bodies_{};
 };

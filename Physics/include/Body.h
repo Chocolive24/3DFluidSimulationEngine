@@ -23,7 +23,7 @@ public:
 	float Mass = -1.f;  // Body is disabled if mass is negative
 	BodyType Type = BodyType::DYNAMIC;
 
-private:
+
 	XMVECTOR _force = XMVectorZero(); // Total force acting on the body
 
 
@@ -77,3 +77,5 @@ public:
 	 */
 	void ResetForce() { _force = XMVectorZero(); }
 };
+
+

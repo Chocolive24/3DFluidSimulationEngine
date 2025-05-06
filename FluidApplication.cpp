@@ -79,31 +79,45 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         {
             continue;
         }
-       
-         const auto sphere_node_id =
-             renderer_->AddSphereToScene({XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)}, 1);
-         sphereNodeIDs.push_back(sphere_node_id);
-         enabled_bodies_.push_back(body);
-    }
 
+        const float3 position{XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)};
+        const float3 velocity{XMVectorGetX(body.Velocity), XMVectorGetY(body.Velocity), XMVectorGetZ(body.Velocity)};
+        const float3 predictedPosition{
+            XMVectorGetX(body.PredictedPosition), XMVectorGetY(body.PredictedPosition), XMVectorGetZ(body.PredictedPosition)
+        };
+        const float3 force{XMVectorGetX(body._force), XMVectorGetY(body._force), XMVectorGetZ(body._force)};
+
+        const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
+        sphereNodeIDs.push_back(sphere_node_id);
+
+        ParticleBody pb{};
+        //pb.Position = XMFLOAT3{position.x, position.y, position.z};
+        pb.Position = position;
+        pb.Velocity = velocity;
+        pb.PredictedPosition = predictedPosition;
+        pb.Mass = body.Mass;
+        pb.Force = force;
+        particle_bodies_.push_back(pb);
+    }
+    
     compute_pass_ =
         ComputePass::create(getDevice(),
             "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "updateBodies");
 
     bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
-        sizeof(Body),
-        enabled_bodies_.size(),
+        sizeof(particle_bodies_[0]),
+        particle_bodies_.size(),
         ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
         MemoryType::DeviceLocal,
-        enabled_bodies_.data(),
+        particle_bodies_.data(),
         false
     );
 
     readback_bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
-        sizeof(Body),
-        enabled_bodies_.size(),
+        sizeof(particle_bodies_[0]),
+        particle_bodies_.size(),
         ResourceBindFlags::None, // No need for shader access
         MemoryType::ReadBack,    // CPU-readable
         nullptr,                 // No initial data
@@ -195,19 +209,19 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 
     pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
-    const Body* body_data = static_cast<const Body*>(readback_bodies_buffer_->map());
+    const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
 
     int sphere_iterator = 0;
-    for (uint32_t i = 0; i < enabled_bodies_.size(); i++)
+    for (uint32_t i = 0; i < particle_bodies_.size(); i++)
     {
         const auto pos = body_data[i].Position;
 
-        const auto positionX = XMVectorGetX(pos);
+        /*const auto positionX = XMVectorGetX(pos);
         const auto positionY = XMVectorGetY(pos);
-        const auto positionZ = XMVectorGetZ(pos);
+        const auto positionZ = XMVectorGetZ(pos);*/
 
         Transform transform;
-        transform.setTranslation(float3(positionX, positionY, positionZ));
+        transform.setTranslation(pos);
         transform.setRotationEuler(float3(0.f, 0.f, 0.f));
         transform.setScaling(float3(1.f, 1.f, 1.f));
 
