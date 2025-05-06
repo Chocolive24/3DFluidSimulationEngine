@@ -34,6 +34,7 @@ cbuffer PerFrameCB
     int densityMapSize;
     float3 simBounds;
     float deltaTime;
+    int nbParticles;
 }
 
 enum class BodyType { DYNAMIC, STATIC, FLUID, NONE };
@@ -60,12 +61,12 @@ struct ParticleData
 
 RWStructuredBuffer<Body> bodies;
 
-[numthreads(8, 8, 1)]
+[numthreads(64, 1, 1)]
 void updateBodies(uint3 threadID: SV_DispatchThreadID)
 {
     uint index = threadID.x + threadID.y * 32;
 
-    if (index >= 1024) return; // Ensure we do not go out of bounds
+    if (index >= nbParticles) return; // Ensure we do not go out of bounds
 
     Body body = bodies[index]; // Access the body at the calculated index
 

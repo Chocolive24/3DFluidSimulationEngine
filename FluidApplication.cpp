@@ -177,11 +177,20 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     //     }
     // #endif
 
+       
+    constexpr uint32_t numBodies = 1024;
+
     const auto compute_var = compute_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
     compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
+    compute_var["PerFrameCB"]["nbParticles"] = numBodies;
 
-    compute_pass_->execute(pRenderContext, 32, 32, 1);
+    constexpr uint32_t groupSize = 64;
+
+    // Round up to the next multiple of 64
+    constexpr uint32_t totalThreadsX = ((numBodies + groupSize - 1) / groupSize) * groupSize;
+
+    compute_pass_->execute(pRenderContext, totalThreadsX, 1, 1);
 
     pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
@@ -238,6 +247,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 #endif
 }
 
+
 void FluidApplication::onGuiRender(Gui* pGui)
 {
     Gui::Window w(pGui, "Raytracing Fluid Rendering", {250, 200});
@@ -245,6 +255,36 @@ void FluidApplication::onGuiRender(Gui* pGui)
 
     renderer_->RenderUI(pGui, &w);
 
+    renderPhysicsSampleGui();
+}
+
+bool FluidApplication::onKeyEvent(const KeyboardEvent& keyEvent)
+{
+    if (keyEvent.type == KeyboardEvent::Type::KeyPressed)
+    {
+        if (keyEvent.key == Input::Key::F)
+        {
+            sample_manager_.StopSample();
+        }
+        else if (keyEvent.key == Input::Key::R)
+        {
+            sample_manager_.RegenerateSample();
+        }
+    }
+
+    return renderer_->onKeyEvent(keyEvent);
+}
+
+bool FluidApplication::onMouseEvent(const MouseEvent& mouseEvent)
+{
+    XMVECTOR mouse_pos = XMVectorSet(mouseEvent.screenPos.x, mouseEvent.screenPos.y, 0.f, 0.f);
+    sample_manager_.GiveMousePositionToSample(mouse_pos);
+
+    return renderer_->onMouseEvent(mouseEvent);
+}
+
+void FluidApplication::renderPhysicsSampleGui()
+{
     static bool adjustWindow = true;
 
     if (adjustWindow)
@@ -298,29 +338,4 @@ void FluidApplication::onGuiRender(Gui* pGui)
     }
 
     ImGui::End();
-}
-
-bool FluidApplication::onKeyEvent(const KeyboardEvent& keyEvent)
-{
-    if (keyEvent.type == KeyboardEvent::Type::KeyPressed)
-    {
-        if (keyEvent.key == Input::Key::F)
-        {
-            sample_manager_.StopSample();
-        }
-        else if (keyEvent.key == Input::Key::R)
-        {
-            sample_manager_.RegenerateSample();
-        }
-    }
-
-    return renderer_->onKeyEvent(keyEvent);
-}
-
-bool FluidApplication::onMouseEvent(const MouseEvent& mouseEvent)
-{
-    XMVECTOR mouse_pos = XMVectorSet(mouseEvent.screenPos.x, mouseEvent.screenPos.y, 0.f, 0.f);
-    sample_manager_.GiveMousePositionToSample(mouse_pos);
-
-    return renderer_->onMouseEvent(mouseEvent);
 }

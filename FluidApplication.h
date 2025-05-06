@@ -42,11 +42,14 @@ public:
     void onLoad(RenderContext* pRenderContext) override;
     void onResize(uint32_t width, uint32_t height) override;
     void onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo) override;
+  
     void onGuiRender(Gui* pGui) override;
     bool onKeyEvent(const KeyboardEvent& keyEvent) override;
     bool onMouseEvent(const MouseEvent& mouseEvent) override;
 
 private:
+    void renderPhysicsSampleGui();
+
     std::unique_ptr<Renderer> renderer_ = nullptr;
     SampleManager sample_manager_;
 
