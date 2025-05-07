@@ -78,6 +78,9 @@ private:
 
     bool draw_fluid_ = false;
 
+    ref<ComputePass> compute_density_map_pass_ = nullptr;
+    //ref<Texture> density_3d_tex_ = nullptr;
+
     //bool mUseDOF = false;
     //uint32_t mSampleIndex = 0;
 
@@ -87,6 +90,8 @@ private:
 
     int density_map_size = 64;
     float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
+    float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
+    float SphereRadius = 50.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
 

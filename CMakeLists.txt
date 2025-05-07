@@ -1,5 +1,3 @@
-# cmake_minimum_required(VERSION 3.20)
-
 set(CMAKE_CXX_STANDARD 17)
 
 # Add a CMake option to enable or disable Tracy Profiler
@@ -75,7 +73,6 @@ target_sources(3DFluidSimulationEngine PRIVATE
     ${SHADER_FILES}
 )
 
-
 target_include_directories(3DFluidSimulationEngine PUBLIC samples/include)
 target_include_directories(3DFluidSimulationEngine PUBLIC Physics/include/)
 target_include_directories(3DFluidSimulationEngine PUBLIC Common/include/)
@@ -84,25 +81,3 @@ target_link_libraries(3DFluidSimulationEngine PUBLIC PhysicsSamples Renderer)
 target_copy_shaders(3DFluidSimulationEngine Samples/3DFluidSimulationEngine/shaders)
 
 target_source_group(3DFluidSimulationEngine "Samples")
-
-# Renderer for future direct x (actually opengl using glut testing)
-# file(GLOB_RECURSE RENDERER_FILES Renderer/include/*.h Renderer/src/*.cpp)
-# add_library(Renderer ${RENDERER_FILES})
-# set_target_properties(Renderer PROPERTIES LINKER_LANGUAGE CXX)
-# target_include_directories(Renderer PUBLIC Renderer/include/)
-# target_include_directories(Renderer PUBLIC Common/include/)
-# target_include_directories(Renderer PUBLIC External/imgui/include/)
-
-# target_link_libraries(Renderer PUBLIC Samples GLUT::GLUT GLEW::GLEW OpenGL::GL)
-
-# target_link_libraries(Samples PUBLIC Renderer)
-
-# if (USE_TRACY)
-#     target_compile_definitions(Renderer PUBLIC TRACY_ENABLE)
-#     # Link the TracyClient library
-#     target_link_libraries(Renderer PRIVATE tracyClient)
-# endif()
-
-# # Main
-# add_executable(Main Main.cpp)
-# target_link_libraries(Main PUBLIC Renderer)

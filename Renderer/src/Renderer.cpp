@@ -80,17 +80,17 @@ void Renderer::Init() noexcept
      //raymarching_node.transform = raymarching_transform.getMatrix();
      //auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
 
-    // auto node = SceneBuilder::Node();
-    // node.name = "Cube simul bounds";
-    // auto transform = Transform();
-    // transform.setTranslation(float3(0.f, 0.f, 0));
-    // transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // transform.setScaling(float3(1, 1.f, 1.f));
-    // node.transform = transform.getMatrix();
-    // auto node_id = scene_builder_->addNode(node);
+     auto node = SceneBuilder::Node();
+     node.name = "Cube simul bounds";
+     auto transform = Transform();
+     transform.setTranslation(float3(0.f, 0.f, 0));
+     transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+     transform.setScaling(float3(1, 1.f, 1.f));
+     node.transform = transform.getMatrix();
+     auto node_id = scene_builder_->addNode(node);
 
-    //// Add Mesh Instances
-    // scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+    // Add Mesh Instances
+     scene_builder_->addMeshInstance(node_id, cube_mesh_id);
 
     // auto node_2 = SceneBuilder::Node();
     // node_2.name = "Sphere1";
@@ -234,12 +234,38 @@ void Renderer::Init() noexcept
     //    "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang", "createDensityMap");
 
     //render_graph_.addPass(density_map_pass_, "ComputeDensityMap");
+
+    compute_density_map_pass_ = ComputePass::create(
+        device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ComputeDensityTexture"
+    );
+
+    density_3d_tex_ = device_->createTexture3D(
+        density_map_size,
+        density_map_size,
+        density_map_size,
+        ResourceFormat::R32Float,
+        1, // mips
+        nullptr,
+        ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
+    );
+
+    const auto compute_var = compute_density_map_pass_->getRootVar();
+    compute_var["DensityTexture"] = density_3d_tex_;
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime) const noexcept
 {
     pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1),
         1.0f, 0, FboAttachmentType::All);
+
+    const auto compute_var = compute_density_map_pass_->getRootVar();
+    compute_var["PerFrameCB"]["numPointsPerAxis"] = 64;
+    compute_var["PerFrameCB"]["isoLevel"] = 0;
+    compute_var["PerFrameCB"]["textureSize"] = density_map_size;
+    compute_var["PerFrameCB"]["boundSize"] = sim_bounds.x;
+    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
+
+    compute_density_map_pass_->execute(pRenderContext, 64, 64, 64);
 
     //const auto compute_var = density_map_pass_->getRootVar();
     //compute_var["gTexture3D"] = density_3d_tex_;
@@ -273,7 +299,8 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
 {
     app_gui_window->rgbColor("Background color", bg_clear_color);
 
-    app_gui_window->slider("DensityDepth", DensityDepth, 0.f, float(1));
+    app_gui_window->slider("DensityDepth", DensityDepth, 0.f, 200.f);
+    app_gui_window->slider("SphereRadius", SphereRadius, 0.f, 200.f);
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     if (draw_fluid_)

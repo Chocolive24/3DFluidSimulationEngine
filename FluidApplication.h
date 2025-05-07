@@ -82,6 +82,7 @@ private:
 
     int density_map_size = 64;
     float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
+    float bounds_size = sim_bounds.x;
 
     World* world_ = nullptr;
 

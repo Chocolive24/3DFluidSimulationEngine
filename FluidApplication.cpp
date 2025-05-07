@@ -73,95 +73,71 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     renderer_->RegisterParticleDensities(&particle_densities);
     renderer_->Init();
 
-    for (const auto& body : world_->_bodies)
-    {
-        if (!body.IsEnabled())
-        {
-            continue;
-        }
-
-        const float3 position{XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)};
-        const float3 velocity{XMVectorGetX(body.Velocity), XMVectorGetY(body.Velocity), XMVectorGetZ(body.Velocity)};
-        const float3 predictedPosition{
-            XMVectorGetX(body.PredictedPosition), XMVectorGetY(body.PredictedPosition), XMVectorGetZ(body.PredictedPosition)
-        };
-        const float3 force{XMVectorGetX(body._force), XMVectorGetY(body._force), XMVectorGetZ(body._force)};
-
-        const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
-        sphereNodeIDs.push_back(sphere_node_id);
-
-        ParticleBody pb{};
-        //pb.Position = XMFLOAT3{position.x, position.y, position.z};
-        pb.Position = position;
-        pb.Velocity = velocity;
-        pb.PredictedPosition = predictedPosition;
-        pb.Mass = body.Mass;
-        pb.Force = force;
-        particle_bodies_.push_back(pb);
-    }
-    
-    update_particle_bodies_pass_ =
-        ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang",
-            "updateBodies");
-
-    compute_neighbors_density_pass_ =
-        ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/DensityMap.cs.slang",
-            "computeNeighborsDensity");
-
-    bodies_buffer_ = make_ref<Buffer>(
-        getDevice(),
-        sizeof(particle_bodies_[0]),
-        particle_bodies_.size(),
-        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-        MemoryType::DeviceLocal,
-        particle_bodies_.data(),
-        false
-    );
-
-    readback_bodies_buffer_ = make_ref<Buffer>(
-        getDevice(),
-        sizeof(particle_bodies_[0]),
-        particle_bodies_.size(),
-        ResourceBindFlags::None, // No need for shader access
-        MemoryType::ReadBack,    // CPU-readable
-        nullptr,                 // No initial data
-        false
-    );
-
-    auto compute_var = update_particle_bodies_pass_->getRootVar();
-    compute_var["bodies"] = bodies_buffer_;
-
-    compute_var = compute_neighbors_density_pass_->getRootVar();
-    compute_var["bodies"] = bodies_buffer_;
-
-    // for (const auto& gd : sample_manager_.GetSampleData())
+    //for (const auto& body : world_->_bodies)
     //{
-    //     if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
-    //     {
-    //         auto& sphere_gd = std::get<SphereF>(gd.Shape);
-    //         const auto positionX = XMVectorGetX(sphere_gd.Center());
-    //         const auto positionY = XMVectorGetY(sphere_gd.Center());
-    //         const auto positionZ = XMVectorGetZ(sphere_gd.Center());
-
-    //        const float3 pos = float3(positionX, positionY, positionZ);
-
-    //        const auto sphere_node_id = renderer_->AddSphereToScene(pos, 1);
-    //        sphereNodeIDs.push_back(sphere_node_id);
-    //    }
-    //    /*else if (gd.Shape.index() == static_cast<int>(ShapeType::Cuboid))
+    //    if (!body.IsEnabled())
     //    {
-    //        auto& cube_gd = std::get<CuboidF>(gd.Shape);
-    //        const auto positionX = XMVectorGetX(cube_gd.Center());
-    //        const auto positionY = XMVectorGetY(cube_gd.Center());
-    //        const auto positionZ = XMVectorGetZ(cube_gd.Center());
+    //        continue;
+    //    }
 
-    //        const float3 pos = float3(positionX, positionY, positionZ);
+    //    const float3 position{XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)};
+    //    const float3 velocity{XMVectorGetX(body.Velocity), XMVectorGetY(body.Velocity), XMVectorGetZ(body.Velocity)};
+    //    const float3 predictedPosition{
+    //        XMVectorGetX(body.PredictedPosition), XMVectorGetY(body.PredictedPosition), XMVectorGetZ(body.PredictedPosition)
+    //    };
+    //    const float3 force{XMVectorGetX(body._force), XMVectorGetY(body._force), XMVectorGetZ(body._force)};
 
-    //        const auto cube_node_id = renderer_->AddCubeToScene(pos);
-    //    }*/
+    //    const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
+    //    sphereNodeIDs.push_back(sphere_node_id);
+
+    //    ParticleBody pb{};
+    //    //pb.Position = XMFLOAT3{position.x, position.y, position.z};
+    //    pb.Position = position;
+    //    pb.Velocity = velocity;
+    //    pb.PredictedPosition = predictedPosition;
+    //    pb.Mass = body.Mass;
+    //    pb.Force = force;
+    //    particle_bodies_.push_back(pb);
     //}
+    
+   /* update_particle_bodies_pass_ =
+        ComputePass::create(getDevice(),
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
+            "updateBodies");*/
+
+    //compute_neighbors_density_pass_ =
+    //    ComputePass::create(getDevice(),
+    //        "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
+    //        "computeNeighborsDensity");
+
+    //bodies_buffer_ = make_ref<Buffer>(
+    //    getDevice(),
+    //    sizeof(particle_bodies_[0]),
+    //    particle_bodies_.size(),
+    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+    //    MemoryType::DeviceLocal,
+    //    particle_bodies_.data(),
+    //    false
+    //);
+
+    //readback_bodies_buffer_ = make_ref<Buffer>(
+    //    getDevice(),
+    //    sizeof(particle_bodies_[0]),
+    //    particle_bodies_.size(),
+    //    ResourceBindFlags::None, // No need for shader access
+    //    MemoryType::ReadBack,    // CPU-readable
+    //    nullptr,                 // No initial data
+    //    false
+    //);
+
+    //auto compute_var = update_particle_bodies_pass_->getRootVar();
+    //compute_var["bodies"] = bodies_buffer_;
+
+    //compute_var = compute_neighbors_density_pass_->getRootVar();
+    //compute_var["bodies"] = bodies_buffer_;
+
+
+
 
     renderer_->CreateRaytracingProgram();
 }
@@ -213,61 +189,40 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     //     }
     // #endif
 
-    executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
+    //executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
 
-    executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
+    //executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
 
-    pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
+    //pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
-    const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
+    //const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
 
-    int sphere_iterator = 0;
-    for (uint32_t i = 0; i < particle_bodies_.size(); i++)
-    {
-        /*if (i % 15 == 0)
-        {
-            std::cout << body_data[i].Density << '\n';
-        }*/
-        
-
-        const auto pos = body_data[i].Position;
-
-        /*const auto positionX = XMVectorGetX(pos);
-        const auto positionY = XMVectorGetY(pos);
-        const auto positionZ = XMVectorGetZ(pos);*/
-
-        Transform transform;
-        transform.setTranslation(pos);
-        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-        transform.setScaling(float3(1.f, 1.f, 1.f));
-
-        // Update node transform
-        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-        sphere_iterator++;
-    }
-
-    readback_bodies_buffer_->unmap();
-
-    // int sphere_iterator = 0;
-    // for (const auto& gd : sample_manager_.GetSampleData())
+    //int sphere_iterator = 0;
+    //for (uint32_t i = 0; i < particle_bodies_.size(); i++)
     //{
-    //     if (gd.Shape.index() == static_cast<int>(ShapeType::Sphere))
-    //     {
-    //         const auto& sphere_gd = std::get<SphereF>(gd.Shape);
-    //         const auto positionX = XMVectorGetX(sphere_gd.Center());
-    //         const auto positionY = XMVectorGetY(sphere_gd.Center());
-    //         const auto positionZ = XMVectorGetZ(sphere_gd.Center());
+    //    /*if (i % 15 == 0)
+    //    {
+    //        std::cout << body_data[i].Density << '\n';
+    //    }*/
+    //    
 
-    //        Transform transform;
-    //        transform.setTranslation(float3(positionX, positionY, positionZ));
-    //        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    //        transform.setScaling(float3(1.f, 1.f, 1.f));
+    //    const auto pos = body_data[i].Position;
 
-    //        // Update node transform
-    //        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-    //        sphere_iterator++;
-    //    }
+    //    /*const auto positionX = XMVectorGetX(pos);
+    //    const auto positionY = XMVectorGetY(pos);
+    //    const auto positionZ = XMVectorGetZ(pos);*/
+
+    //    Transform transform;
+    //    transform.setTranslation(pos);
+    //    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //    transform.setScaling(float3(1.f, 1.f, 1.f));
+
+    //    // Update node transform
+    //    renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+    //    sphere_iterator++;
     //}
+
+    //readback_bodies_buffer_->unmap();
 
     renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime());
 
