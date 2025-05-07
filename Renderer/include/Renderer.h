@@ -7,13 +7,27 @@
 
 using namespace Falcor;
 
+struct MarchingCubeVertex
+{
+    float3 position{-20000.f};
+    // float3 normal;
+    // int2 id;
+};
+
+struct MarchingCubesTriangle
+{
+    MarchingCubeVertex vertexA;
+    MarchingCubeVertex vertexB;
+    MarchingCubeVertex vertexC;
+};
+
 class Renderer
 {
 public:
     Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept;
 
-    void Init() noexcept;
-    void RenderFrame(RenderContext* pRenderContext, const double& currentTime) const noexcept;
+    void Init(RenderContext* render_context) noexcept;
+    void RenderFrame(RenderContext* pRenderContext, const double& currentTime) noexcept;
     void RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept;
     void OnResize(uint32_t width, uint32_t height) noexcept;
     [[nodiscard]] bool onKeyEvent(const KeyboardEvent& keyEvent) const noexcept;
@@ -73,12 +87,18 @@ private:
 
     MeshID sphere_mesh_id;
     MeshID cube_mesh_id;
+    MeshID marching_cubes_mesh_id_;
+
+    //ref<Material> dielectric_blue;
 
     float DensityDepth = 1;
 
     bool draw_fluid_ = false;
 
     ref<ComputePass> compute_density_map_pass_ = nullptr;
+    ref<ComputePass> marching_cubes_pass_ = nullptr;
+    ref<Buffer> marching_cubes_triangle_buffer_ = nullptr;
+    ref<Buffer> read_back_triangle_buffer_ = nullptr;
     //ref<Texture> density_3d_tex_ = nullptr;
 
     //bool mUseDOF = false;
@@ -91,7 +111,9 @@ private:
     int density_map_size = 64;
     float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
-    float SphereRadius = 50.f;
+    int numPointsPerAxis = 64;
+    int IsoLevel = 0;;
+    float SphereRadius = 135.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
 

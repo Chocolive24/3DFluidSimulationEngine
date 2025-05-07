@@ -27,6 +27,18 @@
  **************************************************************************/
 import MarchTables;
 
+struct Vertex {
+    float3 position = float3(-20000.f, 0.f, 0.f);
+    // float3 normal;
+    // int2 id;
+};
+
+struct Triangle {
+    Vertex vertexA;
+    Vertex vertexB;
+    Vertex vertexC;
+};
+
 AppendStructuredBuffer<Triangle> triangles;
 RWTexture3D<float> DensityTexture;
 
@@ -39,17 +51,7 @@ cbuffer PerFrameCB
     float SphereRadius;
 }
 
-struct Vertex {
-    float3 position;
-    // float3 normal;
-    // int2 id;
-};
 
-struct Triangle {
-    Vertex vertexA;
-    Vertex vertexB;
-    Vertex vertexC;
-};
 
 [numthreads(8, 8, 8)]
 void ComputeDensityTexture(uint3 threadID: SV_DispatchThreadID)
@@ -63,7 +65,11 @@ void ComputeDensityTexture(uint3 threadID: SV_DispatchThreadID)
 
 float sampleDensity(int3 position)
 {
-    return 1.f;
+    // Bounds check
+    if (any(position < 0) || any(position >= textureSize))
+        return 0;
+
+    return DensityTexture.Load(position); // mip level 0
 }
 
 [numthreads(8, 8, 8)]
@@ -129,9 +135,9 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
 
         // Create triangle
         Triangle tri;
-        tri.vertexA = vertexC;
+        tri.vertexA = vertexA;
         tri.vertexB = vertexB;
-        tri.vertexC = vertexA;
+        tri.vertexC = vertexC;
         triangles.Append(tri);
     }
 }

@@ -71,7 +71,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     //}
 
     renderer_->RegisterParticleDensities(&particle_densities);
-    renderer_->Init();
+    renderer_->Init(getRenderContext());
 
     //for (const auto& body : world_->_bodies)
     //{
