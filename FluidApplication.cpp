@@ -115,6 +115,11 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
             "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
             "computeNeighborsPressure");
 
+     compute_neighbors_viscosity_pass_ =
+        ComputePass::create(getDevice(),
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
+            "computeNeighborsViscosity");
+
     bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
         sizeof(particle_bodies_[0]),
@@ -144,6 +149,9 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     compute_var = compute_neighbors_pressure_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
 
+    compute_var = compute_neighbors_viscosity_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+
     renderer_->CreateRaytracingProgram();
 }
 
@@ -158,12 +166,14 @@ void FluidApplication::executeParticleComputePass(const ref<ComputePass>& comput
 {
     const auto compute_var = compute_pass->getRootVar();
     //compute_var["bodies"] = bodies_buffer_;
+    compute_var["PerFrameCB"]["wallDist"] = Metrics::WALLDIST;
     compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
-    compute_var["PerFrameCB"]["nbParticles"] = numBodies;
+    compute_var["PerFrameCB"]["nbParticles"] = Metrics::NbParticles;
     compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
     compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
     compute_var["PerFrameCB"]["targetDensity"] = SPH::TargetDensity;
     compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
+    compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
 
     compute_pass->execute(pRenderContext, total_threads_x, 1, 1);
 }
@@ -206,6 +216,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
         executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
         executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);
+        executeParticleComputePass(compute_neighbors_viscosity_pass_, pRenderContext, totalThreadsX);
 
         fixed_timer_ -= kFixedDeltaTime;
         time_since_last_fixed_update_ = 0.f;

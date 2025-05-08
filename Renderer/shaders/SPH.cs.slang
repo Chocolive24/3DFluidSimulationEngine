@@ -33,12 +33,14 @@ cbuffer PerFrameCB
 {
     int densityMapSize;
     float3 simBounds;
+    float wallDist;
     float deltaTime;
     int nbParticles;
     float gravity;
     float smoothingRadius;
     float targetDensity;
     float pressureMultiplier;
+    float viscosityStrength;
 }
 
 struct ParticleBody {
@@ -63,7 +65,6 @@ struct ParticleBody {
 
 RWStructuredBuffer<ParticleBody> bodies;
 
-static const float WALLDIST = 100;
 static const float PI = 3.14159265359;
 
 void ApplyForce(inout ParticleBody Particlebody, float3 force) {
@@ -71,33 +72,32 @@ void ApplyForce(inout ParticleBody Particlebody, float3 force) {
 }
 
 void SimulationBounds(inout ParticleBody Particlebody) {
-
-    if (Particlebody.Position.x <= -WALLDIST)
+    if (Particlebody.Position.x <= -wallDist)
     {
         Particlebody.Velocity.x = abs(Particlebody.Velocity.x);
         //Particlebody.Position.x = -WALLDIST;
     }
-    else if (Particlebody.Position.x >= WALLDIST)
+    else if (Particlebody.Position.x >= wallDist)
     {
         Particlebody.Velocity.x = -abs(Particlebody.Velocity.x);
         //Particlebody.Position.x = WALLDIST;
     }
-    if (Particlebody.Position.y <= -WALLDIST)
+    if (Particlebody.Position.y <= -wallDist)
     {
         Particlebody.Velocity.y = abs(Particlebody.Velocity.y);
-        Particlebody.Position.y = -WALLDIST;
+        Particlebody.Position.y = -wallDist;
     }
-    else if (Particlebody.Position.y >= WALLDIST)
+    else if (Particlebody.Position.y >= wallDist)
     {
         Particlebody.Velocity.y = -abs(Particlebody.Velocity.y);
         //Particlebody.Position.y = WALLDIST;
     }
-    if (Particlebody.Position.z <= -WALLDIST)
+    if (Particlebody.Position.z <= -wallDist)
     {
         Particlebody.Velocity.z = abs(Particlebody.Velocity.z);
         //Particlebody.Position.z = -WALLDIST;
     }
-    else if (Particlebody.Position.z >= WALLDIST)
+    else if (Particlebody.Position.z >= wallDist)
     {
         Particlebody.Velocity.z = -abs(Particlebody.Velocity.z);
         //Particlebody.Position.z = WALLDIST;
@@ -225,6 +225,38 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
 
     ApplyForce(particlebody, pressureForce / particlebody.Density);
    
+    bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
+}
+
+[numthreads(64, 1, 1)]
+void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
+{
+    if (threadID.x >= nbParticles) return; // Ensure we do not go out of bounds
+
+    ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
+
+    //std::vector<BodyRef> neighbors = grid.findNeighbors(data.Position);
+
+    float3 viscosityForce = float3(0, 0, 0);
+
+    for (int i = 0; i < nbParticles; i++)
+    {
+        if (i == threadID.x)
+            continue;
+
+        ParticleBody otherParticleBody = bodies[i];
+
+        float3 r = particlebody.Position - otherParticleBody.Position;
+        float distance = length(r);
+
+        if (distance > smoothingRadius) continue;
+
+        float influence = SmoothingKernel(smoothingRadius, distance);
+        viscosityForce += (otherParticleBody.Velocity - particlebody.Velocity) * influence * particlebody.Mass;
+    }
+
+    ApplyForce(particlebody, viscosityForce * viscosityStrength);
+
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 }
 

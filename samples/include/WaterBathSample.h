@@ -4,9 +4,7 @@
 #include "PhysicsSample.h"
 #include "Random.h"
 
-static constexpr float WALLSIZE = Metrics::MetersToPixels(0.1f);
-static constexpr float WALLDIST = Metrics::MetersToPixels(1.0f);
-static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.05f);
+using namespace Metrics;
 
 class WaterBathSample : public PhysicsSample, public ContactListener
 {
@@ -14,8 +12,6 @@ private:
 	std::vector<GraphicsData> _quadTreeGraphicsData;
         std::vector<float> _particle_densities{};
 public:
-
-	int NbParticles = 1024;
 
 	std::string GetName() noexcept override;
 	std::string GetDescription() noexcept override;

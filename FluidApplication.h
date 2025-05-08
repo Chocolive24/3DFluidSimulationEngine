@@ -81,7 +81,7 @@ private:
     std::vector<NodeID> sphereNodeIDs;
 
     int density_map_size = 64;
-    float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
+    float3 sim_bounds = float3(Metrics::WALLDIST) * 2.f;
     float bounds_size = sim_bounds.x;
 
     World* world_ = nullptr;
@@ -93,13 +93,12 @@ private:
     ref<ComputePass> update_particle_bodies_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_density_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_pressure_pass_ = nullptr;
+    ref<ComputePass> compute_neighbors_viscosity_pass_ = nullptr;
     ref<Buffer> bodies_buffer_ = nullptr;
     ref<Buffer> readback_bodies_buffer_ = nullptr;
 
     std::vector<ParticleBody> particle_bodies_{};
 
-    static constexpr uint32_t numBodies = 1024;
-    static constexpr uint32_t groupSize = 64;
-
-    static constexpr uint32_t totalThreadsX = ((numBodies + groupSize - 1) / groupSize) * groupSize;
+    uint32_t groupSize = 64;
+    uint32_t totalThreadsX = ((Metrics::NbParticles + groupSize - 1) / groupSize) * groupSize;
 };
