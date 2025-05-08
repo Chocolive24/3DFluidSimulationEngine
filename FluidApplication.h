@@ -86,8 +86,13 @@ private:
 
     World* world_ = nullptr;
 
+    static constexpr float kFixedDeltaTime = 1.f / 60.f;
+    float fixed_timer_ = kFixedDeltaTime;
+    float time_since_last_fixed_update_ = 0.f;
+
     ref<ComputePass> update_particle_bodies_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_density_pass_ = nullptr;
+    ref<ComputePass> compute_neighbors_pressure_pass_ = nullptr;
     ref<Buffer> bodies_buffer_ = nullptr;
     ref<Buffer> readback_bodies_buffer_ = nullptr;
 

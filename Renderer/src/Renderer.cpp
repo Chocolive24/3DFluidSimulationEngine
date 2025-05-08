@@ -282,11 +282,9 @@ void Renderer::Init(RenderContext* render_context) noexcept
             "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang",
             "ProcessCube");
 
-  /*  auto compute_var = compute_density_map_pass_->getRootVar();
+    auto compute_var = compute_density_map_pass_->getRootVar();
     compute_var["DensityTexture"] = density_3d_tex_;
     compute_var["triangles"] = marching_cubes_triangle_buffer_;
-
-    
 
     compute_var = marching_cubes_pass_->getRootVar();
     compute_var["DensityTexture"] = density_3d_tex_;
@@ -312,7 +310,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
 
     render_context->copyResource(read_back_triangle_buffer_.get(), marching_cubes_triangle_buffer_.get());
 
-    const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());*/
+    const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
 
  /*   for (int i = 0; i < maxTriangleCount; i++)
     {

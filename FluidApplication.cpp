@@ -110,6 +110,11 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
             "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
             "computeNeighborsDensity");
 
+    compute_neighbors_pressure_pass_ =
+        ComputePass::create(getDevice(),
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
+            "computeNeighborsPressure");
+
     bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
         sizeof(particle_bodies_[0]),
@@ -136,6 +141,9 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     compute_var = compute_neighbors_density_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
 
+    compute_var = compute_neighbors_pressure_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+
     renderer_->CreateRaytracingProgram();
 }
 
@@ -152,7 +160,10 @@ void FluidApplication::executeParticleComputePass(const ref<ComputePass>& comput
     //compute_var["bodies"] = bodies_buffer_;
     compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
     compute_var["PerFrameCB"]["nbParticles"] = numBodies;
+    compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
     compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
+    compute_var["PerFrameCB"]["targetDensity"] = SPH::TargetDensity;
+    compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
 
     compute_pass->execute(pRenderContext, total_threads_x, 1, 1);
 }
@@ -186,9 +197,19 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     //     }
     // #endif
 
-    executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
+    const auto delta_time = getGlobalClock().getDelta();
+    fixed_timer_ += delta_time;
+    time_since_last_fixed_update_ += delta_time;
 
-    executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
+    while (fixed_timer_ >= kFixedDeltaTime)
+    {
+        executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
+        executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
+        executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);
+
+        fixed_timer_ -= kFixedDeltaTime;
+        time_since_last_fixed_update_ = 0.f;
+    }
 
     pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
@@ -197,12 +218,6 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     int sphere_iterator = 0;
     for (uint32_t i = 0; i < particle_bodies_.size(); i++)
     {
-        if (i % 20 == 0)
-        {
-            std::cout << body_data[i].Density << '\n';
-        }
-        
-
         const auto pos = body_data[i].Position;
 
         /*const auto positionX = XMVectorGetX(pos);
