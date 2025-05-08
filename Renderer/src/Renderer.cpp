@@ -370,52 +370,56 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
 {
     pRenderContext->clearFbo(target_fbo_.get(), float4(bg_clear_color, 1), 1.0f, 0, FboAttachmentType::All);
 
-    static bool marchingCubes = false;
+    //static bool marchingCubes = false;
 
-    if (!marchingCubes)
-    {
-        //marchingCubes = true;
+    //if (!marchingCubes)
+    //{
+    //    //marchingCubes = true;
 
-        auto compute_var = compute_density_map_pass_->getRootVar();
-        compute_var["DensityTexture"] = density_3d_tex_;
-        compute_var["triangles"] = marching_cubes_triangle_buffer_;
+    //     // 1) Clear the hidden append-counter.  Must happen *before* you dispatch.
+    //    pRenderContext->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
 
-        compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
-        compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
-        compute_var["PerFrameCB"]["textureSize"] = density_map_size;
-        compute_var["PerFrameCB"]["boundSize"] = sim_bounds.x;
-        compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
+    //    auto compute_var = compute_density_map_pass_->getRootVar();
+    //    compute_var["DensityTexture"] = density_3d_tex_;
+    //    //compute_var["triangles"] = marching_cubes_triangle_buffer_;
 
-        compute_density_map_pass_->execute(pRenderContext, 64, 64, 64);
+    //    /*compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
+    //    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;*/
+    //    compute_var["PerFrameCB"]["textureSize"] = density_map_size;
+    //    compute_var["PerFrameCB"]["boundSize"] = sim_bounds.x;
+    //    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
 
-        // 1) Clear the hidden append-counter.  Must happen *before* you dispatch.
-        pRenderContext->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
+    //    compute_density_map_pass_->execute(pRenderContext, 64, 64, 64);
 
-        compute_var = marching_cubes_pass_->getRootVar();
-        compute_var["DensityTexture"] = density_3d_tex_;
-        compute_var["triangles"] = marching_cubes_triangle_buffer_;
+    //    compute_var = marching_cubes_pass_->getRootVar();
+    //    compute_var["DensityTexture"] = density_3d_tex_;
+    //    compute_var["triangles"] = marching_cubes_triangle_buffer_;
 
-        compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
-        compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
-        compute_var["PerFrameCB"]["textureSize"] = density_map_size;
-        compute_var["PerFrameCB"]["boundSize"] = sim_bounds.x;
-        compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
+    //    compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
+    //    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
+    //    compute_var["PerFrameCB"]["textureSize"] = density_map_size;
+    //    compute_var["PerFrameCB"]["boundSize"] = sim_bounds.x;
+    //    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
 
-        marching_cubes_pass_->execute(pRenderContext, 64, 64, 64);
+    //    marching_cubes_pass_->execute(pRenderContext, 64, 64, 64);
 
-        //TODO: suivre chatgpt -> UAVCounter est un buffer, il faut donc lire dedans, pas simplement le print
-        //TODO: capter pk frame 0 ne marche pas pour l'algo marching cubes.
+    //    //TODO: suivre chatgpt -> UAVCounter est un buffer, il faut donc lire dedans, pas simplement le print
+    //    //TODO: capter pk frame 0 ne marche pas pour l'algo marching cubes.
+    //    //TODO: voir script GenTest.cs de seb lague, il fait un buffer pour copier le nbr de triangles
+    //    //TODO: ATTENTION au memory layout de MarchCUbeTriangle. ca doit être 3x16 = 48. actuellemtn c'est 36 sur CPU.
+    //    //TODO: https://chatgpt.com/c/681b50ec-3ed0-8003-913f-bb3f1dec326c
 
-        std::cout << "UAV counter: " << marching_cubes_triangle_buffer_->getUAVCounter() << '\n';
+    //    std::cout << "UAV counter: " << marching_cubes_triangle_buffer_->getUAVCounter()->getElement<uint>(0)
+    //    << '\n';
 
-        pRenderContext->copyResource(read_back_triangle_buffer_.get(), marching_cubes_triangle_buffer_.get());
+    //    pRenderContext->copyResource(read_back_triangle_buffer_.get(), marching_cubes_triangle_buffer_.get());
 
-        const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
+    //    const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
 
-        std::cout << triangles[100].vertexA.position.x << '\n';
-        std::cout << triangles[500].vertexA.position.x << '\n';
-        std::cout << triangles[324].vertexA.position.x << '\n';
-    }
+    //    std::cout << triangles[100].vertexA.position.x << '\n';
+    //    std::cout << triangles[500].vertexA.position.x << '\n';
+    //    std::cout << triangles[324].vertexA.position.x << '\n';
+    //}
 
   
 

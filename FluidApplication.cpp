@@ -73,71 +73,68 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     renderer_->RegisterParticleDensities(&particle_densities);
     renderer_->Init(getRenderContext());
 
-    //for (const auto& body : world_->_bodies)
-    //{
-    //    if (!body.IsEnabled())
-    //    {
-    //        continue;
-    //    }
+    for (const auto& body : world_->_bodies)
+    {
+        if (!body.IsEnabled())
+        {
+            continue;
+        }
 
-    //    const float3 position{XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)};
-    //    const float3 velocity{XMVectorGetX(body.Velocity), XMVectorGetY(body.Velocity), XMVectorGetZ(body.Velocity)};
-    //    const float3 predictedPosition{
-    //        XMVectorGetX(body.PredictedPosition), XMVectorGetY(body.PredictedPosition), XMVectorGetZ(body.PredictedPosition)
-    //    };
-    //    const float3 force{XMVectorGetX(body._force), XMVectorGetY(body._force), XMVectorGetZ(body._force)};
+        const float3 position{XMVectorGetX(body.Position), XMVectorGetY(body.Position), XMVectorGetZ(body.Position)};
+        const float3 velocity{XMVectorGetX(body.Velocity), XMVectorGetY(body.Velocity), XMVectorGetZ(body.Velocity)};
+        const float3 predictedPosition{
+            XMVectorGetX(body.PredictedPosition), XMVectorGetY(body.PredictedPosition), XMVectorGetZ(body.PredictedPosition)
+        };
+        const float3 force{XMVectorGetX(body._force), XMVectorGetY(body._force), XMVectorGetZ(body._force)};
 
-    //    const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
-    //    sphereNodeIDs.push_back(sphere_node_id);
+        const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
+        sphereNodeIDs.push_back(sphere_node_id);
 
-    //    ParticleBody pb{};
-    //    //pb.Position = XMFLOAT3{position.x, position.y, position.z};
-    //    pb.Position = position;
-    //    pb.Velocity = velocity;
-    //    pb.PredictedPosition = predictedPosition;
-    //    pb.Mass = body.Mass;
-    //    pb.Force = force;
-    //    particle_bodies_.push_back(pb);
-    //}
+        ParticleBody pb{};
+        //pb.Position = XMFLOAT3{position.x, position.y, position.z};
+        pb.Position = position;
+        pb.Velocity = velocity;
+        pb.PredictedPosition = predictedPosition;
+        pb.Mass = body.Mass;
+        pb.Force = force;
+        particle_bodies_.push_back(pb);
+    }
     
-   /* update_particle_bodies_pass_ =
+   update_particle_bodies_pass_ =
         ComputePass::create(getDevice(),
             "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-            "updateBodies");*/
+            "updateBodies");
 
-    //compute_neighbors_density_pass_ =
-    //    ComputePass::create(getDevice(),
-    //        "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-    //        "computeNeighborsDensity");
+    compute_neighbors_density_pass_ =
+        ComputePass::create(getDevice(),
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
+            "computeNeighborsDensity");
 
-    //bodies_buffer_ = make_ref<Buffer>(
-    //    getDevice(),
-    //    sizeof(particle_bodies_[0]),
-    //    particle_bodies_.size(),
-    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //    MemoryType::DeviceLocal,
-    //    particle_bodies_.data(),
-    //    false
-    //);
+    bodies_buffer_ = make_ref<Buffer>(
+        getDevice(),
+        sizeof(particle_bodies_[0]),
+        particle_bodies_.size(),
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::DeviceLocal,
+        particle_bodies_.data(),
+        false
+    );
 
-    //readback_bodies_buffer_ = make_ref<Buffer>(
-    //    getDevice(),
-    //    sizeof(particle_bodies_[0]),
-    //    particle_bodies_.size(),
-    //    ResourceBindFlags::None, // No need for shader access
-    //    MemoryType::ReadBack,    // CPU-readable
-    //    nullptr,                 // No initial data
-    //    false
-    //);
+    readback_bodies_buffer_ = make_ref<Buffer>(
+        getDevice(),
+        sizeof(particle_bodies_[0]),
+        particle_bodies_.size(),
+        ResourceBindFlags::None, // No need for shader access
+        MemoryType::ReadBack,    // CPU-readable
+        nullptr,                 // No initial data
+        false
+    );
 
-    //auto compute_var = update_particle_bodies_pass_->getRootVar();
-    //compute_var["bodies"] = bodies_buffer_;
+    auto compute_var = update_particle_bodies_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
 
-    //compute_var = compute_neighbors_density_pass_->getRootVar();
-    //compute_var["bodies"] = bodies_buffer_;
-
-
-
+    compute_var = compute_neighbors_density_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
 
     renderer_->CreateRaytracingProgram();
 }
@@ -189,40 +186,40 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     //     }
     // #endif
 
-    //executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
+    executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
 
-    //executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
+    executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
 
-    //pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
+    pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
-    //const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
+    const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
 
-    //int sphere_iterator = 0;
-    //for (uint32_t i = 0; i < particle_bodies_.size(); i++)
-    //{
-    //    /*if (i % 15 == 0)
-    //    {
-    //        std::cout << body_data[i].Density << '\n';
-    //    }*/
-    //    
+    int sphere_iterator = 0;
+    for (uint32_t i = 0; i < particle_bodies_.size(); i++)
+    {
+        if (i % 20 == 0)
+        {
+            std::cout << body_data[i].Density << '\n';
+        }
+        
 
-    //    const auto pos = body_data[i].Position;
+        const auto pos = body_data[i].Position;
 
-    //    /*const auto positionX = XMVectorGetX(pos);
-    //    const auto positionY = XMVectorGetY(pos);
-    //    const auto positionZ = XMVectorGetZ(pos);*/
+        /*const auto positionX = XMVectorGetX(pos);
+        const auto positionY = XMVectorGetY(pos);
+        const auto positionZ = XMVectorGetZ(pos);*/
 
-    //    Transform transform;
-    //    transform.setTranslation(pos);
-    //    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    //    transform.setScaling(float3(1.f, 1.f, 1.f));
+        Transform transform;
+        transform.setTranslation(pos);
+        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+        transform.setScaling(float3(1.f, 1.f, 1.f));
 
-    //    // Update node transform
-    //    renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-    //    sphere_iterator++;
-    //}
+        // Update node transform
+        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+        sphere_iterator++;
+    }
 
-    //readback_bodies_buffer_->unmap();
+    readback_bodies_buffer_->unmap();
 
     renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime());
 

@@ -9,7 +9,8 @@ using namespace Falcor;
 
 struct MarchingCubeVertex
 {
-    float3 position{-20000.f};
+    float3 position{-300.f};
+    float pad0;
     // float3 normal;
     // int2 id;
 };

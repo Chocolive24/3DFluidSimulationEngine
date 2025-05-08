@@ -29,6 +29,7 @@ import MarchTables;
 
 struct Vertex {
     float3 position = float3(-20000.f, 0.f, 0.f);
+    float pad0 = -1.f;
     // float3 normal;
     // int2 id;
 };

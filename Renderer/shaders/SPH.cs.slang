@@ -38,8 +38,6 @@ cbuffer PerFrameCB
     float smoothingRadius;
 }
 
-enum class BodyType { DYNAMIC, STATIC, FLUID, NONE };
-
 struct ParticleBody {
     float3 Position = float3(0.f, 0.f, 0.f);
     float Density = 1.0f;
@@ -55,19 +53,19 @@ struct ParticleBody {
     // 16 bytes
     float SmoothingLength = 1.0f;
     float Viscosity = 0.1f;
-    float pad1;
-    float pad2;
+    float pad1 = -1.f;
+    float pad2 = -1.f;
     // 16 bytes
 };
 
 RWStructuredBuffer<ParticleBody> bodies;
 
+static const float WALLDIST = 100;
+static const float PI = 3.14159265359;
+
 void ApplyForce(inout ParticleBody Particlebody, float3 force) {
     Particlebody.Force += force;
 }
-
-static const float WALLDIST = 100;
-static const float PI = 3.14159265359;
 
 void SimulationBounds(inout ParticleBody Particlebody) {
 
