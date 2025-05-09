@@ -47,30 +47,6 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     sample_manager_.SetUp();
     world_ = &sample_manager_.GetWorldRef();
 
-    particle_densities.resize(density_map_size * density_map_size * density_map_size);
-
-    // for (int z = 0; z < density_map_size; ++z)
-    //{
-    //     for (int y = 0; y < density_map_size; ++y)
-    //     {
-    //         for (int x = 0; x < density_map_size; ++x)
-    //         {
-    //             // float3 id = float3(x, y, z);
-    //             // float3 texturePos = id / float3(density_map_size - 1);      // normalized [0,1]
-    //             // float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
-
-    //            //// TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
-
-    //            // XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
-
-    //            // float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
-    //            size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
-    //            particle_densities[index] = Random::Range(0.f, 1.f);
-    //        }
-    //    }
-    //}
-
-    renderer_->RegisterParticleDensities(&particle_densities);
     renderer_->Init(getRenderContext());
 
     for (const auto& body : world_->_bodies)
@@ -87,8 +63,8 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         };
         const float3 force{XMVectorGetX(body._force), XMVectorGetY(body._force), XMVectorGetZ(body._force)};
 
-        const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
-        sphereNodeIDs.push_back(sphere_node_id);
+        /*const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
+        sphereNodeIDs.push_back(sphere_node_id);*/
 
         ParticleBody pb{};
         //pb.Position = XMFLOAT3{position.x, position.y, position.z};
@@ -119,6 +95,8 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         ComputePass::create(getDevice(),
             "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
             "computeNeighborsViscosity");
+
+
 
     bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
@@ -152,7 +130,21 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     compute_var = compute_neighbors_viscosity_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
 
+
+
+    //readbackTexture = make_ref<Buffer>(
+    //    getDevice(),
+    //    sizeof(float),
+    //    density_map_size * density_map_size * density_map_size,
+    //    ResourceBindFlags::None, // No need for shader access
+    //    MemoryType::ReadBack,    // CPU-readable
+    //    nullptr,                 // No initial data
+    //    false
+    //);
+
     renderer_->CreateRaytracingProgram();
+
+    //renderer_->LaunchMarchingCubeComputePasses(getRenderContext());
 }
 
 void FluidApplication::onResize(uint32_t width, uint32_t height)
@@ -162,51 +154,30 @@ void FluidApplication::onResize(uint32_t width, uint32_t height)
 
 void FluidApplication::executeParticleComputePass(const ref<ComputePass>& compute_pass,
     RenderContext* pRenderContext,
-    const uint32_t total_threads_x) const noexcept
+    const uint32_t total_threads_x,
+    const uint32_t total_threads_y,
+    const uint32_t total_threads_z) const noexcept
 {
     const auto compute_var = compute_pass->getRootVar();
-    //compute_var["bodies"] = bodies_buffer_;
+    //compute_var["gTexture3D"] = density_map_;
+
+    compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
+    compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
     compute_var["PerFrameCB"]["wallDist"] = Metrics::WALLDIST;
-    compute_var["PerFrameCB"]["deltaTime"] = 1.f / 60.f;
+    compute_var["PerFrameCB"]["fixedDeltaTime"] = kFixedDeltaTime;
     compute_var["PerFrameCB"]["nbParticles"] = Metrics::NbParticles;
     compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
     compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
     compute_var["PerFrameCB"]["targetDensity"] = SPH::TargetDensity;
     compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
     compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
+    compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = densityGraphicsMultiplier;
 
-    compute_pass->execute(pRenderContext, total_threads_x, 1, 1);
+    compute_pass->execute(pRenderContext, total_threads_x, total_threads_y, total_threads_z);
 }
 
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
-    //sample_manager_.UpdateSample();
-
-    // #ifdef TRACY_ENABLE
-    //     ZoneScoped;
-    //
-    //     for (int z = 0; z < density_map_size; ++z)
-    //     {
-    //         for (int y = 0; y < density_map_size; ++y)
-    //         {
-    //             for (int x = 0; x < density_map_size; ++x)
-    //             {
-    //                 float3 id = float3(x, y, z);
-    //                 float3 texturePos = id / float3(density_map_size - 1);      // normalized [0,1]
-    //                 float3 worldPos = -(sim_bounds * 0.5f) + texturePos * sim_bounds; // map to [-100,100]
-    //
-    //                 // TODO: peut être ? mettre world pos en Meters (PixelsTOMEters).
-    //
-    //                 XMVECTOR xm_pos{worldPos.x, worldPos.y, worldPos.z};
-    //
-    //                 float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
-    //                 size_t index = x + y * density_map_size + z * density_map_size * density_map_size;
-    //                 particle_densities[index] = density;
-    //             }
-    //         }
-    //     }
-    // #endif
-
     const auto delta_time = getGlobalClock().getDelta();
     fixed_timer_ += delta_time;
     time_since_last_fixed_update_ += delta_time;
@@ -222,32 +193,31 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         time_since_last_fixed_update_ = 0.f;
     }
 
-    pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
+    //pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
-    const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
+    //const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
 
-    int sphere_iterator = 0;
-    for (uint32_t i = 0; i < particle_bodies_.size(); i++)
-    {
-        const auto pos = body_data[i].Position;
+    //int sphere_iterator = 0;
+    //for (uint32_t i = 0; i < particle_bodies_.size(); i++)
+    //{
+    //    const auto pos = body_data[i].Position;
 
-        /*const auto positionX = XMVectorGetX(pos);
-        const auto positionY = XMVectorGetY(pos);
-        const auto positionZ = XMVectorGetZ(pos);*/
+    //    Transform transform;
+    //    transform.setTranslation(pos);
+    //    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //    transform.setScaling(float3(1.f, 1.f, 1.f));
 
-        Transform transform;
-        transform.setTranslation(pos);
-        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-        transform.setScaling(float3(1.f, 1.f, 1.f));
+    //    // Update node transform
+    //    renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+    //    sphere_iterator++;
+    //}
 
-        // Update node transform
-        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-        sphere_iterator++;
-    }
+    //readback_bodies_buffer_->unmap();
 
-    readback_bodies_buffer_->unmap();
+    //executeParticleComputePass(compute_density_map_pass_, pRenderContext,
+    //    density_map_size, density_map_size, density_map_size);
 
-    renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime());
+    renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime(), bodies_buffer_);
 
     getTextRenderer().render(pRenderContext, getFrameRate().getMsg(), pTargetFbo, {20, 20});
 

@@ -71,22 +71,24 @@ public:
 
 private:
     void executeParticleComputePass(const ref<ComputePass>& compute_pass,
-        RenderContext* pRenderContext, uint32_t total_threads_x) const noexcept;
+        RenderContext* pRenderContext,
+        uint32_t total_threads_x,
+        const uint32_t total_threads_y = 1,
+        const uint32_t total_threads_z = 1) const noexcept;
     void renderPhysicsSampleGui();
 
     std::unique_ptr<Renderer> renderer_ = nullptr;
     SampleManager sample_manager_;
 
-    std::vector<float> particle_densities{};
     std::vector<NodeID> sphereNodeIDs;
 
-    int density_map_size = 64;
-    float3 sim_bounds = float3(Metrics::WALLDIST) * 2.f;
-    float bounds_size = sim_bounds.x;
+    //int density_map_size = 64;
+    //float3 sim_bounds = float3(Metrics::WALLDIST) * 2.f;
+    //float bounds_size = sim_bounds.x;
 
     World* world_ = nullptr;
 
-    static constexpr float kFixedDeltaTime = 1.f / 60.f;
+
     float fixed_timer_ = kFixedDeltaTime;
     float time_since_last_fixed_update_ = 0.f;
 
@@ -96,6 +98,9 @@ private:
     ref<ComputePass> compute_neighbors_viscosity_pass_ = nullptr;
     ref<Buffer> bodies_buffer_ = nullptr;
     ref<Buffer> readback_bodies_buffer_ = nullptr;
+
+    //ref<ComputePass> compute_density_map_pass_ = nullptr;
+    //ref<Texture> density_map_;
 
     std::vector<ParticleBody> particle_bodies_{};
 

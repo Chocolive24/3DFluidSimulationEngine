@@ -25,25 +25,31 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-RWTexture3D<float> gTexture3D;
+static const int3 offsets[27] = {
+{ -1, -1, -1 }, { -1, -1, 0 }, { -1, -1, 1 }, { -1, 0, -1 }, { -1, 0, 0 },  { -1, 0, 1 }, { -1, 1, -1 }, { -1, 1, 0 },   { -1, 1, 1 },
+{ 0, -1, -1 }, { 0, -1, 0 },  { 0, -1, 1 },  { 0, 0, -1 }, { 0, 0, 0 }, { 0, 0, 1 },    { 0, 1, -1 },  { 0, 1, 0 },   { 0, 1, 1 },
+{ 1, -1, -1 }, { 1, -1, 0 }, { 1, -1, 1 }, { 1, 0, -1 },   { 1, 0, 0 },   { 1, 0, 1 },   { 1, 1, -1 },  { 1, 1, 0 },   { 1, 1, 1 }
+};
 
-StructuredBuffer<float> particleDensities;
+RWTexture3D<float> gTexture3D;
 
 cbuffer PerFrameCB
 {
     int densityMapSize;
     float3 simBounds;
     float wallDist;
-    float deltaTime;
+    float fixedDeltaTime;
     int nbParticles;
     float gravity;
     float smoothingRadius;
     float targetDensity;
     float pressureMultiplier;
     float viscosityStrength;
+    float densityGraphicsMultiplier;
 }
 
-struct ParticleBody {
+struct ParticleBody 
+{
     float3 Position = float3(0.f, 0.f, 0.f);
     float Density = 1.0f;
     // 16 bytes
@@ -66,6 +72,12 @@ struct ParticleBody {
 RWStructuredBuffer<ParticleBody> bodies;
 
 static const float PI = 3.14159265359;
+
+struct GridCell
+{
+    float3 position = float3(0, 0, 0);
+    RWStructuredBuffer<ParticleBody> bodies;
+}
 
 void ApplyForce(inout ParticleBody Particlebody, float3 force) {
     Particlebody.Force += force;
@@ -116,8 +128,8 @@ void updateBodies(uint3 threadID: SV_DispatchThreadID)
     ApplyForce(particlebody, float3(0, -gravity, 0));                       // Apply gravity
     float3 acceleration = particlebody.Force * (1 / particlebody.Mass); // Calculate acceleration
 
-    particlebody.Velocity += acceleration * deltaTime;          // Update velocity
-    particlebody.Position += particlebody.Velocity * deltaTime; // Update position
+    particlebody.Velocity += acceleration * fixedDeltaTime;          // Update velocity
+    particlebody.Position += particlebody.Velocity * fixedDeltaTime; // Update position
 
     particlebody.Force = float3(0, 0, 0); // Reset force after applying
     SimulationBounds(particlebody);
@@ -260,17 +272,44 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 }
 
+float CalculateDensityAtPosition(float3 posiiton)
+{
+    //return 0.5f;
+    //const std::vector<BodyRef> neighbors = grid.findNeighbors(position);
+
+    float density = 0;
+    for (int i = 0; i < nbParticles; i++)
+    {
+        // if (i == threadID.x)
+        //     continue;
+
+        ParticleBody otherParticleBody = bodies[i];
+
+        float dx = posiiton.x - otherParticleBody.Position.x;
+        float dy = posiiton.y - otherParticleBody.Position.y;
+        float dz = posiiton.z - otherParticleBody.Position.z;
+
+        float distance = sqrt(dx * dx + dy * dy + dz * dz);
+
+        if (distance > smoothingRadius) continue;
+
+        float influence = SmoothingKernel(smoothingRadius, distance);
+        density += influence;
+    }
+
+    density *= densityGraphicsMultiplier;
+
+    return density;
+}
+
 [numthreads(8, 8, 8)]
-void createDensityMap(uint3 threadID: SV_DispatchThreadID)
+void computeDensityMap(uint3 threadID: SV_DispatchThreadID)
 {
     if (any(threadID >= densityMapSize)) return;
 
     float3 texturePos = threadID / float3(densityMapSize - 1);      // normalized [0,1]
     float3 worldPos = (texturePos - 0.5f) * simBounds; // map to [-100,100]
 
-    // float density = 1.f; // world_->CalculateDensityAtPosition(xm_pos) * 100;
-    size_t index = threadID.x + threadID.y * densityMapSize + threadID.z * densityMapSize * densityMapSize;
-    gTexture3D[threadID] = particleDensities[index];
-
-    //gTexture3D[threadID] = float(threadID.x) / float(densityMapSize);
+    float density = CalculateDensityAtPosition(worldPos);
+    gTexture3D[threadID] = density;
 }

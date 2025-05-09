@@ -28,7 +28,7 @@ public:
     Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept;
 
     void Init(RenderContext* render_context) noexcept;
-    void RenderFrame(RenderContext* pRenderContext, const double& currentTime) noexcept;
+    void RenderFrame(RenderContext* pRenderContext, const double& currentTime, const ref<Buffer>& bodies) noexcept;
     void RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept;
     void OnResize(uint32_t width, uint32_t height) noexcept;
     [[nodiscard]] bool onKeyEvent(const KeyboardEvent& keyEvent) const noexcept;
@@ -40,6 +40,8 @@ public:
      * program and links it to the scene's BVH. It should be called after all meshes were added to the scene.
      */
     void CreateRaytracingProgram() noexcept;
+
+    void LaunchMarchingCubeComputePasses(RenderContext* render_context) noexcept;
 
     [[nodiscard]] NodeID AddSphereToScene(float3 pos, float radius) noexcept;
     [[nodiscard]] NodeID AddCubeToScene(float3 pos) noexcept;
@@ -69,7 +71,7 @@ private:
     RenderGraph render_graph_;
 
     //ref<RasterPass> raster_pass_;
-    ref<ComputePass> density_map_pass_;
+    //ref<ComputePass> density_map_pass_;
 
     ref<Program> program_;
     ref<ProgramVars> program_vars_;
@@ -83,12 +85,15 @@ private:
 
     ref<Texture> rt_output_tex_;
     ref<Texture> density_3d_tex_;
+    ref<Buffer> bodies_buffer_ = nullptr;
     std::vector<float>* particle_densities_ = nullptr;
     ref<Buffer> particle_density_buffer_;
 
     MeshID sphere_mesh_id;
     MeshID cube_mesh_id;
     MeshID marching_cubes_mesh_id_;
+
+    ref<Buffer> v_data;
 
     //ref<Material> dielectric_blue;
 
@@ -100,6 +105,7 @@ private:
     ref<ComputePass> marching_cubes_pass_ = nullptr;
     ref<Buffer> marching_cubes_triangle_buffer_ = nullptr;
     ref<Buffer> read_back_triangle_buffer_ = nullptr;
+    unsigned marching_cubes_triangle_count_ = 0;
     //ref<Texture> density_3d_tex_ = nullptr;
 
     //bool mUseDOF = false;
@@ -109,11 +115,11 @@ private:
     //                                  Constants.                                   
     // ===============================================================================
 
-    int density_map_size = 64;
-    float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
+    //int density_map_size = 64;
+    //float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
     int numPointsPerAxis = 64;
-    int IsoLevel = 0;;
+    int IsoLevel = 0;
     float SphereRadius = 135.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
