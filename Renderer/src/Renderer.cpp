@@ -30,7 +30,6 @@ void Renderer::Init(RenderContext* render_context) noexcept
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
     auto sphere_mesh = TriangleMesh::createSphere(Metrics::MetersToPixels(0.05f));
-    // auto cube_mesh = TriangleMesh::createCube(float3(Metrics::MetersToPixels(1.0f)) * 2.f);
     auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds - 1.f));
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");

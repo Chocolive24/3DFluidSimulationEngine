@@ -577,25 +577,7 @@ void rayGen()
     if (hitData.hitT > 0)
     {
         float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
-
-        //float halfDensityMapSize = densityMapSize * 0.5f;
-
-        // Define your volume bounds (must match what you used in CPU to generate the texture)
-        // float3 volumeMin = float3(-halfDensityMapSize, -halfDensityMapSize, -halfDensityMapSize);
-        // float3 volumeMax = float3(halfDensityMapSize, halfDensityMapSize, halfDensityMapSize);
-
-        // // Normalize to [0,1]
-        // float3 uvw = saturate((worldPos - volumeMin) / (volumeMax - volumeMin));
-
-        // float3 volumeDim = float3(densityMapSize, densityMapSize, densityMapSize);
-        // int3 texCoord = int3(uvw * (volumeDim - 1));
-
-        //texCoord.z = DensityDepth;
-
-        //float density = gTexture3D.Load(int4(texCoord, 0));
-
         float density = SampleDensityMap(worldPos);
-
 
         gOutput[launchIndex.xy] = float4(density, density, density, 1);
     }
