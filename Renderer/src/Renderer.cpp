@@ -31,7 +31,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
 
     auto sphere_mesh = TriangleMesh::createSphere(Metrics::MetersToPixels(0.05f));
     // auto cube_mesh = TriangleMesh::createCube(float3(Metrics::MetersToPixels(1.0f)) * 2.f);
-    auto cube_mesh = TriangleMesh::createCube(float3(Metrics::density_map_size));
+    auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds - 1.f));
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
@@ -250,6 +250,19 @@ void Renderer::Init(RenderContext* render_context) noexcept
         nullptr,
         ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
     );
+
+    Sampler::Desc sampler_desc{};
+    sampler_desc.setFilterMode(
+        TextureFilteringMode::Linear,
+        TextureFilteringMode::Linear,
+        TextureFilteringMode::Linear
+    );
+    sampler_desc.setAddressingMode(
+        TextureAddressingMode::Clamp,
+        TextureAddressingMode::Clamp,
+        TextureAddressingMode::Clamp
+    );
+    linearClampSampler_ = make_ref<Sampler>(device_, sampler_desc);
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime,
@@ -381,6 +394,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
 
     app_gui_window->slider("densityGraphicsMultiplier",
         Metrics::densityGraphicsMultiplier, 0.f, 200.f);
+    app_gui_window->slider("volumeValueOffset", volumeValueOffset, 0.f, 1.f);
     app_gui_window->slider("DensityDepth", DensityDepth, 0.f, 1.f);
     app_gui_window->slider("SphereRadius", SphereRadius, 0.f, 200.f);
 
@@ -676,9 +690,12 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
 
     var["PerFrameCB"]["DensityDepth"] = DensityDepth;
     var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
+    var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
+    var["PerFrameCB"]["volumeValueOffset"] = volumeValueOffset;
 
     var["gOutput"] = rt_output_tex_;
     var["gTexture3D"] = density_3d_tex_;
+    var["linearClampSampler"] = linearClampSampler_;
 }
 
 void Renderer::createRasterizationProgram() const noexcept

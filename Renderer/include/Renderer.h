@@ -85,6 +85,7 @@ private:
 
     ref<Texture> rt_output_tex_;
     ref<Texture> density_3d_tex_;
+    ref<Sampler> linearClampSampler_;
     ref<Buffer> bodies_buffer_ = nullptr;
     std::vector<float>* particle_densities_ = nullptr;
     ref<Buffer> particle_density_buffer_;
@@ -98,6 +99,7 @@ private:
     //ref<Material> dielectric_blue;
 
     float DensityDepth = 1;
+    float volumeValueOffset = 0.f;
 
     bool draw_fluid_ = false;
 

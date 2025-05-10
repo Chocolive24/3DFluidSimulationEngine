@@ -37,7 +37,7 @@ import Rendering.Lights.LightHelpers;
 RWTexture2D<float4> gOutput;
 // RWTexture3D<float> gTexture3D;
 Texture3D<float> gTexture3D;
-SamplerState s;
+SamplerState linearClampSampler;
 
 cbuffer PerFrameCB
 {
@@ -46,6 +46,7 @@ cbuffer PerFrameCB
     float tanHalfFovY;
     uint sampleIndex;
     bool useDOF;
+
     bool drawFluid;
     float3 backgroundColor;
     float waterTurbulence;
@@ -62,8 +63,11 @@ cbuffer PerFrameCB
     float IoR;
     float time;
     int iFrame;
+
     float DensityDepth;
     int densityMapSize;
+    float3 simBounds;
+    float volumeValueOffset;
 };
 
 
@@ -543,6 +547,19 @@ void RaymarchingIntersection()
     // }
 }
 
+float SampleDensityMap(float3 pos)
+{
+    float3 uvw = (pos + simBounds * 0.5f) / simBounds;
+
+    const float epsilon = 0.0001f;
+    bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
+    if (isEdge) return -volumeValueOffset;
+
+    //uvw.z = DensityDepth;
+
+    return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+}
+
 // Ray generation (just a simple ray going through the scene)
 [shader("raygeneration")]
 void rayGen()
@@ -561,21 +578,23 @@ void rayGen()
     {
         float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
 
-        float halfDensityMapSize = densityMapSize * 0.5f;
+        //float halfDensityMapSize = densityMapSize * 0.5f;
 
         // Define your volume bounds (must match what you used in CPU to generate the texture)
-        float3 volumeMin = float3(-halfDensityMapSize, -halfDensityMapSize, -halfDensityMapSize);
-        float3 volumeMax = float3(halfDensityMapSize, halfDensityMapSize, halfDensityMapSize);
+        // float3 volumeMin = float3(-halfDensityMapSize, -halfDensityMapSize, -halfDensityMapSize);
+        // float3 volumeMax = float3(halfDensityMapSize, halfDensityMapSize, halfDensityMapSize);
 
-        // Normalize to [0,1]
-        float3 uvw = saturate((worldPos - volumeMin) / (volumeMax - volumeMin));
+        // // Normalize to [0,1]
+        // float3 uvw = saturate((worldPos - volumeMin) / (volumeMax - volumeMin));
 
-        float3 volumeDim = float3(densityMapSize, densityMapSize, densityMapSize);
-        int3 texCoord = int3(uvw * (volumeDim - 1));
+        // float3 volumeDim = float3(densityMapSize, densityMapSize, densityMapSize);
+        // int3 texCoord = int3(uvw * (volumeDim - 1));
 
         //texCoord.z = DensityDepth;
 
-        float density = gTexture3D.Load(int4(texCoord, 0));
+        //float density = gTexture3D.Load(int4(texCoord, 0));
+
+        float density = SampleDensityMap(worldPos);
 
 
         gOutput[launchIndex.xy] = float4(density, density, density, 1);
