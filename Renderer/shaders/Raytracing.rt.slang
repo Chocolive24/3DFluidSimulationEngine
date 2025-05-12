@@ -54,10 +54,13 @@ cbuffer PerFrameCB
     float3 absorptionCoeff;
     float3 scatteringCoeff;
     float phaseG;
+
+    float isoLevel;
     float maxRaymarchingDistance;
     float marchSize;
     float maxLighMarchingDistance;
     float sunLightMarchSize;
+
     float3 lightColor;
     float3 lightDir;
     float IoR;
@@ -364,7 +367,7 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
 {
     hitData.color = float4(float3(0.1f, 0.3f, 0.8f), 0);
-    hitData.hitT = RayTCurrent();
+    hitData.hitT = attribs.t;
     return;
 
     if (hitData.depth >= maxRayBounce)
@@ -472,79 +475,44 @@ void RaymarchingIntersection()
 
     SDF_GeometryAttributes attr;
 
-    float3 finalColor = float3(0, 0, 0);
-
     float t = RayTMin();
     float tMax = RayTCurrent();
-    float distInsideAABB = abs(tMax - t);
-    int nbrOfRaymarchingSteps = 50;
-    float stepSize = distInsideAABB / nbrOfRaymarchingSteps;
 
-    for (int i = 0; i < nbrOfRaymarchingSteps; i++)
+    float3 startPos = rayOrigin + rayDir * t;
+    float prevDensity = SampleDensityMap(startPos);
+
+    if (prevDensity >= isoLevel)
     {
-        float3 p = rayOrigin + rayDir * t;
+        // attr.normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+        attr.w_position = startPos;
+        attr.t = t;
 
-        float halfDensityMapSize = densityMapSize * 0.5f;
-
-        // Define the world-space bounds of the volume
-        float3 volumeMin = float3(-halfDensityMapSize);
-        float3 volumeMax = float3(halfDensityMapSize);
-
-        // Normalize position `p` to [0,1] texture coordinates (UVW)
-        float3 uvw = (p - volumeMin) / (volumeMax - volumeMin); // Don't saturate yet!
-
-        // Get texture dimensions (assuming cube texture)
-        int3 volumeDim = int3(densityMapSize, densityMapSize, densityMapSize);
-
-        // Convert UVW to texel coordinates
-        int3 texCoord = int3(uvw * (volumeDim - 1));
-
-        // Clamp to avoid out-of-bounds access
-        texCoord = clamp(texCoord, int3(0, 0, 0), volumeDim - 1);
-
-        // Sample using Load()
-        float density = gTexture3D.Load(int4(texCoord, 0));
-        //float density = gTexture3D.Sample(s, p);
-
-        // Example early exit
-        if (density > DensityDepth)
-        {
-            attr.w_position = p;
-            //attr.w_normal = sdCalculateNormal(p, waterTurbulence, time, iFrame);
-            attr.t = max(t, 0.001f);
-
-            ReportHit(t, /*hitKind*/ 0, attr);
-            break;
-        }
-
-        t += stepSize;
+        ReportHit(t, /*hitKind*/ 0, attr);
+        return;
     }
 
-    // Raymarching.
-    // for (int i = 0; i < 80 && t < RayTCurrent(); i++)
-    // {
-    //     float3 p = rayOrigin + rayDir * t; // Position along the ray.
+    for (float dst = t + marchSize; dst < tMax; dst += marchSize)
+    {
+        float3 p = rayOrigin + rayDir * dst;
+        float currDensity = SampleDensityMap(p);
 
-    //     float d = map(p, waterTurbulence, time, iFrame); // Current distance to the scene.
+        // Detect a crossing from outside to inside fluid
+        if (prevDensity < isoLevel && currDensity >= isoLevel)
+        {
+            // Optional: refine hit position with linear interpolation
+            float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
+            float hitT = dst - marchSize + alpha * marchSize;
 
-    //     // Early stop if close enough or if too far.
-    //     if (d < 0.001f)
-    //     {
-    //         attr.w_position = p;
-    //         attr.w_normal = sdCalculateNormal(p, waterTurbulence, time, iFrame);
-    //         attr.t = max(t, 0.001f);
+            //attr.normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+            attr.w_position = rayOrigin + rayDir * hitT;
+            attr.t = hitT;
 
-    //         ReportHit(t, /*hitKind*/ 0, attr);
-    //         break;
-    //     }
+            ReportHit(hitT, /*hitKind*/ 0, attr);
+            return;
+        }
 
-    //     t += max(d, 0.01f); // March the ray.
-
-    //     if (t > 100.f)
-    //     {
-    //         break;
-    //     }
-    // }
+        prevDensity = currDensity;
+    }
 }
 
 float SampleDensityMap(float3 pos)
@@ -574,18 +542,18 @@ void rayGen()
     hitData.depth = 0;
     TraceRay(gScene.rtAccel, RAY_FLAG_NONE /*rayFlags*/, 0xFF, /*Test all Geometry*/ 0 /* ray index*/, rayTypeCount, 0, ray, hitData);
     
-    if (hitData.hitT > 0)
-    {
-        float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
-        float density = SampleDensityMap(worldPos);
+    // if (hitData.hitT > 0)
+    // {
+    //     float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
+    //     float density = SampleDensityMap(worldPos);
 
-        gOutput[launchIndex.xy] = float4(density, density, density, 1);
-    }
-    else 
-    {
-        gOutput[launchIndex.xy] = hitData.color;
-    }
+    //     gOutput[launchIndex.xy] = float4(density, density, density, 1);
+    // }
+    // else 
+    // {
+    //     gOutput[launchIndex.xy] = hitData.color;
+    // }
 
-    //gOutput[launchIndex.xy] = hitData.color;
+    gOutput[launchIndex.xy] = hitData.color;
 }
 

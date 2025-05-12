@@ -316,7 +316,7 @@ RWTexture3D<float> DensityTexture;
 cbuffer PerFrameCB
 {
     int numPointsPerAxis;
-    int isoLevel;
+    float isoLevel;
     int textureSize;
     float boundSize;
     float SphereRadius;

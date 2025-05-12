@@ -67,31 +67,30 @@ void Renderer::Init(RenderContext* render_context) noexcept
     // auto triangle_mesh_id_4 = scene_builder_->addTriangleMesh(cube, lambertian);
     // auto sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue);
 
-    // AABB raymarching_AABB = AABB(float3(-50, -5, -5) + float3(0, 10, 0),
-    //     float3(50, 5, 5) + float3(0, 10, 0));
-    // uint32_t raymarching_AABB_ID = 1;
-    // scene_builder_->addCustomPrimitive(raymarching_AABB_ID, raymarching_AABB);
+    AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+    uint32_t fluid_AABB_ID = 1;
+    scene_builder_->addCustomPrimitive(fluid_AABB_ID, fluid_AABB);
 
-    // auto raymarching_node = SceneBuilder::Node();
-    // raymarching_node.name = "RaymarchingNode";
-    // auto raymarching_transform = Transform();
-    // raymarching_transform.setTranslation(float3(0.f, 10.f, 0.f));
-    // raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
-    // raymarching_node.transform = raymarching_transform.getMatrix();
-    // auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
+    auto fluid_node = SceneBuilder::Node();
+    fluid_node.name = "RaymarchingNode";
+    auto fluid_transform = Transform();
+    fluid_transform.setTranslation(float3(0.f, 10.f, 0.f));
+    fluid_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    fluid_transform.setScaling(float3(1.f, 1.f, 1.f));
+    fluid_node.transform = fluid_transform.getMatrix();
+    auto raymarching_node_id = scene_builder_->addNode(fluid_node);
 
-    auto node = SceneBuilder::Node();
-    node.name = "Cube Density Map Size";
-    auto transform = Transform();
-    transform.setTranslation(float3(0.f, 0.f, 0));
-    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    transform.setScaling(float3(1, 1.f, 1.f));
-    node.transform = transform.getMatrix();
-    auto node_id = scene_builder_->addNode(node);
+    //auto node = SceneBuilder::Node();
+    //node.name = "Cube Density Map Size";
+    //auto transform = Transform();
+    //transform.setTranslation(float3(0.f, 0.f, 0));
+    //transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //transform.setScaling(float3(1, 1.f, 1.f));
+    //node.transform = transform.getMatrix();
+    //auto node_id = scene_builder_->addNode(node);
 
-    // Add Mesh Instances
-    scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+    //// Add Mesh Instances
+    //scene_builder_->addMeshInstance(node_id, cube_mesh_id);
 
     // auto node_2 = SceneBuilder::Node();
     // node_2.name = "Sphere1";
@@ -397,9 +396,11 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
     app_gui_window->slider("DensityDepth", DensityDepth, 0.f, 1.f);
     app_gui_window->slider("SphereRadius", SphereRadius, 0.f, 200.f);
 
+    app_gui_window->var("ISO Level", IsoLevel);
+
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
-    if (draw_fluid_)
-    {
+    //if (draw_fluid_)
+    //{
         app_gui_window->var("Water Turbulance", water_turbulence_);
 
         app_gui_window->var("MaxRayBounce", kMaxRayBounce);
@@ -421,7 +422,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
         app_gui_window->var("IoR", IoR);
 
         // app_gui_window->checkbox("Use Depth of Field", mUseDOF);
-    }
+    //}
 
     scene_->renderUI(*app_gui_window);
 }
@@ -672,6 +673,7 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["PerFrameCB"]["scatteringCoeff"] = scatteringCoeff;
     var["PerFrameCB"]["phaseG"] = phaseG;
 
+    var["PerFrameCB"]["isoLevel"] = IsoLevel;
     var["PerFrameCB"]["maxRaymarchingDistance"] = maxRayMarchingDistance;
     var["PerFrameCB"]["marchSize"] = kMarchSize;
 

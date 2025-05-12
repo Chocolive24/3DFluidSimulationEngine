@@ -121,7 +121,7 @@ private:
     //float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
     int numPointsPerAxis = 64;
-    int IsoLevel = 0;
+    float IsoLevel = 0.1f;
     float SphereRadius = 135.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
@@ -134,7 +134,7 @@ private:
 
     float water_turbulence_ = 2.5f;
     float maxRayMarchingDistance = 5.f;
-    float kMarchSize = 0.1f;
+    float kMarchSize = 0.5f;
     float maxLighMarchingDistance = 3.f;
     float sunLightMarchSize = 0.2f;
 
