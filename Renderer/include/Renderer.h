@@ -96,17 +96,20 @@ private:
 
     ref<Buffer> v_data;
 
-    //ref<Material> dielectric_blue;
-
-    float DensityDepth = 1;
-    float volumeValueOffset = 0.f;
-
-    bool draw_fluid_ = false;
-
     ref<ComputePass> compute_density_map_pass_ = nullptr;
     ref<ComputePass> marching_cubes_pass_ = nullptr;
     ref<Buffer> marching_cubes_triangle_buffer_ = nullptr;
     ref<Buffer> read_back_triangle_buffer_ = nullptr;
+
+    //ref<Material> dielectric_blue;
+public:
+    float DensityDepth = 1;
+    float volumeValueOffset = 0.f;
+    float normalOffset = 1.f;
+
+    bool draw_fluid_ = false;
+
+
     unsigned marching_cubes_triangle_count_ = 0;
     //ref<Texture> density_3d_tex_ = nullptr;
 
@@ -134,7 +137,7 @@ private:
 
     float water_turbulence_ = 2.5f;
     float maxRayMarchingDistance = 5.f;
-    float kMarchSize = 0.5f;
+    float kMarchSize = 0.5f; //*Metrics::voxelSize;
     float maxLighMarchingDistance = 3.f;
     float sunLightMarchSize = 0.2f;
 

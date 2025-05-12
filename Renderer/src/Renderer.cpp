@@ -7,6 +7,7 @@
 #include "Utils/Math/FalcorMath.h"
 #include "Utils/Timing/Profiler.h"
 #include "../../Physics/include/SPH.h"
+#include "Scene/SDFs/SparseVoxelSet/SDFSVS.h"
 
 Renderer::Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept
     : device_(device), target_fbo_(target_fbo),
@@ -74,11 +75,15 @@ void Renderer::Init(RenderContext* render_context) noexcept
     auto fluid_node = SceneBuilder::Node();
     fluid_node.name = "RaymarchingNode";
     auto fluid_transform = Transform();
-    fluid_transform.setTranslation(float3(0.f, 10.f, 0.f));
+    fluid_transform.setTranslation(float3(0.f, 0, 0.f));
     fluid_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
     fluid_transform.setScaling(float3(1.f, 1.f, 1.f));
     fluid_node.transform = fluid_transform.getMatrix();
     auto raymarching_node_id = scene_builder_->addNode(fluid_node);
+
+    //auto sdf = SDFSVS::create(device_);
+    //sdf->generateCheeseValues(64, 0);
+    //scene_builder_->addSDFGrid(sdf, lambertian);
 
     //auto node = SceneBuilder::Node();
     //node.name = "Cube Density Map Size";
@@ -361,7 +366,8 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
      compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = Metrics::densityGraphicsMultiplier;
 
     // const uint32_t thread_groups = (density_map_size + 7) / 8;
-    compute_density_map_pass_->execute(pRenderContext, 64, 64, 64);
+     compute_density_map_pass_->execute(pRenderContext,
+         Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
 
     //pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
 
@@ -397,6 +403,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
     app_gui_window->slider("SphereRadius", SphereRadius, 0.f, 200.f);
 
     app_gui_window->var("ISO Level", IsoLevel);
+    app_gui_window->var("normalOffset", normalOffset);
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     //if (draw_fluid_)
@@ -673,6 +680,7 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["PerFrameCB"]["scatteringCoeff"] = scatteringCoeff;
     var["PerFrameCB"]["phaseG"] = phaseG;
 
+    var["PerFrameCB"]["normalOffset"] = normalOffset;
     var["PerFrameCB"]["isoLevel"] = IsoLevel;
     var["PerFrameCB"]["maxRaymarchingDistance"] = maxRayMarchingDistance;
     var["PerFrameCB"]["marchSize"] = kMarchSize;

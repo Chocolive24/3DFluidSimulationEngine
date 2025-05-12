@@ -28,6 +28,7 @@ namespace Metrics // Meter in physical world != meter irl
     inline float densityGraphicsMultiplier = 100.f;
     inline int density_map_size = 64;
     inline float sim_bounds = (WALLDIST) * 2.f;
+    inline float voxelSize = sim_bounds / float(density_map_size);
 
     //test
 }

@@ -56,6 +56,7 @@ cbuffer PerFrameCB
     float phaseG;
 
     float isoLevel;
+    float normalOffset;
     float maxRaymarchingDistance;
     float marchSize;
     float maxLighMarchingDistance;
@@ -366,7 +367,14 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 [shader("closesthit")]
 void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
 {
-    hitData.color = float4(float3(0.1f, 0.3f, 0.8f), 0);
+    // hitData.color = float4(0.1, 0.3, 0.9, 0);
+    // hitData.hitT = RayTCurrent();
+    // return;
+
+    float3 n = attribs.w_normal;
+    n += float3(1, 1, 1);
+    n *= 0.5f;
+    hitData.color = float4(float3(n.x, n.y, n.z), 1);
     hitData.hitT = attribs.t;
     return;
 
@@ -379,6 +387,25 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
     float3 rayDir = WorldRayDirection();
     float currentRayT = RayTCurrent();
+
+    // float3 reflectDir = reflect(rayDir, attribs.w_normal); // Compute the reflection direction
+
+    // // Define reflection ray
+    // RayDesc reflectRay;
+    // reflectRay.Origin = attribs.w_position + reflectDir * 0.1f; // Offset to avoid self-intersection
+    // reflectRay.Direction = reflectDir;
+    // reflectRay.TMin = 0.001f;
+    // reflectRay.TMax = 100000.f;
+
+    // // Trace reflection ray
+    // PrimaryRayData reflectedRayData = {};
+    // reflectedRayData.depth = hitData.depth + 1;
+    // reflectedRayData.hitT = 0;
+    // TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, reflectRay, reflectedRayData);
+
+    // hitData.color = reflectedRayData.color;
+    // hitData.hitT = reflectedRayData.hitT;
+    // return;
 
     // 1. Compute Fresnel reflectance
     float etaI = 1.f;                                // Incident IoR (Air by default).
@@ -467,54 +494,6 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     hitData.hitT = currentRayT;
 }
 
-[shader("intersection")]
-void RaymarchingIntersection()
-{
-    float3 rayDir = WorldRayDirection();
-    float3 rayOrigin = WorldRayOrigin();
-
-    SDF_GeometryAttributes attr;
-
-    float t = RayTMin();
-    float tMax = RayTCurrent();
-
-    float3 startPos = rayOrigin + rayDir * t;
-    float prevDensity = SampleDensityMap(startPos);
-
-    if (prevDensity >= isoLevel)
-    {
-        // attr.normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
-        attr.w_position = startPos;
-        attr.t = t;
-
-        ReportHit(t, /*hitKind*/ 0, attr);
-        return;
-    }
-
-    for (float dst = t + marchSize; dst < tMax; dst += marchSize)
-    {
-        float3 p = rayOrigin + rayDir * dst;
-        float currDensity = SampleDensityMap(p);
-
-        // Detect a crossing from outside to inside fluid
-        if (prevDensity < isoLevel && currDensity >= isoLevel)
-        {
-            // Optional: refine hit position with linear interpolation
-            float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
-            float hitT = dst - marchSize + alpha * marchSize;
-
-            //attr.normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
-            attr.w_position = rayOrigin + rayDir * hitT;
-            attr.t = hitT;
-
-            ReportHit(hitT, /*hitKind*/ 0, attr);
-            return;
-        }
-
-        prevDensity = currDensity;
-    }
-}
-
 float SampleDensityMap(float3 pos)
 {
     float3 uvw = (pos + simBounds * 0.5f) / simBounds;
@@ -523,10 +502,179 @@ float SampleDensityMap(float3 pos)
     bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
     if (isEdge) return -volumeValueOffset;
 
-    //uvw.z = DensityDepth;
+    // uvw.z = DensityDepth;
 
     return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
 }
+
+float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
+{
+    float3 halfSize = boxSize * 0.5;
+    float3 o = (halfSize - abs(p));
+    return (o.x < o.y && o.x < o.z) ? float3(sign(p.x), 0, 0) : (o.y < o.z) ? float3(0, sign(p.y), 0) : float3(0, 0, sign(p.z));
+}
+
+float3 ComputeDensityNormal(float3 pos)
+{
+    float3 offsetX = float3(1, 0, 0) * normalOffset;
+    float3 offsetY = float3(0, 1, 0) * normalOffset;
+    float3 offsetZ = float3(0, 0, 1) * normalOffset;
+
+    float dx = SampleDensityMap(pos - offsetX) - SampleDensityMap(pos + offsetX);
+    float dy = SampleDensityMap(pos - offsetY) - SampleDensityMap(pos + offsetY);
+    float dz = SampleDensityMap(pos - offsetZ) - SampleDensityMap(pos + offsetZ);
+
+    float3 volumeNormal = normalize(float3(dx, dy, dz));
+
+    // Smoothly flatten normals out at boundary edges
+    float3 o = simBounds / 2 - abs(pos);
+    float faceWeight = min(o.x, min(o.y, o.z));
+    float3 faceNormal = CalculateClosestFaceNormal(simBounds, pos);
+    const float smoothDst = 0.3;
+    const float smoothPow = 5;
+    faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
+
+    return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
+
+    // // Step size in world units — scale based on your density texture resolution
+    // const float stepSize = marchSize; // in world units (adjust depending on voxel size)
+
+    // // Central differences (flipped order for left-handed normal, change if needed)
+    // float dx = SampleDensityMap(posWS - float3(stepSize, 0, 0)) - SampleDensityMap(posWS + float3(stepSize, 0, 0));
+    // float dy = SampleDensityMap(posWS - float3(0, stepSize, 0)) - SampleDensityMap(posWS + float3(0, stepSize, 0));
+    // float dz = SampleDensityMap(posWS - float3(0, 0, stepSize)) - SampleDensityMap(posWS + float3(0, 0, stepSize));
+
+    // float3 volumeNormal = normalize(float3(dx, dy, dz));
+    // if (any(isnan(volumeNormal)))
+    //     volumeNormal = float3(0, 1, 0); // fallback if needed
+
+    // // Flatten normals near boundary edges (boundary smoothing)
+    // float3 o = simBounds * 0.5 - abs(posWS);   // distance to nearest box wall
+    // float faceWeight = min(o.x, min(o.y, o.z)); // distance to closest face
+
+    // // Tune for smoothing
+    // const float smoothDst = 0.3; // world units, fade-out distance
+    // const float smoothPow = 5.0; // sharpness of the flattening
+    // faceWeight = (1.0 - smoothstep(0.0, smoothDst, faceWeight)) 
+    //            * (1.0 - pow(saturate(volumeNormal.y), smoothPow));
+
+    // // Compute fallback face normal based on closest box face
+    // float3 faceNormal = float3(0, 0, 0);
+    // if (o.x <= o.y && o.x <= o.z)
+    //     faceNormal = float3(sign(posWS.x), 0, 0);
+    // else if (o.y <= o.x && o.y <= o.z)
+    //     faceNormal = float3(0, sign(posWS.y), 0);
+    // else
+    //     faceNormal = float3(0, 0, sign(posWS.z));
+
+    // // Blend volume normal with boundary face normal
+    // float3 finalNormal = normalize(lerp(volumeNormal, faceNormal, faceWeight));
+    // return finalNormal;
+}
+
+// Test if a ray segment <RayTMin(), RayTCurrent()> intersects an AABB.
+// Limitation: this test does not take RayFlags into consideration and does not calculate a surface normal.
+// Ref: https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-box-intersection
+bool RayAABBIntersectionTest(Ray ray, float3 aabb[2], out float tmin, out float tmax)
+{
+    float3 tmin3 = float3(0.f);
+    float3 tmax3 = float3(0.f);
+    int3 sign3 = ray.dir > 0;
+
+    // Handle rays parallel to any x|y|z slabs of the AABB.
+    // If a ray is within the parallel slabs,
+    //  the tmin, tmax will get set to -inf and +inf
+    //  which will get ignored on tmin/tmax = max/min.
+    // If a ray is outside the parallel slabs, -inf/+inf will
+    //  make tmax > tmin fail (i.e. no intersection).
+    // TODO: handle cases where ray origin is within a slab
+    //  that a ray direction is parallel to. In that case
+    //  0 * INF => NaN
+    const float FLT_INFINITY = 1e+32;
+    float3 invRayDirection = select(ray.dir != 0, 1 / ray.dir, select(ray.dir > 0, FLT_INFINITY, -FLT_INFINITY));
+
+    tmin3.x = (aabb[1 - sign3.x].x - ray.origin.x) * invRayDirection.x;
+    tmax3.x = (aabb[sign3.x].x - ray.origin.x) * invRayDirection.x;
+
+    tmin3.y = (aabb[1 - sign3.y].y - ray.origin.y) * invRayDirection.y;
+    tmax3.y = (aabb[sign3.y].y - ray.origin.y) * invRayDirection.y;
+
+    tmin3.z = (aabb[1 - sign3.z].z - ray.origin.z) * invRayDirection.z;
+    tmax3.z = (aabb[sign3.z].z - ray.origin.z) * invRayDirection.z;
+
+    tmin = max(max(tmin3.x, tmin3.y), tmin3.z);
+    tmax = min(min(tmax3.x, tmax3.y), tmax3.z);
+
+    return tmax > tmin && tmax >= RayTMin() && tmin <= RayTCurrent();
+}
+
+[shader("intersection")]
+void RaymarchingIntersection()
+{
+    if (!drawFluid)
+    {
+        return;
+    }
+
+    SDF_GeometryAttributes attr;
+
+    float3 rayDir = WorldRayDirection();
+    float3 rayOrigin = WorldRayOrigin();
+
+    Ray ray;
+    ray.origin = rayOrigin;
+    ray.dir = rayDir;
+
+    float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
+
+    float tMin = 0.f;
+    float tMax = 0.f;
+
+    if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
+    {
+        tMin = max(tMin, RayTMin());
+        tMax = min(tMax, RayTCurrent());
+
+        float3 startPos = rayOrigin + rayDir * tMin;
+        float prevDensity = SampleDensityMap(startPos);
+
+        // If the entry point intersection is already inside the fluid. ReportHit.
+        if (prevDensity >= isoLevel)
+        {
+            attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * tMin);
+            attr.w_position = startPos;
+            attr.t = tMin;
+
+            ReportHit(tMin, /*hitKind*/ 0, attr);
+            return;
+        }
+
+        for (float dst = tMin + marchSize; dst < tMax; dst += marchSize)
+        {
+            float3 p = rayOrigin + rayDir * dst;
+            float currDensity = SampleDensityMap(p);
+
+            // Detect a crossing from outside to inside fluid
+            if (prevDensity < isoLevel && currDensity >= isoLevel)
+            {
+                // Optional: refine hit position with linear interpolation
+                float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
+                float hitT = dst - marchSize + alpha * marchSize;
+
+                attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+                attr.w_position = rayOrigin + rayDir * hitT;
+                attr.t = hitT;
+
+                ReportHit(hitT, /*hitKind*/ 0, attr);
+                return;
+            }
+
+            prevDensity = currDensity;
+        }
+    }
+}
+
+
 
 // Ray generation (just a simple ray going through the scene)
 [shader("raygeneration")]
@@ -541,19 +689,44 @@ void rayGen()
     hitData.color = float4(0.f, 0.f, 0.f, 0.f);
     hitData.depth = 0;
     TraceRay(gScene.rtAccel, RAY_FLAG_NONE /*rayFlags*/, 0xFF, /*Test all Geometry*/ 0 /* ray index*/, rayTypeCount, 0, ray, hitData);
-    
-    // if (hitData.hitT > 0)
-    // {
-    //     float3 worldPos = ray.Origin + hitData.hitT * ray.Direction;
-    //     float density = SampleDensityMap(worldPos);
-
-    //     gOutput[launchIndex.xy] = float4(density, density, density, 1);
-    // }
-    // else 
-    // {
-    //     gOutput[launchIndex.xy] = hitData.color;
-    // }
 
     gOutput[launchIndex.xy] = hitData.color;
+
+    // Use RayQuery to find bounds of the fluid AABB
+    // RayQuery<RAY_FLAG_NONE> rq;
+    // rq.TraceRayInline(Scene, RAY_FLAG_NONE, 0xFF, rayOrigin, 0.001f, rayDir, 1e38f);
+
+    // float tMin = 0.0f;
+    // float tMax = 0.0f;
+    // bool fluidAABBHit = false;
+
+    // while (rq.Proceed())
+    // {
+    //     if (rq.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE) // you must define this index
+    //     {
+    //         tMin = rq.(); // entry into AABB
+    //         tMax = rq.CandidateTriangleRayTMax(); // exit from AABB
+    //         fluidAABBHit = true;
+    //         rq.CommitProceduralPrimitiveHit(); // Needed to finalize hit
+    //     }
+    // }
+
+    // if (fluidAABBHit)
+    // {
+    //     SDF_GeometryAttributes attr = RaymarchWithRayQuery(rayOrigin, rayDir, tMin, tMax);
+
+    //     if (attr.t > 0)
+    //     {
+    //         // Fluid surface was hit → shade
+    //         gOutput[launchIndex] = float4(0.1, 0.3, 0.8, 1); // blue fluid
+    //         return;
+    //     }
+    // }
+
+    // // Otherwise trace scene normally
+    // PrimaryRayData payload;
+    // payload.color = float4(0, 0, 0, 0);
+    // TraceRay(Scene, RAY_FLAG_NONE, 0xFF, rayOrigin, 0.001f, rayDir, 1e38f, 0, 1, payload);
+    // gOutput[launchIndex] = payload.color;
 }
 
