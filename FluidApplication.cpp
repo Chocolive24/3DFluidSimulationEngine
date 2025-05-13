@@ -75,11 +75,25 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         pb.Force = force;
         particle_bodies_.push_back(pb);
     }
+
+
+
     
    update_particle_bodies_pass_ =
         ComputePass::create(getDevice(),
             "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
             "updateBodies");
+
+    update_spatial_hash_pass_ =
+       ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "UpdateSpatialHash");
+
+    bitonic_sort_pass_=
+        ComputePass::create(getDevice(),
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "BitonicSort");
+
+    calculate_offsets_pass_ = ComputePass::create(getDevice(),
+        "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
+        "CalculateOffsets");
 
     compute_neighbors_density_pass_ =
         ComputePass::create(getDevice(),
@@ -106,6 +120,26 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         false
     );
 
+     SpatialIndices = make_ref<Buffer>(
+        getDevice(),
+        sizeof(uint32_t) * 3,
+        particle_bodies_.size(),
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::DeviceLocal,
+        nullptr,
+        false
+    );
+
+    SpatialOffsets = make_ref<Buffer>(
+         getDevice(),
+         sizeof(uint32_t),
+         particle_bodies_.size(),
+         ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+         MemoryType::DeviceLocal,
+         nullptr,
+         false
+     );
+
     readback_bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
         sizeof(particle_bodies_[0]),
@@ -116,17 +150,60 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         false
     );
 
+    readback_spatial_indices = make_ref<Buffer>(
+        getDevice(),
+        sizeof(uint3),
+        particle_bodies_.size(),
+        ResourceBindFlags::None, // No need for shader access
+        MemoryType::ReadBack,    // CPU-readable
+        nullptr,                 // No initial data
+        false
+    );
+
+    regenrated_particles_ = make_ref<Buffer>(
+        getDevice(),
+        sizeof(particle_bodies_[0]),
+        particle_bodies_.size(),
+        ResourceBindFlags::None,
+        MemoryType::Upload, // Must be Upload to map from CPU
+        nullptr,
+        false
+    );
+
     auto compute_var = update_particle_bodies_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
+
+    compute_var = update_spatial_hash_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
+
+    compute_var = bitonic_sort_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
+
+    compute_var = calculate_offsets_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
 
     compute_var = compute_neighbors_density_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
 
     compute_var = compute_neighbors_pressure_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
 
     compute_var = compute_neighbors_viscosity_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
 
     renderer_->CreateRaytracingProgram();
 
@@ -146,6 +223,9 @@ void FluidApplication::executeParticleComputePass(const ref<ComputePass>& comput
 {
     const auto compute_var = compute_pass->getRootVar();
     //compute_var["gTexture3D"] = density_map_;
+    compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
 
     compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
     compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
@@ -164,19 +244,78 @@ void FluidApplication::executeParticleComputePass(const ref<ComputePass>& comput
 
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
-    const auto delta_time = getGlobalClock().getDelta();
-    fixed_timer_ += delta_time;
-    time_since_last_fixed_update_ += delta_time;
-
-    while (fixed_timer_ >= kFixedDeltaTime)
+    if (start_simul_)
     {
-        executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
-        executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
-        executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);
-        executeParticleComputePass(compute_neighbors_viscosity_pass_, pRenderContext, totalThreadsX);
+        if (regenrate_particles_)
+        {
+            std::cout << "Before blov\n";
+            regenrated_particles_->setBlob(particle_bodies_.data(), 0, particle_bodies_.size());
+            std::cout << "Before copy\n";
+            pRenderContext->copyResource(bodies_buffer_.get(), regenrated_particles_.get());
+            std::cout << "Before idk ?\n";
+            regenrate_particles_ = false;
+        }
 
-        fixed_timer_ -= kFixedDeltaTime;
-        time_since_last_fixed_update_ = 0.f;
+        const auto delta_time = getGlobalClock().getDelta();
+        fixed_timer_ += delta_time;
+        time_since_last_fixed_update_ += delta_time;
+
+        while (fixed_timer_ >= kFixedDeltaTime)
+        {
+            executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
+
+            executeParticleComputePass(update_spatial_hash_pass_, pRenderContext, totalThreadsX);
+
+            executeParticleComputePass(bitonic_sort_pass_, pRenderContext, NbParticles);
+
+            executeParticleComputePass(calculate_offsets_pass_, pRenderContext, totalThreadsX);
+
+            /*pRenderContext->copyResource(readback_spatial_indices.get(), SpatialIndices.get());
+
+            const uint3* indices = static_cast<const uint3*>(readback_spatial_indices->map());
+
+            for (int i = 0; i < NbParticles; i++)
+            {
+                auto id = indices[i];
+
+                std::cout << "GPU VALUE: " << id.x << " " << id.y << " " << id.z << '\n';
+            }*/
+
+            //// Step 1: Copy to vector
+            //std::vector<uint3> sortedIndices(indices, indices + NbParticles);
+
+            //// Step 2: Sort by key (z component)
+            //std::sort(sortedIndices.begin(), sortedIndices.end(),
+            //    [](const uint3& a, const uint3& b)
+            //    { return a.z < b.z; });
+
+            //for (const auto& ind : sortedIndices)
+            //{
+            //    std::cout << "Sorted: " << ind.x << " " << ind.y << " " << ind.z << '\n';
+            //}
+
+            //readback_spatial_indices->unmap();
+
+            //pRenderContext->updateBuffer(SpatialIndices.get(), sortedIndices.data());
+
+           /* pRenderContext->copyResource(readback_spatial_indices.get(), SpatialIndices.get());
+            indices = static_cast<const uint3*>(readback_spatial_indices->map());
+
+            for (int i = 0; i < NbParticles; i++)
+            {
+                auto ind = indices[i];
+                std::cout << "Spatial GPU " << ind.x << " " << ind.y << " " << ind.z << '\n';
+            }
+
+            readback_spatial_indices->unmap();*/
+
+            executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
+            executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);
+            executeParticleComputePass(compute_neighbors_viscosity_pass_, pRenderContext, totalThreadsX);
+
+            fixed_timer_ -= kFixedDeltaTime;
+            time_since_last_fixed_update_ = 0.f;
+        }
     }
 
     if (!renderer_->draw_fluid_)
@@ -245,6 +384,7 @@ bool FluidApplication::onKeyEvent(const KeyboardEvent& keyEvent)
     {
         if (keyEvent.key == Input::Key::F)
         {
+            start_simul_ = !start_simul_;
             sample_manager_.StopSample();
         }
         else if (keyEvent.key == Input::Key::R)
@@ -308,7 +448,45 @@ void FluidApplication::renderPhysicsSampleGui()
 
     if (ImGui::Button("Regenerate"))
     {
-        sample_manager_.RegenerateSample();
+        //sample_manager_.RegenerateSample();
+
+        std::cout << "regen\n";
+
+        regenrate_particles_ = true;
+        std::vector<XMVECTOR> particlePositions;
+
+        for (size_t i = 0; i < NbParticles;)
+        {
+            XMVECTOR pos = XMVectorSet(
+                Random::Range(-WALLDIST, WALLDIST * 0.2f),
+                Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
+                Random::Range(-WALLDIST, WALLDIST * 0.2f),
+                0.0f
+            );
+
+            bool overlaps = false;
+            for (const auto& existing : particlePositions)
+            {
+                if (XMVectorGetX(XMVector3LengthSq(pos - existing)) < (PARTICLESIZE * PARTICLESIZE * 4))
+                {
+                    overlaps = true;
+                    break;
+                }
+            }
+
+            if (!overlaps)
+            {
+                particlePositions.push_back(pos);
+                float x = XMVectorGetX(pos);
+                float y = XMVectorGetY(pos);
+                float z = XMVectorGetZ(pos);
+                /*particle_bodies_[i] = ParticleBody{};
+                particle_bodies_[i].Position = float3(x, y, z);*/
+                ++i;
+            }
+        }
+
+        std::cout << "End regen\n";
     }
 
     ImGui::SameLine();

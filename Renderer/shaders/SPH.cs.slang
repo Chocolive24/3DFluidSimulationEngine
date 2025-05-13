@@ -25,13 +25,16 @@
  # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
-static const int3 offsets[27] = {
+static const int3 offsets3D[27] = {
 { -1, -1, -1 }, { -1, -1, 0 }, { -1, -1, 1 }, { -1, 0, -1 }, { -1, 0, 0 },  { -1, 0, 1 }, { -1, 1, -1 }, { -1, 1, 0 },   { -1, 1, 1 },
 { 0, -1, -1 }, { 0, -1, 0 },  { 0, -1, 1 },  { 0, 0, -1 }, { 0, 0, 0 }, { 0, 0, 1 },    { 0, 1, -1 },  { 0, 1, 0 },   { 0, 1, 1 },
 { 1, -1, -1 }, { 1, -1, 0 }, { 1, -1, 1 }, { 1, 0, -1 },   { 1, 0, 0 },   { 1, 0, 1 },   { 1, 1, -1 },  { 1, 1, 0 },   { 1, 1, 1 }
 };
 
 RWTexture3D<float> gTexture3D;
+
+RWStructuredBuffer<uint3> SpatialIndices; // used for spatial hashing
+RWStructuredBuffer<uint> SpatialOffsets;  // used for spatial hashing
 
 cbuffer PerFrameCB
 {
@@ -77,6 +80,118 @@ struct GridCell
 {
     float3 position = float3(0, 0, 0);
     RWStructuredBuffer<ParticleBody> bodies;
+}
+
+// Constants used for hashing
+static const uint hashK1 = 15823;
+static const uint hashK2 = 9737333;
+static const uint hashK3 = 440817757;
+
+// Convert floating point position into an integer cell coordinate
+int3 GetCell3D(float3 position, float radius)
+{
+    return (int3)floor(position / radius);
+}
+
+// Hash cell coordinate to a single unsigned integer
+uint HashCell3D(int3 cell)
+{
+    cell = (uint3)cell;
+    return (cell.x * hashK1) + (cell.y * hashK2) + (cell.z * hashK3);
+}
+
+uint KeyFromHash(uint hash, uint tableSize)
+{
+    return hash % tableSize;
+}
+
+[numthreads(64, 1, 1)]
+void UpdateSpatialHash(uint3 id: SV_DispatchThreadID)
+{
+    if (id.x >= nbParticles) return;
+
+    // Reset offsets
+    SpatialOffsets[id.x] = nbParticles;
+    // Update index buffer
+    uint index = id.x;
+    int3 cell = GetCell3D(bodies[index].Position, smoothingRadius);
+    uint hash = HashCell3D(cell);
+    uint key = KeyFromHash(hash, nbParticles);
+    SpatialIndices[id.x] = uint3(index, hash, key);
+}
+
+// Declare shared memory **outside** the function
+groupshared uint3 sharedData[1024];
+
+[numthreads(1024, 1, 1)]
+void BitonicSort(uint3 DTid: SV_DispatchThreadID)
+{
+    uint idx = DTid.x;
+
+    // Load current item into shared memory
+    sharedData[idx] = SpatialIndices[idx];
+
+    GroupMemoryBarrierWithGroupSync();
+
+    // Bitonic sort logic
+    for (uint k = 2; k <= nbParticles; k <<= 1)
+    {
+        for (uint j = k >> 1; j > 0; j >>= 1)
+        {
+            uint ixj = idx ^ j;
+
+            if (ixj > idx)
+            {
+                bool ascending = ((idx & k) == 0);
+
+                uint3 a = sharedData[idx];
+                uint3 b = sharedData[ixj];
+
+                // Compare based on z
+                bool shouldSwap = ascending ? (a.z > b.z) : (a.z < b.z);
+                if (shouldSwap)
+                {
+                    sharedData[idx] = b;
+                    sharedData[ixj] = a;
+                }
+            }
+
+            GroupMemoryBarrierWithGroupSync();
+        }
+    }
+
+    // Write back sorted result
+    SpatialIndices[idx] = sharedData[idx];
+}
+
+// Calculate offsets into the sorted Entries buffer (used for spatial hashing).
+// For example, given an Entries buffer sorted by key like so: {2, 2, 2, 3, 6, 6, 9, 9, 9, 9}
+// The resulting Offsets calculated here should be:            {-, -, 0, 3, -, -, 4, -, -, 6}
+// (where '-' represents elements that won't be read/written)
+//
+// Usage example:
+// Say we have a particular particle P, and we want to know which particles are in the same grid cell as it.
+// First we would calculate the Key of P based on its position. Let's say in this example that Key = 9.
+// Next we can look up Offsets[Key] to get: Offsets[9] = 6
+// This tells us that SortedEntries[6] is the first particle that's in the same cell as P.
+// We can then loop until we reach a particle with a different cell key in order to iterate over all the particles in the cell.
+//
+// NOTE: offsets buffer must filled with values equal to (or greater than) its length to ensure that this works correctly
+[numthreads(64, 1, 1)]
+void CalculateOffsets(uint3 id: SV_DispatchThreadID)
+{
+    if (id.x >= nbParticles) { return; }
+
+    uint i = id.x;
+    uint null = nbParticles;
+
+    uint key = SpatialIndices[i].z; // .z = key
+    uint keyPrev = i == 0 ? null : SpatialIndices[i - 1].z; // .z = key.
+
+    if (key != keyPrev)
+    {
+        SpatialOffsets[key] = i;
+    }
 }
 
 void ApplyForce(inout ParticleBody Particlebody, float3 force) {
@@ -158,7 +273,7 @@ float SmoothingKernelDerivative(float radius, float distance)
     float scale = 12 / (pow(radius, 4) * PI);
     return (distance - radius) * scale;
 }
-
+ 
 [numthreads(64, 1, 1)]
 void computeNeighborsDensity(uint3 threadID: SV_DispatchThreadID) 
 {
@@ -166,33 +281,75 @@ void computeNeighborsDensity(uint3 threadID: SV_DispatchThreadID)
 
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
 
-    // std::vector<ParticleBodyRef> neighbors = grid.findNeighbors(data.Position);
-
+    int3 originCell = GetCell3D(particlebody.Position, smoothingRadius);
     float density = 0;
-    for (int i = 0; i < nbParticles; i++) {
+    
+    // Neighbour search.
+    for (int i = 0; i < 27; i++)
+    {
+        uint hash = HashCell3D(originCell + offsets3D[i]);
+        uint key = KeyFromHash(hash, nbParticles);
+        uint currIndex = SpatialOffsets[key];
+
+        while (currIndex < nbParticles)
+        {
+            uint3 indexData = SpatialIndices[currIndex];
+            currIndex++;
+            // Exit if no longer looking at correct bin
+            if (indexData[2] != key) break;
+            // Skip if hash does not match
+            if (indexData[1] != hash) continue;
+
+            uint neighbourIndex = indexData[0];
+
+            ParticleBody otherParticleBody = bodies[neighbourIndex];
+
+            float dx = particlebody.Position.x - otherParticleBody.Position.x;
+            float dy = particlebody.Position.y - otherParticleBody.Position.y;
+            float dz = particlebody.Position.z - otherParticleBody.Position.z;
+
+            float distance = sqrt(dx * dx + dy * dy + dz * dz);
+
+            float influence = SmoothingKernel(smoothingRadius, distance);
+            density += influence;
         
-        // if (i == threadID.x)
-        //     continue;
-        
-        ParticleBody otherParticleBody = bodies[i];
+            // float3 neighbourPos = bodies[neighbourIndex].Position;
+            // float3 offsetToNeighbour = neighbourPos - particlebody.Position;
+            // float sqrDstToNeighbour = dot(offsetToNeighbour, offsetToNeighbour);
 
-        float dx = particlebody.Position.x - otherParticleBody.Position.x;
-        float dy = particlebody.Position.y - otherParticleBody.Position.y;
-        float dz = particlebody.Position.z - otherParticleBody.Position.z;
+            // // Skip if not within radius
+            // if (sqrDstToNeighbour > sqrRadius) continue;
 
-        float distance = sqrt(dx * dx + dy * dy + dz * dz);
-
-        float influence = SmoothingKernel(smoothingRadius, distance);
-        density += influence;
+            // // Calculate density and near density
+            // float dst = sqrt(sqrDstToNeighbour);
+            // density += DensityKernel(dst, smoothingRadius);
+            // nearDensity += NearDensityKernel(dst, smoothingRadius);
+        }
     }
 
-    particlebody.Density = density;
+    // particlebody.Density = density;
+    // bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 
+    // float density = 0;
+    // for (int i = 0; i < nbParticles; i++) {
+        
+    //     // if (i == threadID.x)
+    //     //     continue;
+        
+    //     ParticleBody otherParticleBody = bodies[i];
 
-    // for (auto &otherRef: neighbors)
-    // {
+    //     float dx = particlebody.Position.x - otherParticleBody.Position.x;
+    //     float dy = particlebody.Position.y - otherParticleBody.Position.y;
+    //     float dz = particlebody.Position.z - otherParticleBody.Position.z;
 
+    //     float distance = sqrt(dx * dx + dy * dy + dz * dz);
+
+    //     float influence = SmoothingKernel(smoothingRadius, distance);
+    //     density += influence;
     // }
+
+    particlebody.Density = density; //max(density, 0.01f);
+
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 }
 
@@ -216,24 +373,55 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
 
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
 
-    // std::vector<BodyRef> neighbors = grid.findNeighbors(data.Position);
-
+    int3 originCell = GetCell3D(particlebody.Position, smoothingRadius);
     float3 pressureForce = float3(0.f, 0.f, 0.f);
 
-    for (int i = 0; i < nbParticles; i++)
+    // Neighbour search
+    for (int i = 0; i < 27; i++)
     {
-        if (i == threadID.x)
-            continue;
+        uint hash = HashCell3D(originCell + offsets3D[i]);
+        uint key = KeyFromHash(hash, nbParticles);
+        uint currIndex = SpatialOffsets[key];
 
-        ParticleBody otherParticleBody = bodies[i];
-        float3 offset = particlebody.Position - otherParticleBody.Position;
-        float distance = length(offset);
-        float3 direction = distance == 0 ? float3(0.f, 1.f, 0.f) : offset / distance;
-        float slope = SmoothingKernelDerivative(smoothingRadius, distance);
-        float otherDensity = otherParticleBody.Density;
-        float sharedPressure = CalculateSharedPressure(otherDensity, particlebody.Density);
-        pressureForce += sharedPressure * direction * slope * otherParticleBody.Mass / otherDensity;
+        while (currIndex < nbParticles)
+        {
+            uint3 indexData = SpatialIndices[currIndex];
+            currIndex++;
+            // Exit if no longer looking at correct bin
+            if (indexData[2] != key) break;
+            // Skip if hash does not match
+            if (indexData[1] != hash) continue;
+
+            uint neighbourIndex = indexData[0];
+            // Skip if looking at self
+            if (neighbourIndex == threadID.x) continue;
+
+            ParticleBody otherParticleBody = bodies[neighbourIndex];
+
+            float3 offset = particlebody.Position - otherParticleBody.Position;
+            float distance = length(offset);
+            float3 direction = distance == 0 ? float3(0.f, 1.f, 0.f) : offset / distance;
+            float slope = SmoothingKernelDerivative(smoothingRadius, distance);
+            float otherDensity = otherParticleBody.Density;
+            float sharedPressure = CalculateSharedPressure(otherDensity, particlebody.Density);
+            pressureForce += sharedPressure * direction * slope * otherParticleBody.Mass / otherDensity;
+        }
     }
+
+    // for (int i = 0; i < nbParticles; i++)
+    // {
+    //     if (i == threadID.x)
+    //         continue;
+
+    //     ParticleBody otherParticleBody = bodies[i];
+    //     float3 offset = particlebody.Position - otherParticleBody.Position;
+    //     float distance = length(offset);
+    //     float3 direction = distance == 0 ? float3(0.f, 1.f, 0.f) : offset / distance;
+    //     float slope = SmoothingKernelDerivative(smoothingRadius, distance);
+    //     float otherDensity = otherParticleBody.Density;
+    //     float sharedPressure = CalculateSharedPressure(otherDensity, particlebody.Density);
+    //     pressureForce += sharedPressure * direction * slope * otherParticleBody.Mass / otherDensity;
+    // }
 
     ApplyForce(particlebody, pressureForce / particlebody.Density);
    
@@ -246,26 +434,58 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
     if (threadID.x >= nbParticles) return; // Ensure we do not go out of bounds
 
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
-
-    //std::vector<BodyRef> neighbors = grid.findNeighbors(data.Position);
-
+    
+    int3 originCell = GetCell3D(particlebody.Position, smoothingRadius);
     float3 viscosityForce = float3(0, 0, 0);
-
-    for (int i = 0; i < nbParticles; i++)
+    // Neighbour search
+    for (int i = 0; i < 27; i++)
     {
-        if (i == threadID.x)
-            continue;
+        uint hash = HashCell3D(originCell + offsets3D[i]);
+        uint key = KeyFromHash(hash, nbParticles);
+        uint currIndex = SpatialOffsets[key];
 
-        ParticleBody otherParticleBody = bodies[i];
+        while (currIndex < nbParticles)
+        {
+            uint3 indexData = SpatialIndices[currIndex];
+            currIndex++;
+            // Exit if no longer looking at correct bin
+            if (indexData[2] != key) break;
+            // Skip if hash does not match
+            if (indexData[1] != hash) continue;
 
-        float3 r = particlebody.Position - otherParticleBody.Position;
-        float distance = length(r);
+            uint neighbourIndex = indexData[0];
+            // Skip if looking at self
+            if (neighbourIndex == threadID.x) continue;
 
-        if (distance > smoothingRadius) continue;
+            ParticleBody otherParticleBody = bodies[neighbourIndex];
 
-        float influence = SmoothingKernel(smoothingRadius, distance);
-        viscosityForce += (otherParticleBody.Velocity - particlebody.Velocity) * influence * particlebody.Mass;
+            float3 r = particlebody.Position - otherParticleBody.Position;
+            float distance = length(r);
+
+            if (distance > smoothingRadius) continue;
+
+            float influence = SmoothingKernel(smoothingRadius, distance);
+            viscosityForce += (otherParticleBody.Velocity - particlebody.Velocity) * influence * particlebody.Mass;
+        }
     }
+
+    // float3 viscosityForce = float3(0, 0, 0);
+
+    // for (int i = 0; i < nbParticles; i++)
+    // {
+    //     if (i == threadID.x)
+    //         continue;
+
+    //     ParticleBody otherParticleBody = bodies[i];
+
+    //     float3 r = particlebody.Position - otherParticleBody.Position;
+    //     float distance = length(r);
+
+    //     if (distance > smoothingRadius) continue;
+
+    //     float influence = SmoothingKernel(smoothingRadius, distance);
+    //     viscosityForce += (otherParticleBody.Velocity - particlebody.Velocity) * influence * particlebody.Mass;
+    // }
 
     ApplyForce(particlebody, viscosityForce * viscosityStrength);
 

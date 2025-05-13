@@ -43,31 +43,77 @@ void WaterBathSample::OnCollisionExit(ColliderRef col1,
 void WaterBathSample::SampleSetUp() noexcept {
 	_world.SetContactListener(this);
 	GraphicsData gd;
-	//// Ground
-	//CreateWall({ 0,-WALLDIST - WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, true);
+        // Ground
+        //CreateWall({0, -WALLDIST - WALLSIZE, 0}, {-WALLDIST, -WALLSIZE, -WALLDIST}, {WALLDIST *2, WALLSIZE, WALLDIST}, true);
 
-	//// Wall 1
-	//CreateWall({ -WALLDIST - WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
+        //// Wall 1
+        //CreateWall({-WALLDIST - WALLSIZE, 0, 0}, {-WALLSIZE, -WALLDIST, -WALLDIST}, {WALLSIZE, WALLDIST, WALLDIST}, false);
 
-	//// Wall 2
-	//CreateWall({ WALLDIST + WALLSIZE,0,0 }, { -WALLSIZE, -WALLDIST, -WALLDIST }, { WALLSIZE, WALLDIST, WALLDIST }, false);
+        //// Wall 2
+        //CreateWall({WALLDIST * 2 + WALLSIZE, 0, 0}, {-WALLSIZE, -WALLDIST, -WALLDIST}, {WALLSIZE, WALLDIST, WALLDIST}, false);
 
-	//// Wall 3
-	//CreateWall({ 0,0,-WALLDIST - WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST, WALLDIST, WALLSIZE }, false);
+        //// Wall 3
+        //CreateWall({0, 0, -WALLDIST - WALLSIZE}, {-WALLDIST, -WALLDIST, -WALLSIZE}, {WALLDIST* 2, WALLDIST, WALLSIZE}, false);
 
-	//// Wall 4
-	//CreateWall({ 0,0,WALLDIST + WALLSIZE }, { -WALLDIST, -WALLDIST, -WALLSIZE }, { WALLDIST,WALLDIST, WALLSIZE }, false);
+        //// Wall 4
+        //CreateWall({0, 0, WALLDIST + WALLSIZE}, {-WALLDIST, -WALLDIST, -WALLSIZE}, {WALLDIST* 2, WALLDIST, WALLSIZE}, false);
 
-	//// Roof
-	//CreateWall({ 0,WALLDIST + WALLSIZE ,0 }, { -WALLDIST, -WALLSIZE, -WALLDIST }, { WALLDIST, WALLSIZE, WALLDIST }, false);
+        //// Roof
+        //CreateWall({0, WALLDIST + WALLSIZE, 0}, {-WALLDIST, -WALLSIZE, -WALLDIST}, {WALLDIST* 2, WALLSIZE, WALLDIST}, false);
 
-    _particle_densities.reserve(NbParticles);
+        std::vector<XMVECTOR> particlePositions;
 
-	for (size_t i = 0; i < NbParticles; i++) {
+        for (size_t i = 0; i < NbParticles;)
+        {
+            XMVECTOR pos = XMVectorSet(
+                Random::Range(-WALLDIST, WALLDIST * 0.2f),
+                Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
+                Random::Range(-WALLDIST, WALLDIST * 0.2f),
+                0.0f
+            );
+
+            bool overlaps = false;
+            for (const auto& existing : particlePositions)
+            {
+                if (XMVectorGetX(XMVector3LengthSq(pos - existing)) < (PARTICLESIZE * PARTICLESIZE * 4))
+                {
+                    overlaps = true;
+                    break;
+                }
+            }
+
+            if (!overlaps)
+            {
+                particlePositions.push_back(pos);
+                CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
+                ++i;
+            }
+        }
+
+
+      /*  int particlesPerAxis = static_cast<int>(cbrt(Metrics::NbParticles)) + 1;
+        float spacing = PARTICLESIZE * 2 + PARTICLESPACING;
+
+        for (int i = 0; i < NbParticles; i++)
+        {
+            int xIndex = i % particlesPerAxis;
+            int yIndex = (i / particlesPerAxis) % particlesPerAxis;
+            int zIndex = i / (particlesPerAxis * particlesPerAxis);
+
+            float x = (xIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+            float y = (yIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+            float z = (zIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+
+            XMVECTOR pos{x, y, z};
+            CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
+        }*/
+
+
+	/*for (size_t i = 0; i < NbParticles; i++) {
 		CreateBall({ Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
 					 Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
 					 Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f) }, PARTICLESIZE, BodyType::FLUID);
-	}
+	}*/
 
 }
 void WaterBathSample::SampleUpdate() noexcept {

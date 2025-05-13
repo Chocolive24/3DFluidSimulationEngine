@@ -632,7 +632,8 @@ void RaymarchingIntersection()
 
     if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
     {
-        tMin = max(tMin, RayTMin());
+        // Ensure tMin is in the AABB when the camera is already inside it.
+        tMin = max(tMin, RayTMin()); 
         tMax = min(tMax, RayTCurrent());
 
         float3 startPos = rayOrigin + rayDir * tMin;

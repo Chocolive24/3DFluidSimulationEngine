@@ -88,16 +88,26 @@ private:
 
     World* world_ = nullptr;
 
+    bool start_simul_ = false;
+    bool regenrate_particles_ = false;
 
     float fixed_timer_ = kFixedDeltaTime;
     float time_since_last_fixed_update_ = 0.f;
 
     ref<ComputePass> update_particle_bodies_pass_ = nullptr;
+    ref<ComputePass> update_spatial_hash_pass_ = nullptr;
+    ref<ComputePass> bitonic_sort_pass_ = nullptr;
+    ref<ComputePass> calculate_offsets_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_density_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_pressure_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_viscosity_pass_ = nullptr;
+
+    ref<Buffer> SpatialIndices = nullptr;
+    ref<Buffer> SpatialOffsets = nullptr;
     ref<Buffer> bodies_buffer_ = nullptr;
+    ref<Buffer> readback_spatial_indices = nullptr;
     ref<Buffer> readback_bodies_buffer_ = nullptr;
+    ref<Buffer> regenrated_particles_ = nullptr;
 
     //ref<ComputePass> compute_density_map_pass_ = nullptr;
     //ref<Texture> density_map_;
