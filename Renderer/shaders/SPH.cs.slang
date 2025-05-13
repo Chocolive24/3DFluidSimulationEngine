@@ -434,9 +434,10 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
     if (threadID.x >= nbParticles) return; // Ensure we do not go out of bounds
 
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
-    
+
     int3 originCell = GetCell3D(particlebody.Position, smoothingRadius);
     float3 viscosityForce = float3(0, 0, 0);
+
     // Neighbour search
     for (int i = 0; i < 27; i++)
     {
@@ -494,28 +495,61 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
 
 float CalculateDensityAtPosition(float3 posiiton)
 {
-    //return 0.5f;
-    //const std::vector<BodyRef> neighbors = grid.findNeighbors(position);
+    int3 originCell = GetCell3D(posiiton, smoothingRadius);
 
     float density = 0;
-    for (int i = 0; i < nbParticles; i++)
+
+    // Neighbour search
+    for (int i = 0; i < 27; i++)
     {
-        // if (i == threadID.x)
-        //     continue;
+        uint hash = HashCell3D(originCell + offsets3D[i]);
+        uint key = KeyFromHash(hash, nbParticles);
+        uint currIndex = SpatialOffsets[key];
 
-        ParticleBody otherParticleBody = bodies[i];
+        while (currIndex < nbParticles)
+        {
+            uint3 indexData = SpatialIndices[currIndex];
+            currIndex++;
+            // Exit if no longer looking at correct bin
+            if (indexData[2] != key) break;
+            // Skip if hash does not match
+            if (indexData[1] != hash) continue;
 
-        float dx = posiiton.x - otherParticleBody.Position.x;
-        float dy = posiiton.y - otherParticleBody.Position.y;
-        float dz = posiiton.z - otherParticleBody.Position.z;
+            uint neighbourIndex = indexData[0];
 
-        float distance = sqrt(dx * dx + dy * dy + dz * dz);
+            ParticleBody otherParticleBody = bodies[neighbourIndex];
 
-        if (distance > smoothingRadius) continue;
+            float dx = posiiton.x - otherParticleBody.Position.x;
+            float dy = posiiton.y - otherParticleBody.Position.y;
+            float dz = posiiton.z - otherParticleBody.Position.z;
 
-        float influence = SmoothingKernel(smoothingRadius, distance);
-        density += influence;
+            float distance = sqrt(dx * dx + dy * dy + dz * dz);
+
+            //if (distance > smoothingRadius) continue;
+
+            float influence = SmoothingKernel(smoothingRadius, distance);
+            density += influence;
+        }
     }
+
+    // for (int i = 0; i < nbParticles; i++)
+    // {
+    //     // if (i == threadID.x)
+    //     //     continue;
+
+    //     ParticleBody otherParticleBody = bodies[i];
+
+    //     float dx = posiiton.x - otherParticleBody.Position.x;
+    //     float dy = posiiton.y - otherParticleBody.Position.y;
+    //     float dz = posiiton.z - otherParticleBody.Position.z;
+
+    //     float distance = sqrt(dx * dx + dy * dy + dz * dz);
+
+    //     if (distance > smoothingRadius) continue;
+
+    //     float influence = SmoothingKernel(smoothingRadius, distance);
+    //     density += influence;
+    // }
 
     density *= densityGraphicsMultiplier;
 

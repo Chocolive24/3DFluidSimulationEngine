@@ -28,7 +28,10 @@ public:
     Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept;
 
     void Init(RenderContext* render_context) noexcept;
-    void RenderFrame(RenderContext* pRenderContext, const double& currentTime, const ref<Buffer>& bodies) noexcept;
+    void RenderFrame(RenderContext* pRenderContext, const double& currentTime,
+        const ref<Buffer>& bodies,
+        const ref<Buffer>& SpatialIndices,
+        const ref<Buffer>& SpatialOffsets) noexcept;
     void RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept;
     void OnResize(uint32_t width, uint32_t height) noexcept;
     [[nodiscard]] bool onKeyEvent(const KeyboardEvent& keyEvent) const noexcept;

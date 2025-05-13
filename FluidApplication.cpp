@@ -358,7 +358,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
     }
    
 
-    renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime(), bodies_buffer_);
+    renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime(), bodies_buffer_, SpatialIndices, SpatialOffsets);
 
     getTextRenderer().render(pRenderContext, getFrameRate().getMsg(), pTargetFbo, {20, 20});
 

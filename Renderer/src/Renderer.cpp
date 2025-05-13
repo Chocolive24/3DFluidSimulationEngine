@@ -269,7 +269,9 @@ void Renderer::Init(RenderContext* render_context) noexcept
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime,
-    const ref<Buffer>& bodies) noexcept
+    const ref<Buffer>& bodies,
+    const ref<Buffer>& SpatialIndices,
+    const ref<Buffer>& SpatialOffsets) noexcept
 {
     pRenderContext->clearFbo(target_fbo_.get(),
         float4(bg_clear_color, 1), 1.0f, 0,
@@ -351,6 +353,8 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
 
      const auto compute_var = compute_density_map_pass_->getRootVar();
      compute_var["bodies"] = bodies;
+     compute_var["SpatialIndices"] = SpatialIndices;
+     compute_var["SpatialOffsets"] = SpatialOffsets;
      compute_var["gTexture3D"] = density_3d_tex_;
 
      compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
