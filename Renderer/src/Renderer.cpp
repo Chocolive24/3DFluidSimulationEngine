@@ -31,7 +31,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
     auto sphere_mesh = TriangleMesh::createSphere(Metrics::MetersToPixels(0.05f));
-    auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds - 1.f));
+    //auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds - 1.f));
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
@@ -40,7 +40,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
     dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
 
     sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue, true);
-    cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue);
+    //cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue);
 
     // Create a lambertian material
     ref<Material> lambertian = StandardMaterial::create(device_, "Lambertian");
@@ -48,25 +48,21 @@ void Renderer::Init(RenderContext* render_context) noexcept
     lambertian->setRoughnessMollification(1.f);
     lambertian->setIndexOfRefraction(0.f);
 
-    // lambertian->toBasicMaterial()->setBaseColor3(float3(1.f, 0.05f, 0.05f));
+    //sphere = TriangleMesh::createQuad(float2(5.f));
+    //sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue, true);
 
-    // ref<Material> dielectric_red = StandardMaterial::create(device_, "DielecRed");
-    // dielectric_red->toBasicMaterial()->setBaseColor3(float3(1.f, 0.05f, 0.05f));
-    // dielectric_red->setDoubleSided(true);
-    // dielectric_red->setIndexOfRefraction(1.f);
-    ////dielectric_red->toBasicMaterial()->setDiffuseTransmission(1.f);
+    //auto node = SceneBuilder::Node();
+    //const std::string name = "Sphere " /* + std::to_string(i)*/;
+    //node.name = name;
+    //auto transform = Transform();
+    //transform.setTranslation(float3(0.f, 0.f, 0.f));
+    //transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //transform.setScaling(float3(1.f, 1.f, 1.f));
+    //node.transform = transform.getMatrix();
+    //sphere_node_id_ = scene_builder_->addNode(node);
 
-    // ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
-    // dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
-    // dielectric_blue->setDoubleSided(true);
-    // dielectric_blue->setIndexOfRefraction(1.f);
-    // dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
-
-    // auto triangle_mesh_id_1 = scene_builder__.addTriangleMesh(sphere, dielectric_red);
-    // auto triangle_mesh_id_2 = scene_builder__.addTriangleMesh(cube, dielectric_blue);
-    // auto triangle_mesh_id_3 = scene_builder__.addTriangleMesh(cube, dielectric_blue);
-    // auto triangle_mesh_id_4 = scene_builder_->addTriangleMesh(cube, lambertian);
-    // auto sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue);
+    //// Add Mesh Instances
+    //scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
 
     AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
     uint32_t fluid_AABB_ID = 1;
@@ -93,77 +89,6 @@ void Renderer::Init(RenderContext* render_context) noexcept
     //transform.setScaling(float3(1, 1.f, 1.f));
     //node.transform = transform.getMatrix();
     //auto node_id = scene_builder_->addNode(node);
-
-    //// Add Mesh Instances
-    //scene_builder_->addMeshInstance(node_id, cube_mesh_id);
-
-    // auto node_2 = SceneBuilder::Node();
-    // node_2.name = "Sphere1";
-    // auto transform_2 = Transform();
-    // transform_2.setTranslation(float3(10.f, 0.f, 0.f));
-    // transform_2.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // transform_2.setScaling(float3(1.f));
-    // node_2.transform = transform_2.getMatrix();
-    // auto node_id_2 = scene_builder__.addNode(node_2);
-
-    //// Add Mesh Instances
-    // scene_builder__.addMeshInstance(node_id_2, triangle_mesh_id_2);
-
-    // auto node_3 = SceneBuilder::Node();
-    // node_3.name = "cube";
-    // auto transform_3 = Transform();
-    // transform_3.setTranslation(float3(10.f, 0.f, 10.f));
-    // transform_3.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // transform_3.setScaling(float3(10.f, 1.f, 10.f));
-    // node_3.transform = transform_3.getMatrix();
-    // auto node_id_3 = scene_builder__.addNode(node_3);
-
-    //// Add Mesh Instances
-    // scene_builder__.addMeshInstance(node_id_3, triangle_mesh_id_3);
-
-    // auto node_4 = SceneBuilder::Node();
-    // node_4.name = "cube";
-    // auto transform_4 = Transform();
-    // transform_4.setTranslation(float3(0.f, -1.2f, 0.f));
-    // transform_4.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // transform_4.setScaling(float3(1000.f, 1.f, 1000.f));
-    // node_4.transform = transform_4.getMatrix();
-    // auto node_id_4 = scene_builder_->addNode(node_4);
-
-    //// Add Mesh Instances
-    // scene_builder_->addMeshInstance(node_id_4, triangle_mesh_id_4);
-
-    // const auto half_density_map_size = 0.5f * sim_bounds;
-    // AABB raymarching_AABB = AABB(float3(-half_density_map_size), float3(half_density_map_size));
-    // uint32_t raymarching_AABB_ID = 1;
-    // scene_builder_->addCustomPrimitive(raymarching_AABB_ID, raymarching_AABB);
-
-    // auto raymarching_node = SceneBuilder::Node();
-    // raymarching_node.name = "RaymarchingNode";
-    // auto raymarching_transform = Transform();
-    // raymarching_transform.setTranslation(float3(0.f, 0, 0.f));
-    // raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
-    // raymarching_node.transform = raymarching_transform.getMatrix();
-    // auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
-
-    // auto aabb_mesh = TriangleMesh::createCube(float3(density_map_size));
-
-    // auto aabb_mesh_id = scene_builder_->addTriangleMesh(aabb_mesh, dielectric_blue);
-
-    // auto raymarching_node = SceneBuilder::Node();
-    // raymarching_node.name = "RaymarchingNode";
-    // auto raymarching_transform = Transform();
-    // raymarching_transform.setTranslation(float3(0.f, 0, 0.f));
-    // raymarching_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    // raymarching_transform.setScaling(float3(1.f, 1.f, 1.f));
-    // raymarching_node.transform = raymarching_transform.getMatrix();
-    // auto raymarching_node_id = scene_builder_->addNode(raymarching_node);
-
-   /* constexpr float3 position = float3(0, 0, 0);
-    const auto sphere_node_id = AddSphereToScene(position, 1);*/
-
-    //const auto pd = AddSphereToScene(position + float3(1, 1, 1), 1);
 
     auto envMap = EnvMap::createFromFile(device_, "data/images/hallstatt4_hd.hdr");
     envMap->setIntensity(1.0);
@@ -220,25 +145,6 @@ void Renderer::Init(RenderContext* render_context) noexcept
     //// Add Mesh Instances
     // scene_builder_->addMeshInstance(node_id_4, id);
 
-    std::vector<TriangleMesh::Vertex> positions;
-    for (const auto& vertex : sphere_mesh->getVertices())
-    {
-        //std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z;
-        TriangleMesh::Vertex newVertex;
-        newVertex.position = vertex.position + float3(10, 10, 0);
-        newVertex.normal = vertex.normal;
-        newVertex.texCoord = vertex.texCoord;
-        positions.push_back(newVertex);
-    }
-
-   v_data = make_ref<Buffer>(
-        device_,                           // Device
-        positions.size() * sizeof(TriangleMesh::Vertex), // Total size
-        ResourceBindFlags::Vertex,         // Usage as Vertex Buffer
-        MemoryType::DeviceLocal,           // GPU memory
-        positions.data()                   // Initial data
-    );
-
     compute_density_map_pass_ =
        ComputePass::create(device_,
            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
@@ -266,6 +172,92 @@ void Renderer::Init(RenderContext* render_context) noexcept
         TextureAddressingMode::Clamp
     );
     linearClampSampler_ = make_ref<Sampler>(device_, sampler_desc);
+
+
+    //    std::vector<float3> positions;
+    //std::vector<float3> normals;
+    //std::vector<float3> tangents;
+    //std::vector<float2> uv;
+    //for (const auto& vertex : sphere->getVertices())
+    //{
+    //    // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
+    //    const auto new_Pos = vertex.position + float3(0, 1, 0);
+    //    positions.push_back(new_Pos);
+    //    normals.push_back(vertex.normal);
+    //    tangents.push_back(vertex.normal);
+    //    uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
+    //}
+
+    //b_pos = make_ref<Buffer>(
+    //    device_,
+    //    sizeof(float) * 3,
+    //    positions.size(),
+    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+    //    MemoryType::DeviceLocal,
+    //    positions.data(),
+    //    false
+    //);
+
+    //b_pos_readback =
+    //    make_ref<Buffer>(device_,
+    //        sizeof(positions[0]),
+    //        positions.size(),
+    //        ResourceBindFlags::None,
+    //        MemoryType::Upload,
+    //        nullptr,
+    //        false);
+
+    //b_normal = make_ref<Buffer>(
+    //    device_,
+    //    sizeof(normals[0]),
+    //    normals.size(),
+    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+    //    MemoryType::Upload,
+    //    normals.data(),
+    //    false
+    //);
+
+    //b_tang = make_ref<Buffer>(
+    //    device_,
+    //    sizeof(tangents[0]),
+    //    tangents.size(),
+    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+    //    MemoryType::Upload,
+    //    tangents.data(),
+    //    false
+    //);
+
+    //b_uv = make_ref<Buffer>(
+    //    device_,
+    //    sizeof(uv[0]),
+    //    uv.size(),
+    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+    //    MemoryType::Upload,
+    //    uv.data(),
+    //    false
+    //);
+
+    //render_context->copyResource(b_pos_readback.get(), b_pos.get());
+
+    //const float3* poses = static_cast<const float3*>(b_pos_readback->map());
+
+    //  for (int i = 0; i < 4; i++)
+    //  {
+    //      const auto p = poses[i];
+
+    //      std::cout << p.x << " " << p.y << " " << p.z << '\n';
+    //  }
+
+    //b_pos_readback->unmap();
+
+    //auto r = RtAccelerationStructure::create(device_, {});
+    //RtAccelerationStructure::BuildDesc b;
+   /* b.
+    render_context->buildAccelerationStructure()*/
+
+  /*  scene_->getMeshVerticesAndIndices()
+
+    render_context->in*/
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime,
@@ -277,79 +269,25 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
 
-    //pRenderContext->copyResource(read_back_triangle_buffer_.get(), marching_cubes_triangle_buffer_.get());
+    //auto transform = Transform();
+    //transform.setTranslation(float3(10, 0, 0));
+    //scene_->updateNodeTransform(sphere_node_id_.get(), transform.getMatrix());
 
-    //const MarchingCubesTriangle* triangles =
-    //    static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
-    //// const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(data);
-
-    //static int frame = 0;
-
-    //for (uint i = 0; i < 12; i++)
+    //static bool hasUpdated = false;
+    //if (true)
     //{
-    //    std::cout << "Frame nbr: " << frame << '\n';
-    //    std::cout << "UAV counter aka triangle count: " << marching_cubes_triangle_count_ << '\n';
+    //    //hasUpdated = true;
+    //    //std::cout << "\nUPDATES VERTICES\n";
 
-    //    std::cout << triangles[i].vertexA.position.x << " "
-    //    << triangles[i].vertexA.position.y << " "
-    //    << triangles[i].vertexA.position.z
-    //              << '\n';
+    //    const std::map < std::string, ref<Buffer>> vertices{
+    //        {"positions", b_pos},
+    //        {"normals", b_normal},
+    //        {"tangents", b_tang},
+    //        {"texcrds", b_uv},
+    //    };
+
+    //    scene_->setMeshVertices(sphere_mesh_id, vertices);
     //}
-    //frame++;
-    //read_back_triangle_buffer_->unmap();
-
-    //static bool marchingCubes = false;
-
-    //if (!marchingCubes)
-    //{
-    //    //marchingCubes = true;
-
-    //     // 1) Clear the hidden append-counter.  Must happen *before* you dispatch.
-    //    pRenderContext->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
-
-    //    auto compute_var = compute_density_map_pass_->getRootVar();
-    //    compute_var["DensityTexture"] = density_3d_tex_;
-    //    //compute_var["triangles"] = marching_cubes_triangle_buffer_;
-
-    //    /*compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
-    //    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;*/
-    //    compute_var["PerFrameCB"]["textureSize"] = density_map_size;
-    //    compute_var["PerFrameCB"]["boundSize"] = sim_bounds.x;
-    //    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
-
-    //    compute_density_map_pass_->execute(pRenderContext, 64, 64, 64);
-
-    //    compute_var = marching_cubes_pass_->getRootVar();
-    //    compute_var["DensityTexture"] = density_3d_tex_;
-    //    compute_var["triangles"] = marching_cubes_triangle_buffer_;
-
-    //    compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
-    //    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
-    //    compute_var["PerFrameCB"]["textureSize"] = density_map_size;
-    //    compute_var["PerFrameCB"]["boundSize"] = sim_bounds.x;
-    //    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
-
-    //    marching_cubes_pass_->execute(pRenderContext, 64, 64, 64);
-
-    //    //TODO: suivre chatgpt -> UAVCounter est un buffer, il faut donc lire dedans, pas simplement le print
-    //    //TODO: capter pk frame 0 ne marche pas pour l'algo marching cubes.
-    //    //TODO: voir script GenTest.cs de seb lague, il fait un buffer pour copier le nbr de triangles
-    //    //TODO: ATTENTION au memory layout de MarchCUbeTriangle. ca doit être 3x16 = 48. actuellemtn c'est 36 sur CPU.
-    //    //TODO: https://chatgpt.com/c/681b50ec-3ed0-8003-913f-bb3f1dec326c
-
-    //    std::cout << "UAV counter: " << marching_cubes_triangle_buffer_->getUAVCounter()->getElement<uint>(0)
-    //    << '\n';
-
-    //    pRenderContext->copyResource(read_back_triangle_buffer_.get(), marching_cubes_triangle_buffer_.get());
-
-    //    const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
-
-    //    std::cout << triangles[100].vertexA.position.x << '\n';
-    //    std::cout << triangles[500].vertexA.position.x << '\n';
-    //    std::cout << triangles[324].vertexA.position.x << '\n';
-    //}
-
-  
 
      const auto compute_var = compute_density_map_pass_->getRootVar();
      compute_var["bodies"] = bodies;
@@ -373,18 +311,27 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
      compute_density_map_pass_->execute(pRenderContext,
          Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
 
-    //pRenderContext->updateTextureData(density_3d_tex_.get(), particle_densities_->data());
-
-    //if (updates == IScene::UpdateFlags::GeometryChanged)
-    //{
-    //    std::cout << "GeometryChanged\n";
-    //}
-
+    //std::cout << "Before scene update\n";
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
-    if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
-        FALCOR_THROW("This sample does not support scene geometry changes.");
-    if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
-        FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
+
+  /*  if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
+    {
+        std::cout << "GeometryChanged\n";
+    }
+    if (is_set(updates, IScene::UpdateFlags::GeometryMoved))
+    {
+        std::cout << "GeometryMoved\n";
+    }
+    if (is_set(updates, IScene::UpdateFlags::MeshesChanged))
+    {
+        std::cout << "MeshesChanged\n";
+    }*/
+    //std::cout << "After scene update\n";
+
+    //if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
+    //    FALCOR_THROW("This sample does not support scene geometry changes.");
+    //if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
+    //    FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
 
  /*   FALCOR_ASSERT(scene_);
     FALCOR_PROFILE(pRenderContext, "renderRT");*/

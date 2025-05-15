@@ -49,6 +49,11 @@ cbuffer PerFrameCB
     float pressureMultiplier;
     float viscosityStrength;
     float densityGraphicsMultiplier;
+
+    // Bitonic Sort.
+    uint groupWidth;
+    uint groupHeight;
+    uint stepIndex;
 }
 
 struct ParticleBody 
@@ -74,13 +79,30 @@ struct ParticleBody
 
 RWStructuredBuffer<ParticleBody> bodies;
 
-static const float PI = 3.14159265359;
-
-struct GridCell
+[numthreads(64, 1, 1)]
+void spawnParticles(uint3 threadID: SV_DispatchThreadID)
 {
-    float3 position = float3(0, 0, 0);
-    RWStructuredBuffer<ParticleBody> bodies;
+    uint index = threadID.x;
+    if (index >= nbParticles) return;
+
+    int particlesPerAxis = (int)pow(nbParticles, 1.0 / 3.0) + 1;
+    float spacing = 5 * 2 + 5;
+
+    int xIndex = index % particlesPerAxis;
+    int yIndex = (index / particlesPerAxis) % particlesPerAxis;
+    int zIndex = index / (particlesPerAxis * particlesPerAxis);
+
+    float x = (xIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+    float y = (yIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+    float z = (zIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+
+    ParticleBody pb;
+    pb.Position = float3(x, y, z);
+
+    bodies[index] = pb;
 }
+
+static const float PI = 3.14159265359;
 
 // Constants used for hashing
 static const uint hashK1 = 15823;
@@ -120,48 +142,31 @@ void UpdateSpatialHash(uint3 id: SV_DispatchThreadID)
     SpatialIndices[id.x] = uint3(index, hash, key);
 }
 
-// Declare shared memory **outside** the function
-groupshared uint3 sharedData[1024];
-
-[numthreads(1024, 1, 1)]
-void BitonicSort(uint3 DTid: SV_DispatchThreadID)
+// Sort the given entries by their keys (smallest to largest)
+// This is done using bitonic merge sort, and takes multiple iterations
+[numthreads(128, 1, 1)]
+void BitonicSort(uint3 id: SV_DispatchThreadID)
 {
-    uint idx = DTid.x;
+    uint i = id.x;
 
-    // Load current item into shared memory
-    sharedData[idx] = SpatialIndices[idx];
+    uint hIndex = i & (groupWidth - 1);
+    uint indexLeft = hIndex + (groupHeight + 1) * (i / groupWidth);
+    uint rightStepSize = stepIndex == 0 ? groupHeight - 2 * hIndex : (groupHeight + 1) / 2;
+    uint indexRight = indexLeft + rightStepSize;
 
-    GroupMemoryBarrierWithGroupSync();
+    // Exit if out of bounds (for non-power of 2 input sizes)
+    if (indexRight >= nbParticles) return;
 
-    // Bitonic sort logic
-    for (uint k = 2; k <= nbParticles; k <<= 1)
+    uint valueLeft = SpatialIndices[indexLeft].z; // z = key
+    uint valueRight = SpatialIndices[indexRight].z;
+
+    // Swap entries if value is descending
+    if (valueLeft > valueRight)
     {
-        for (uint j = k >> 1; j > 0; j >>= 1)
-        {
-            uint ixj = idx ^ j;
-
-            if (ixj > idx)
-            {
-                bool ascending = ((idx & k) == 0);
-
-                uint3 a = sharedData[idx];
-                uint3 b = sharedData[ixj];
-
-                // Compare based on z
-                bool shouldSwap = ascending ? (a.z > b.z) : (a.z < b.z);
-                if (shouldSwap)
-                {
-                    sharedData[idx] = b;
-                    sharedData[ixj] = a;
-                }
-            }
-
-            GroupMemoryBarrierWithGroupSync();
-        }
+        uint3 temp = SpatialIndices[indexLeft];
+        SpatialIndices[indexLeft] = SpatialIndices[indexRight];
+        SpatialIndices[indexRight] = temp;
     }
-
-    // Write back sorted result
-    SpatialIndices[idx] = sharedData[idx];
 }
 
 // Calculate offsets into the sorted Entries buffer (used for spatial hashing).

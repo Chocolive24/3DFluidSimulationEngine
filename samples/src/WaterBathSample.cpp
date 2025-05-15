@@ -90,6 +90,12 @@ void WaterBathSample::SampleSetUp() noexcept {
             }
         }
 
+       /* for (size_t i = 0; i < NbParticles; i++)
+        {
+            CreateBall({
+                0.f, 0.f, 0.f, 0.f},
+                PARTICLESIZE, BodyType::FLUID);
+        }*/
 
       /*  int particlesPerAxis = static_cast<int>(cbrt(Metrics::NbParticles)) + 1;
         float spacing = PARTICLESIZE * 2 + PARTICLESPACING;

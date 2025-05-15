@@ -49,6 +49,8 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     renderer_->Init(getRenderContext());
 
+    //particle_bodies_.resize(NbParticles);
+
     for (const auto& body : world_->_bodies)
     {
         if (!body.IsEnabled())
@@ -76,9 +78,11 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         particle_bodies_.push_back(pb);
     }
 
+    spawn_particle_pass_ =
+        ComputePass::create(getDevice(),
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
+            "spawnParticles");
 
-
-    
    update_particle_bodies_pass_ =
         ComputePass::create(getDevice(),
             "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
@@ -112,8 +116,8 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
-        sizeof(particle_bodies_[0]),
-        particle_bodies_.size(),
+        sizeof(ParticleBody),
+        NbParticles,
         ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
         MemoryType::DeviceLocal,
         particle_bodies_.data(),
@@ -123,7 +127,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
      SpatialIndices = make_ref<Buffer>(
         getDevice(),
         sizeof(uint32_t) * 3,
-        particle_bodies_.size(),
+        NbParticles,
         ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
         MemoryType::DeviceLocal,
         nullptr,
@@ -133,7 +137,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     SpatialOffsets = make_ref<Buffer>(
          getDevice(),
          sizeof(uint32_t),
-         particle_bodies_.size(),
+         NbParticles,
          ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
          MemoryType::DeviceLocal,
          nullptr,
@@ -142,8 +146,8 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     readback_bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
-        sizeof(particle_bodies_[0]),
-        particle_bodies_.size(),
+        sizeof(ParticleBody),
+        NbParticles,
         ResourceBindFlags::None, // No need for shader access
         MemoryType::ReadBack,    // CPU-readable
         nullptr,                 // No initial data
@@ -153,7 +157,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     readback_spatial_indices = make_ref<Buffer>(
         getDevice(),
         sizeof(uint3),
-        particle_bodies_.size(),
+        NbParticles,
         ResourceBindFlags::None, // No need for shader access
         MemoryType::ReadBack,    // CPU-readable
         nullptr,                 // No initial data
@@ -162,15 +166,23 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     regenrated_particles_ = make_ref<Buffer>(
         getDevice(),
-        sizeof(particle_bodies_[0]),
-        particle_bodies_.size(),
+        sizeof(ParticleBody),
+        NbParticles,
         ResourceBindFlags::None,
         MemoryType::Upload, // Must be Upload to map from CPU
         nullptr,
         false
     );
 
-    auto compute_var = update_particle_bodies_pass_->getRootVar();
+    
+    auto compute_var = spawn_particle_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
+
+    //executeParticleComputePass(spawn_particle_pass_, pRenderContext, totalThreadsX);
+
+    compute_var = update_particle_bodies_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
     compute_var["SpatialIndices"] = SpatialIndices;
     compute_var["SpatialOffsets"] = SpatialOffsets;
@@ -242,11 +254,25 @@ void FluidApplication::executeParticleComputePass(const ref<ComputePass>& comput
     compute_pass->execute(pRenderContext, total_threads_x, total_threads_y, total_threads_z);
 }
 
+uint32_t NextPowerOfTwo(int n)
+{
+    if (n == 0)
+        return 1;
+
+    n--;
+    n |= n >> 1;
+    n |= n >> 2;
+    n |= n >> 4;
+    n |= n >> 8;
+    n |= n >> 16;
+    return n + 1;
+}
+
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
     if (start_simul_)
     {
-        if (regenrate_particles_)
+        /*if (regenrate_particles_)
         {
             std::cout << "Before blov\n";
             regenrated_particles_->setBlob(particle_bodies_.data(), 0, particle_bodies_.size());
@@ -254,7 +280,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
             pRenderContext->copyResource(bodies_buffer_.get(), regenrated_particles_.get());
             std::cout << "Before idk ?\n";
             regenrate_particles_ = false;
-        }
+        }*/
 
         const auto delta_time = getGlobalClock().getDelta();
         fixed_timer_ += delta_time;
@@ -263,51 +289,48 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         while (fixed_timer_ >= kFixedDeltaTime)
         {
             executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
-
             executeParticleComputePass(update_spatial_hash_pass_, pRenderContext, totalThreadsX);
 
-            executeParticleComputePass(bitonic_sort_pass_, pRenderContext, NbParticles);
+            const auto compute_var = bitonic_sort_pass_->getRootVar();
+            // compute_var["gTexture3D"] = density_map_;
+            compute_var["bodies"] = bodies_buffer_;
+            compute_var["SpatialIndices"] = SpatialIndices;
+            compute_var["SpatialOffsets"] = SpatialOffsets;
 
-            executeParticleComputePass(calculate_offsets_pass_, pRenderContext, totalThreadsX);
+            compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
+            compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
+            compute_var["PerFrameCB"]["wallDist"] = Metrics::WALLDIST;
+            compute_var["PerFrameCB"]["fixedDeltaTime"] = kFixedDeltaTime;
+            compute_var["PerFrameCB"]["nbParticles"] = Metrics::NbParticles;
+            compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
+            compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
+            compute_var["PerFrameCB"]["targetDensity"] = SPH::TargetDensity;
+            compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
+            compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
+            compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = densityGraphicsMultiplier;
 
-            /*pRenderContext->copyResource(readback_spatial_indices.get(), SpatialIndices.get());
+            // Launch each step of the sorting algorithm (once the previous step is complete)
+            // Number of steps = [log2(n) * (log2(n) + 1)] / 2
+            // where n = nearest power of 2 that is greater or equal to the number of inputs
+            int numStages = log2(NextPowerOfTwo(NbParticles));
 
-            const uint3* indices = static_cast<const uint3*>(readback_spatial_indices->map());
-
-            for (int i = 0; i < NbParticles; i++)
+            for (int stageIndex = 0; stageIndex < numStages; stageIndex++)
             {
-                auto id = indices[i];
+                for (int stepIndex = 0; stepIndex < stageIndex + 1; stepIndex++)
+                {
+                    // Calculate some pattern stuff
+                    int groupWidth = 1 << (stageIndex - stepIndex);
+                    int groupHeight = 2 * groupWidth - 1;
+                    compute_var["PerFrameCB"]["groupWidth"] = groupWidth;
+                    compute_var["PerFrameCB"]["groupHeight"] = groupHeight;
+                    compute_var["PerFrameCB"]["stepIndex"] = stepIndex;
 
-                std::cout << "GPU VALUE: " << id.x << " " << id.y << " " << id.z << '\n';
-            }*/
-
-            //// Step 1: Copy to vector
-            //std::vector<uint3> sortedIndices(indices, indices + NbParticles);
-
-            //// Step 2: Sort by key (z component)
-            //std::sort(sortedIndices.begin(), sortedIndices.end(),
-            //    [](const uint3& a, const uint3& b)
-            //    { return a.z < b.z; });
-
-            //for (const auto& ind : sortedIndices)
-            //{
-            //    std::cout << "Sorted: " << ind.x << " " << ind.y << " " << ind.z << '\n';
-            //}
-
-            //readback_spatial_indices->unmap();
-
-            //pRenderContext->updateBuffer(SpatialIndices.get(), sortedIndices.data());
-
-           /* pRenderContext->copyResource(readback_spatial_indices.get(), SpatialIndices.get());
-            indices = static_cast<const uint3*>(readback_spatial_indices->map());
-
-            for (int i = 0; i < NbParticles; i++)
-            {
-                auto ind = indices[i];
-                std::cout << "Spatial GPU " << ind.x << " " << ind.y << " " << ind.z << '\n';
+                    bitonic_sort_pass_->execute(pRenderContext,
+                        NextPowerOfTwo(NbParticles) / 2, 1, 1);
+                }
             }
 
-            readback_spatial_indices->unmap();*/
+            executeParticleComputePass(calculate_offsets_pass_, pRenderContext, totalThreadsX);
 
             executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
             executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);

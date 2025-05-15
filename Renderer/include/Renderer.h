@@ -96,8 +96,14 @@ private:
     MeshID sphere_mesh_id;
     MeshID cube_mesh_id;
     MeshID marching_cubes_mesh_id_;
+    NodeID sphere_node_id_;
+    ref<TriangleMesh> sphere;
 
-    ref<Buffer> v_data;
+    ref<Buffer> b_pos;
+    ref<Buffer> b_pos_readback;
+    ref<Buffer> b_normal;
+    ref<Buffer> b_tang;
+    ref<Buffer> b_uv;
 
     ref<ComputePass> compute_density_map_pass_ = nullptr;
     ref<ComputePass> marching_cubes_pass_ = nullptr;

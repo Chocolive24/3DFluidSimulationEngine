@@ -88,12 +88,13 @@ private:
 
     World* world_ = nullptr;
 
-    bool start_simul_ = false;
+    bool start_simul_ = true;
     bool regenrate_particles_ = false;
 
     float fixed_timer_ = kFixedDeltaTime;
     float time_since_last_fixed_update_ = 0.f;
 
+    ref<ComputePass> spawn_particle_pass_ = nullptr;
     ref<ComputePass> update_particle_bodies_pass_ = nullptr;
     ref<ComputePass> update_spatial_hash_pass_ = nullptr;
     ref<ComputePass> bitonic_sort_pass_ = nullptr;
