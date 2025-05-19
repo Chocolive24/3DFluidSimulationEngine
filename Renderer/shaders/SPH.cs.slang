@@ -203,7 +203,8 @@ void ApplyForce(inout ParticleBody Particlebody, float3 force) {
     Particlebody.Force += force;
 }
 
-void SimulationBounds(inout ParticleBody Particlebody) {
+void SimulationBounds(inout ParticleBody Particlebody) 
+{
     if (Particlebody.Position.x <= -wallDist)
     {
         Particlebody.Velocity.x = abs(Particlebody.Velocity.x);

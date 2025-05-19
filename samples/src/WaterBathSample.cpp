@@ -66,9 +66,9 @@ void WaterBathSample::SampleSetUp() noexcept {
         for (size_t i = 0; i < NbParticles;)
         {
             XMVECTOR pos = XMVectorSet(
-                Random::Range(-WALLDIST, WALLDIST * 0.2f),
-                Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
-                Random::Range(-WALLDIST, WALLDIST * 0.2f),
+                Random::Range(-WALLDIST, WALLDIST),
+                Random::Range(-WALLDIST, WALLDIST),
+                Random::Range(-WALLDIST, WALLDIST),
                 0.0f
             );
 
@@ -97,22 +97,26 @@ void WaterBathSample::SampleSetUp() noexcept {
                 PARTICLESIZE, BodyType::FLUID);
         }*/
 
-      /*  int particlesPerAxis = static_cast<int>(cbrt(Metrics::NbParticles)) + 1;
-        float spacing = PARTICLESIZE * 2 + PARTICLESPACING;
+        //int particlesPerAxis = static_cast<int>(cbrt(Metrics::NbParticles)) + 1;
+        //float spacing = 5.f; //PARTICLESIZE * 2;
 
-        for (int i = 0; i < NbParticles; i++)
-        {
-            int xIndex = i % particlesPerAxis;
-            int yIndex = (i / particlesPerAxis) % particlesPerAxis;
-            int zIndex = i / (particlesPerAxis * particlesPerAxis);
+        //for (int i = 0; i < NbParticles; i++)
+        //{
+        //    int xIndex = i % particlesPerAxis;
+        //    int yIndex = (i / particlesPerAxis) % particlesPerAxis;
+        //    int zIndex = i / (particlesPerAxis * particlesPerAxis);
 
-            float x = (xIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
-            float y = (yIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
-            float z = (zIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+        //    float x = (xIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+        //    float y = (yIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
+        //    float z = (zIndex - particlesPerAxis / 2.f + 0.5f) * spacing;
 
-            XMVECTOR pos{x, y, z};
-            CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
-        }*/
+        //    x += Random::Range(0.f, 1.f);
+        //    y += Random::Range(0.f, 1.f);
+        //    z += Random::Range(0.f, 1.f);
+
+        //    XMVECTOR pos{x, y, z};
+        //    CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
+        //}
 
 
 	/*for (size_t i = 0; i < NbParticles; i++) {

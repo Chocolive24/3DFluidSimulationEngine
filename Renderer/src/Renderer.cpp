@@ -30,7 +30,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
                                 SceneBuilder::Flags::RTDontMergeInstanced | SceneBuilder::Flags::DontOptimizeGraph;
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
-    auto sphere_mesh = TriangleMesh::createSphere(Metrics::MetersToPixels(0.05f));
+    auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
     //auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds - 1.f));
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
@@ -102,48 +102,6 @@ void Renderer::Init(RenderContext* render_context) noexcept
     camera->setDepthRange(0.1f, 10000.f);
 
     scene_builder_->addCamera(camera);
-
-    //std::vector<float> data(density_map_size * density_map_size * density_map_size, 0.0f);
-
-    // for (int z = 0; z < density_map_size; ++z)
-    //{
-    //     for (int y = 0; y < density_map_size; ++y)
-    //     {
-    //         for (int x = 0; x < density_map_size; ++x)
-    //         {
-    //             int idx = z * density_map_size * density_map_size + y * density_map_size + x;
-
-    //            // Option 1: Linear ramp along Z
-    //            data[idx] = float(x) / float(density_map_size);
-
-    //             // Option 2: Checker pattern
-    //             // data[idx] = ((x + y + z) % 2 == 0) ? 1.0f : 0.0f;
-
-    //             // Option 3: Spherical gradient
-    //             /*float cx = density_map_size / 2.0f, cy = density_map_size / 2.0f, cz = density_map_size / 2.0f;
-    //             float dx = x - cx, dy = y - cy, dz = z - cz;
-    //             float dist = std::sqrt(dx*dx + dy*dy + dz*dz);
-    //             data[idx] = 1.0f - std::min(dist / (density_map_size / 2.0f), 1.0f);*/
-    //             //data[idx] = 1;
-    //        }
-    //    }
-    //}
-
-    // auto quad = TriangleMesh::createQuad(float2(density_map_size, density_map_size));
-
-    // auto id = scene_builder_->addTriangleMesh(quad, dielectric_blue);
-
-    // auto node_4 = SceneBuilder::Node();
-    // node_4.name = "cube";
-    // auto transform_4 = Transform();
-    // transform_4.setTranslation(float3(0.f, 0, 0.f));
-    // transform_4.setRotationEuler(float3(1.5708, 0.f, 0));
-    // transform_4.setScaling(float3(1, 1.f, 1));
-    // node_4.transform = transform_4.getMatrix();
-    // auto node_id_4 = scene_builder_->addNode(node_4);
-
-    //// Add Mesh Instances
-    // scene_builder_->addMeshInstance(node_id_4, id);
 
     compute_density_map_pass_ =
        ComputePass::create(device_,
@@ -314,24 +272,24 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     //std::cout << "Before scene update\n";
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
 
-  /*  if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
-    {
-        std::cout << "GeometryChanged\n";
-    }
-    if (is_set(updates, IScene::UpdateFlags::GeometryMoved))
-    {
-        std::cout << "GeometryMoved\n";
-    }
-    if (is_set(updates, IScene::UpdateFlags::MeshesChanged))
-    {
-        std::cout << "MeshesChanged\n";
-    }*/
+    //if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
+    //{
+    //    std::cout << "GeometryChanged\n";
+    //}
+    //if (is_set(updates, IScene::UpdateFlags::GeometryMoved))
+    //{
+    //    std::cout << "GeometryMoved\n";
+    //}
+    //if (is_set(updates, IScene::UpdateFlags::MeshesChanged))
+    //{
+    //    std::cout << "MeshesChanged\n";
+    //}
     //std::cout << "After scene update\n";
 
-    //if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
-    //    FALCOR_THROW("This sample does not support scene geometry changes.");
-    //if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
-    //    FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
+    if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
+        FALCOR_THROW("This sample does not support scene geometry changes.");
+    if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
+        FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
 
  /*   FALCOR_ASSERT(scene_);
     FALCOR_PROFILE(pRenderContext, "renderRT");*/
@@ -533,16 +491,6 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
 
 NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
 {
-    // ref<TriangleMesh> sphere_mesh = TriangleMesh::createSphere(radius);
-
-    // ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
-    // dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
-    // dielectric_blue->setDoubleSided(true);
-    // dielectric_blue->setIndexOfRefraction(1.f);
-    // dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
-
-    // MeshID sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
-
     auto node = SceneBuilder::Node();
     const std::string name = "Sphere " /* + std::to_string(i)*/;
     node.name = name;
@@ -552,8 +500,6 @@ NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
     transform.setScaling(float3(radius, radius, radius));
     node.transform = transform.getMatrix();
     const auto node_id = scene_builder_->addNode(node);
-
-    // sphereNodeIDs.push_back(node_id);
 
     // Add Mesh Instances
     scene_builder_->addMeshInstance(node_id, sphere_mesh_id);

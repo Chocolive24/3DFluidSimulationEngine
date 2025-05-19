@@ -49,7 +49,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     renderer_->Init(getRenderContext());
 
-    //particle_bodies_.resize(NbParticles);
+    // particle_bodies_.resize(NbParticles);
 
     for (const auto& body : world_->_bodies)
     {
@@ -69,7 +69,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         sphereNodeIDs.push_back(sphere_node_id);
 
         ParticleBody pb{};
-        //pb.Position = XMFLOAT3{position.x, position.y, position.z};
+        // pb.Position = XMFLOAT3{position.x, position.y, position.z};
         pb.Position = position;
         pb.Velocity = velocity;
         pb.PredictedPosition = predictedPosition;
@@ -79,40 +79,27 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     }
 
     spawn_particle_pass_ =
-        ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-            "spawnParticles");
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "spawnParticles");
 
-   update_particle_bodies_pass_ =
-        ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-            "updateBodies");
+    update_particle_bodies_pass_ =
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "updateBodies");
 
     update_spatial_hash_pass_ =
-       ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "UpdateSpatialHash");
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "UpdateSpatialHash");
 
-    bitonic_sort_pass_=
-        ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "BitonicSort");
+    bitonic_sort_pass_ = ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "BitonicSort");
 
-    calculate_offsets_pass_ = ComputePass::create(getDevice(),
-        "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-        "CalculateOffsets");
+    calculate_offsets_pass_ =
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "CalculateOffsets");
 
     compute_neighbors_density_pass_ =
-        ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-            "computeNeighborsDensity");
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "computeNeighborsDensity");
 
     compute_neighbors_pressure_pass_ =
-        ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-            "computeNeighborsPressure");
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "computeNeighborsPressure");
 
-     compute_neighbors_viscosity_pass_ =
-        ComputePass::create(getDevice(),
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-            "computeNeighborsViscosity");
+    compute_neighbors_viscosity_pass_ =
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "computeNeighborsViscosity");
 
     bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
@@ -124,7 +111,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         false
     );
 
-     SpatialIndices = make_ref<Buffer>(
+    SpatialIndices = make_ref<Buffer>(
         getDevice(),
         sizeof(uint32_t) * 3,
         NbParticles,
@@ -135,14 +122,14 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     );
 
     SpatialOffsets = make_ref<Buffer>(
-         getDevice(),
-         sizeof(uint32_t),
-         NbParticles,
-         ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-         MemoryType::DeviceLocal,
-         nullptr,
-         false
-     );
+        getDevice(),
+        sizeof(uint32_t),
+        NbParticles,
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::DeviceLocal,
+        nullptr,
+        false
+    );
 
     readback_bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
@@ -174,13 +161,12 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         false
     );
 
-    
     auto compute_var = spawn_particle_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
     compute_var["SpatialIndices"] = SpatialIndices;
     compute_var["SpatialOffsets"] = SpatialOffsets;
 
-    //executeParticleComputePass(spawn_particle_pass_, pRenderContext, totalThreadsX);
+    // executeParticleComputePass(spawn_particle_pass_, pRenderContext, totalThreadsX);
 
     compute_var = update_particle_bodies_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
@@ -219,7 +205,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     renderer_->CreateRaytracingProgram();
 
-    //renderer_->LaunchMarchingCubeComputePasses(getRenderContext());
+    // renderer_->LaunchMarchingCubeComputePasses(getRenderContext());
 }
 
 void FluidApplication::onResize(uint32_t width, uint32_t height)
@@ -227,14 +213,16 @@ void FluidApplication::onResize(uint32_t width, uint32_t height)
     renderer_->OnResize(width, height);
 }
 
-void FluidApplication::executeParticleComputePass(const ref<ComputePass>& compute_pass,
+void FluidApplication::executeParticleComputePass(
+    const ref<ComputePass>& compute_pass,
     RenderContext* pRenderContext,
     const uint32_t total_threads_x,
     const uint32_t total_threads_y,
-    const uint32_t total_threads_z) const noexcept
+    const uint32_t total_threads_z
+) const noexcept
 {
     const auto compute_var = compute_pass->getRootVar();
-    //compute_var["gTexture3D"] = density_map_;
+    // compute_var["gTexture3D"] = density_map_;
     compute_var["bodies"] = bodies_buffer_;
     compute_var["SpatialIndices"] = SpatialIndices;
     compute_var["SpatialOffsets"] = SpatialOffsets;
@@ -325,8 +313,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
                     compute_var["PerFrameCB"]["groupHeight"] = groupHeight;
                     compute_var["PerFrameCB"]["stepIndex"] = stepIndex;
 
-                    bitonic_sort_pass_->execute(pRenderContext,
-                        NextPowerOfTwo(NbParticles) / 2, 1, 1);
+                    bitonic_sort_pass_->execute(pRenderContext, NextPowerOfTwo(NbParticles) / 2, 1, 1);
                 }
             }
 
@@ -379,7 +366,6 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
             sphere_iterator++;
         }
     }
-   
 
     renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime(), bodies_buffer_, SpatialIndices, SpatialOffsets);
 
