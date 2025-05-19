@@ -308,13 +308,14 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
     app_gui_window->slider("densityGraphicsMultiplier",
         Metrics::densityGraphicsMultiplier, 0.f, 200.f);
     app_gui_window->slider("volumeValueOffset", volumeValueOffset, 0.f, 1.f);
-    app_gui_window->slider("DensityDepth", DensityDepth, 0.f, 1.f);
+    app_gui_window->slider("DensityDepth", DensityRayMarchMultiplier, 0.f, 1.f);
     app_gui_window->slider("SphereRadius", SphereRadius, 0.f, 200.f);
 
     app_gui_window->var("ISO Level", IsoLevel);
     app_gui_window->var("normalOffset", normalOffset);
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
+    app_gui_window->checkbox("Light Scattering ?", lightScattering);
     //if (draw_fluid_)
     //{
         app_gui_window->var("Water Turbulance", water_turbulence_);
@@ -566,6 +567,7 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["PerFrameCB"]["useDOF"] = mUseDOF;*/
 
     var["PerFrameCB"]["drawFluid"] = draw_fluid_;
+    var["PerFrameCB"]["lightScattering"] = lightScattering;
 
     var["PerFrameCB"]["backgroundColor"] = bg_clear_color;
 
@@ -594,7 +596,7 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     static int frame = 0;
     var["PerFrameCB"]["iFrame"] = frame++;
 
-    var["PerFrameCB"]["DensityDepth"] = DensityDepth;
+    var["PerFrameCB"]["DensityRayMarchMultiplier"] = DensityRayMarchMultiplier;
     var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
     var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
     var["PerFrameCB"]["volumeValueOffset"] = volumeValueOffset;

@@ -112,11 +112,12 @@ private:
 
     //ref<Material> dielectric_blue;
 public:
-    float DensityDepth = 0.05f;
+    float DensityRayMarchMultiplier = 0.05f;
     float volumeValueOffset = 0.f;
     float normalOffset = 1.f;
 
     bool draw_fluid_ = false;
+    bool lightScattering = false;
 
 
     unsigned marching_cubes_triangle_count_ = 0;
@@ -141,14 +142,14 @@ public:
     uint kMaxRayBounce = 3;
 
     float3 absorptionCoeff = float3(1.0, 0.4, 0.05);
-    float3 scatteringCoeff = float3(0.1, 0.2, 0.8);
+    float3 scatteringCoeff = float3(1, 1, 1);
     float phaseG = 0.8f;
 
     float water_turbulence_ = 2.5f;
     float maxRayMarchingDistance = 5.f;
     float kMarchSize = 0.5f; //*Metrics::voxelSize;
     float maxLighMarchingDistance = 3.f;
-    float sunLightMarchSize = 0.2f;
+    float sunLightMarchSize = 1.f;
 
     float3 lightColor = float3(1, 1, 1);
     float3 lightDir = normalize(float3(1, -1, -1));
