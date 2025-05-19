@@ -79,8 +79,10 @@ cbuffer PerFrameCB
 struct SDF_GeometryAttributes
 {
     float3 w_position;
+    // float t;
+    float tMin;
     float3 w_normal;
-    float t;
+    float tMax;
 }
 
 struct PrimaryRayData
@@ -364,18 +366,43 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
     hitData.color = finalColor;
 }
 
+
 [shader("closesthit")]
 void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
 {
-    // hitData.color = float4(0.1, 0.3, 0.9, 0);
-    // hitData.hitT = RayTCurrent();
-    // return;
+    float densityAlongViewRay = 0.f;
+    float3 totalScatteredLight;
+    for (float dst = attribs.tMin + marchSize; dst < attribs.tMax; dst += marchSize)
+    {
+        float3 p = WorldRayOrigin() + WorldRayDirection() * dst;
+        float densityAlongStep = SampleDensityMap(p) * DensityDepth * marchSize;
+        densityAlongViewRay += densityAlongStep;
+
+        // TODO: Not sure if it works correctly
+        // float densityAlongSunRay = CalculateDensityAlongRay(p, -lightDir, sunLightMarchSize);
+        // float3 transmittedSunLight = exp(-densityAlongSunRay * scatteringCoeff);
+
+        float3 transmittedSunLight = float3(1, 1, 1);
+
+        float3 inScatteredLight = transmittedSunLight * densityAlongStep * scatteringCoeff;
+        float3 viewTransmittance = exp(-densityAlongViewRay * scatteringCoeff);
+        totalScatteredLight += inScatteredLight * viewTransmittance;
+    }
+
+    // if (length(totalScatteredLight) <= isoLevel)
+    // {
+    //     totalScatteredLight = gScene.envMap.eval(WorldRayDirection());
+    // }
+
+    hitData.color = float4(totalScatteredLight, 0);
+    hitData.hitT = RayTCurrent();
+    return;
 
     float3 n = attribs.w_normal;
     n += float3(1, 1, 1);
     n *= 0.5f;
     hitData.color = float4(float3(n.x, n.y, n.z), 1);
-    hitData.hitT = attribs.t;
+    hitData.hitT = attribs.tMax - attribs.tMin;
     return;
 
     if (hitData.depth >= maxRayBounce)
@@ -608,6 +635,40 @@ bool RayAABBIntersectionTest(Ray ray, float3 aabb[2], out float tmin, out float 
     return tmax > tmin && tmax >= RayTMin() && tmin <= RayTCurrent();
 }
 
+float CalculateDensityAlongRay(float3 rayPos, float3 rayDir, float stepSize)
+{
+    Ray ray;
+    ray.origin = rayPos;
+    ray.dir = rayDir;
+
+    float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
+
+    float tMin = 0.f;
+    float tMax = 0.f;
+
+    float opticalDepth = 0.f;
+
+    if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
+    {
+        // Ensure tMin is in the AABB when the camera is already inside it.
+        tMin = max(tMin, RayTMin());
+        tMax = min(tMax, RayTCurrent());
+
+        for (float dst = tMin; dst < tMax; dst += stepSize)
+        {
+            float3 p = rayPos + rayDir * dst;
+            float currDensity = SampleDensityMap(p) * DensityDepth * stepSize;
+
+            if (currDensity >= isoLevel)
+            {
+                opticalDepth += currDensity;
+            }
+        }
+    }
+
+    return opticalDepth;
+}
+
 [shader("intersection")]
 void RaymarchingIntersection()
 {
@@ -637,6 +698,14 @@ void RaymarchingIntersection()
         tMax = min(tMax, RayTCurrent());
 
         float3 startPos = rayOrigin + rayDir * tMin;
+
+        attr.w_position = startPos;
+        attr.tMin = tMin;
+        attr.tMax = tMax;
+
+        ReportHit(tMin, /*hitKind*/ 0, attr);
+        return;
+
         float prevDensity = SampleDensityMap(startPos);
 
         // If the entry point intersection is already inside the fluid. ReportHit.
@@ -644,7 +713,8 @@ void RaymarchingIntersection()
         {
             attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * tMin);
             attr.w_position = startPos;
-            attr.t = tMin;
+            attr.tMin = tMin;
+            attr.tMax = tMax;
 
             ReportHit(tMin, /*hitKind*/ 0, attr);
             return;
@@ -664,7 +734,8 @@ void RaymarchingIntersection()
 
                 attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
                 attr.w_position = rayOrigin + rayDir * hitT;
-                attr.t = hitT;
+                attr.tMin = hitT;
+                attr.tMax = tMax;
 
                 ReportHit(hitT, /*hitKind*/ 0, attr);
                 return;
