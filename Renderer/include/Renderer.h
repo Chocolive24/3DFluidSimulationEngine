@@ -134,7 +134,7 @@ public:
     //float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
     int numPointsPerAxis = 64;
-    float IsoLevel = 0.1f;
+    float IsoLevel = 0.0f;
     float SphereRadius = 135.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
@@ -142,7 +142,7 @@ public:
     uint kMaxRayBounce = 3;
 
     float3 absorptionCoeff = float3(1.0, 0.4, 0.05);
-    float3 scatteringCoeff = float3(1, 1, 1);
+    float3 scatteringCoeff = float3(0.1, 1, 3);
     float phaseG = 0.8f;
 
     float water_turbulence_ = 2.5f;
@@ -154,5 +154,5 @@ public:
     float3 lightColor = float3(1, 1, 1);
     float3 lightDir = normalize(float3(1, -1, -1));
 
-    float IoR = 1.33f;
+    float IoR = 1.f;
 };
