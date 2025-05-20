@@ -2,11 +2,18 @@
 #include "Utility.h"
 namespace SPH {
 
-	inline float SmoothingRadius = 10;
+	/*inline float SmoothingRadius = 10;
 	inline float TargetDensity = 50;
 	inline float PressureMultiplier = 25;
 	inline float nearPressureMultiplier = 0.5;
-	inline float ViscosityStrength = 5000;
+	inline float ViscosityStrength = 5000;*/
+
+        inline float SmoothingRadius = 1.5f;
+        inline float TargetDensity = 120.f;
+        inline float PressureMultiplier = 5.f;
+        inline float nearPressureMultiplier = 2.16f;
+        inline float ViscosityStrength = 500;
+
 	//inline float SpikyPow2ScalingFactor = 6 / (PI * Pow(SmoothingRadius, 4));;
 	//inline float SpikyPow3ScalingFactor = 10 / (PI * Pow(SmoothingRadius, 5));;
 	//inline float SpikyPow2DerivativeScalingFactor = 12 / (PI * Pow(SmoothingRadius, 4));

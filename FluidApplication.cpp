@@ -81,8 +81,8 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     spawn_particle_pass_ =
         ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "spawnParticles");
 
-    update_particle_bodies_pass_ =
-        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "updateBodies");
+    compute_external_forces_pass_ =
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "computeExternalForces");
 
     update_spatial_hash_pass_ =
         ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "UpdateSpatialHash");
@@ -100,6 +100,9 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     compute_neighbors_viscosity_pass_ =
         ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "computeNeighborsViscosity");
+
+    compute_bodies_positions_pass_ =
+        ComputePass::create(getDevice(), "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "computeBodyPositions");
 
     bodies_buffer_ = make_ref<Buffer>(
         getDevice(),
@@ -168,7 +171,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
 
     // executeParticleComputePass(spawn_particle_pass_, pRenderContext, totalThreadsX);
 
-    compute_var = update_particle_bodies_pass_->getRootVar();
+    compute_var = compute_external_forces_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
     compute_var["SpatialIndices"] = SpatialIndices;
     compute_var["SpatialOffsets"] = SpatialOffsets;
@@ -199,6 +202,11 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     compute_var["SpatialOffsets"] = SpatialOffsets;
 
     compute_var = compute_neighbors_viscosity_pass_->getRootVar();
+    compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
+
+    compute_var = compute_bodies_positions_pass_->getRootVar();
     compute_var["bodies"] = bodies_buffer_;
     compute_var["SpatialIndices"] = SpatialIndices;
     compute_var["SpatialOffsets"] = SpatialOffsets;
@@ -239,6 +247,12 @@ void FluidApplication::executeParticleComputePass(
     compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
     compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = densityGraphicsMultiplier;
 
+    const float4x4 localToWorld = renderer_->fluid_transform.getMatrix();
+    const float4x4 worldToLocal = inverse(localToWorld);
+
+    compute_var["PerFrameCB"]["localToWorld"] = localToWorld;
+    compute_var["PerFrameCB"]["worldToLocal"] = worldToLocal;
+
     compute_pass->execute(pRenderContext, total_threads_x, total_threads_y, total_threads_z);
 }
 
@@ -276,7 +290,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 
         while (fixed_timer_ >= kFixedDeltaTime)
         {
-            executeParticleComputePass(update_particle_bodies_pass_, pRenderContext, totalThreadsX);
+            executeParticleComputePass(compute_external_forces_pass_, pRenderContext, totalThreadsX);
             executeParticleComputePass(update_spatial_hash_pass_, pRenderContext, totalThreadsX);
 
             const auto compute_var = bitonic_sort_pass_->getRootVar();
@@ -321,7 +335,9 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 
             executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
             executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);
-            executeParticleComputePass(compute_neighbors_viscosity_pass_, pRenderContext, totalThreadsX);
+            //executeParticleComputePass(compute_neighbors_viscosity_pass_, pRenderContext, totalThreadsX);
+
+            executeParticleComputePass(compute_bodies_positions_pass_, pRenderContext, totalThreadsX);
 
             fixed_timer_ -= kFixedDeltaTime;
             time_since_last_fixed_update_ = 0.f;

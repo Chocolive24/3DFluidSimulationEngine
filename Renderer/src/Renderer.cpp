@@ -70,7 +70,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
 
     auto fluid_node = SceneBuilder::Node();
     fluid_node.name = "RaymarchingNode";
-    auto fluid_transform = Transform();
+    fluid_transform = Transform();
     fluid_transform.setTranslation(float3(0.f, 0, 0.f));
     fluid_transform.setRotationEuler(float3(0.f, 0.f, 0.f));
     fluid_transform.setScaling(float3(1.f, 1.f, 1.f));

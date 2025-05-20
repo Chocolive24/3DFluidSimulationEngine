@@ -64,6 +64,9 @@ public:
         );
     }
 
+
+    Transform fluid_transform;
+
 private:
     void setPerFrameVariables(const double& currentTime) const noexcept;
     void createRasterizationProgram() const noexcept;
@@ -109,6 +112,7 @@ private:
     ref<ComputePass> marching_cubes_pass_ = nullptr;
     ref<Buffer> marching_cubes_triangle_buffer_ = nullptr;
     ref<Buffer> read_back_triangle_buffer_ = nullptr;
+
 
     //ref<Material> dielectric_blue;
 public:

@@ -95,13 +95,14 @@ private:
     float time_since_last_fixed_update_ = 0.f;
 
     ref<ComputePass> spawn_particle_pass_ = nullptr;
-    ref<ComputePass> update_particle_bodies_pass_ = nullptr;
+    ref<ComputePass> compute_external_forces_pass_ = nullptr;
     ref<ComputePass> update_spatial_hash_pass_ = nullptr;
     ref<ComputePass> bitonic_sort_pass_ = nullptr;
     ref<ComputePass> calculate_offsets_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_density_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_pressure_pass_ = nullptr;
     ref<ComputePass> compute_neighbors_viscosity_pass_ = nullptr;
+    ref<ComputePass> compute_bodies_positions_pass_ = nullptr;
 
     ref<Buffer> SpatialIndices = nullptr;
     ref<Buffer> SpatialOffsets = nullptr;
