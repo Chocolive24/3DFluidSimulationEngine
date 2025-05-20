@@ -113,7 +113,7 @@ private:
     //ref<Material> dielectric_blue;
 public:
     float DensityRayMarchMultiplier = 0.05f;
-    float volumeValueOffset = 0.f;
+    float volumeValueOffset = 0.1f;
     float normalOffset = 1.f;
 
     bool draw_fluid_ = false;
@@ -134,7 +134,7 @@ public:
     //float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
     int numPointsPerAxis = 64;
-    float IsoLevel = 0.0f;
+    float IsoLevel = 0.01f;
     float SphereRadius = 135.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
@@ -142,7 +142,7 @@ public:
     uint kMaxRayBounce = 3;
 
     float3 absorptionCoeff = float3(1.0, 0.4, 0.05);
-    float3 scatteringCoeff = float3(0.1, 1, 3);
+    float3 scatteringCoeff = float3(3, 0.66, 0.1);
     float phaseG = 0.8f;
 
     float water_turbulence_ = 2.5f;

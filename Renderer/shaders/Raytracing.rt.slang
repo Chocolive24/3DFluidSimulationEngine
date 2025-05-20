@@ -457,25 +457,26 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     ray.origin = WorldRayOrigin();
     ray.dir = WorldRayDirection();
 
+    bool travelThrougFluid = IsInsideFluid(ray.origin);
+
     float3 transmittance = float3(1, 1, 1);
     float3 light = float3(0, 0, 0);
 
     float3 debugNormal = float3(0.f);
     for (int i = 0; i < maxRayBounce; i++)
     {
-        bool findEntry = !IsInsideFluid(ray.origin);
-        SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, findEntry, attribs.tMax - attribs.tMin);
+        float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
+        bool searchEntry = !travelThrougFluid;
+
+        SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchEntry, attribs.tMax - attribs.tMin);
 
         transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
 
         // If no surface found, exit loop but still accumulate final light
-        if (!hitInfo.foundSurface)
-        {
-            //light += 1.f * transmittance * exp(-CalculateDensityAlongRay(ray.origin, ray.dir, marchSize) * scatteringCoeff);
-            break;
-        }
+        if (!hitInfo.foundSurface) break;
 
         float3 normal = ComputeDensityNormal(hitInfo.pos);
+        if (dot(normal, ray.dir) > 0) normal = -normal;
         debugNormal = normal;
 
         // Compute IoR ratio based on fluid state
@@ -493,8 +494,8 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         bool tir = all(refractDir == float3(0.0, 0.0, 0.0)); // Total internal reflection
 
         // Compute transmittance of both paths
-        float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, marchSize);
-        float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, marchSize);
+        float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
+        float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
 
         float3 transRefract = exp(-densityRefrac * scatteringCoeff) * refractionRatio;
         float3 transReflect = exp(-densityReflect * scatteringCoeff) * reflectionRatio;
@@ -520,13 +521,13 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     }
 
     // Final raymarch if no more bounces
-    float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, marchSize);
+    float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
     light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
 
     debugNormal += float3(1, 1, 1);
     debugNormal *= 0.5f;
 
-    hitData.color = float4(debugNormal, 0.0);
+    hitData.color = float4(1 - light, 1.0);
     hitData.hitT = RayTCurrent();
     return;
 
@@ -702,8 +703,6 @@ float SampleDensityMap(float3 pos)
     bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
     if (isEdge) return -volumeValueOffset;
 
-    // uvw.z = DensityRayMarchMultiplier;
-
     return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
 }
 
@@ -735,41 +734,6 @@ float3 ComputeDensityNormal(float3 pos)
     faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
 
     return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
-
-    // // Step size in world units — scale based on your density texture resolution
-    // const float stepSize = marchSize; // in world units (adjust depending on voxel size)
-
-    // // Central differences (flipped order for left-handed normal, change if needed)
-    // float dx = SampleDensityMap(posWS - float3(stepSize, 0, 0)) - SampleDensityMap(posWS + float3(stepSize, 0, 0));
-    // float dy = SampleDensityMap(posWS - float3(0, stepSize, 0)) - SampleDensityMap(posWS + float3(0, stepSize, 0));
-    // float dz = SampleDensityMap(posWS - float3(0, 0, stepSize)) - SampleDensityMap(posWS + float3(0, 0, stepSize));
-
-    // float3 volumeNormal = normalize(float3(dx, dy, dz));
-    // if (any(isnan(volumeNormal)))
-    //     volumeNormal = float3(0, 1, 0); // fallback if needed
-
-    // // Flatten normals near boundary edges (boundary smoothing)
-    // float3 o = simBounds * 0.5 - abs(posWS);   // distance to nearest box wall
-    // float faceWeight = min(o.x, min(o.y, o.z)); // distance to closest face
-
-    // // Tune for smoothing
-    // const float smoothDst = 0.3; // world units, fade-out distance
-    // const float smoothPow = 5.0; // sharpness of the flattening
-    // faceWeight = (1.0 - smoothstep(0.0, smoothDst, faceWeight)) 
-    //            * (1.0 - pow(saturate(volumeNormal.y), smoothPow));
-
-    // // Compute fallback face normal based on closest box face
-    // float3 faceNormal = float3(0, 0, 0);
-    // if (o.x <= o.y && o.x <= o.z)
-    //     faceNormal = float3(sign(posWS.x), 0, 0);
-    // else if (o.y <= o.x && o.y <= o.z)
-    //     faceNormal = float3(0, sign(posWS.y), 0);
-    // else
-    //     faceNormal = float3(0, 0, sign(posWS.z));
-
-    // // Blend volume normal with boundary face normal
-    // float3 finalNormal = normalize(lerp(volumeNormal, faceNormal, faceWeight));
-    // return finalNormal;
 }
 
 // Test if a ray segment <RayTMin(), RayTCurrent()> intersects an AABB.
@@ -808,23 +772,30 @@ bool RayAABBIntersectionTest(Ray ray, float3 aabb[2], out float tmin, out float 
     return tmax > tmin && tmax >= RayTMin() && tmin <= RayTCurrent();
 }
 
-float2 RayBoxDst(float3 aabbMin, float3 aabbMax, float3 rayOrigin, float3 rayDir)
+// Returns (dstToBox, dstInsideBox). If ray misses box, dstInsideBox will be zero
+float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 rayDir)
 {
-    float3 invDir = 1.0 / rayDir;
+    float3 invRayDir = 1 / rayDir;
+    // Adapted from: http://jcgt.org/published/0007/03/04/
+    float3 t0 = (boundsMin - rayOrigin) * invRayDir;
+    float3 t1 = (boundsMax - rayOrigin) * invRayDir;
+    float3 tmin = min(t0, t1);
+    float3 tmax = max(t0, t1);
 
-    float3 t0 = (aabbMin - rayOrigin) * invDir;
-    float3 t1 = (aabbMax - rayOrigin) * invDir;
+    float dstA = max(max(tmin.x, tmin.y), tmin.z);
+    float dstB = min(tmax.x, min(tmax.y, tmax.z));
 
-    float3 tMin = min(t0, t1);
-    float3 tMax = max(t0, t1);
+    // CASE 1: ray intersects box from outside (0 <= dstA <= dstB)
+    // dstA is dst to nearest intersection, dstB dst to far intersection
 
-    float tEntry = max(max(tMin.x, tMin.y), tMin.z);
-    float tExit = min(min(tMax.x, tMax.y), tMax.z);
+    // CASE 2: ray intersects box from inside (dstA < 0 < dstB)
+    // dstA is the dst to intersection behind the ray, dstB is dst to forward intersection
 
-    float dstToBox = tEntry;
-    float dstThroughBox = tExit - tEntry;
+    // CASE 3: ray misses box (dstA > dstB)
 
-    return float2(dstToBox, dstThroughBox);
+    float dstToBox = max(0, dstA);
+    float dstInsideBox = max(0, dstB - dstToBox);
+    return float2(dstToBox, dstInsideBox);
 }
 
 float CalculateDensityAlongRay(float3 rayPos, float3 rayDir, float stepSize)
@@ -856,7 +827,7 @@ float CalculateDensityAlongRay(float3 rayPos, float3 rayDir, float stepSize)
         float3 p = startPos + rayDir * dst;
         float density = SampleDensityMap(p);
 
-        if (density > isoLevel)
+        if (density > 0)
         {
             opticalDepth += density * DensityRayMarchMultiplier * stepSize;
         }        
@@ -890,7 +861,7 @@ void RaymarchingIntersection()
     if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
     {
         // Ensure tMin is in the AABB when the camera is already inside it.
-        tMin = max(tMin, RayTMin()); 
+        tMin = max(tMin, RayTMin());
         tMax = min(tMax, RayTCurrent());
 
         float3 startPos = rayOrigin + rayDir * tMin;
@@ -904,62 +875,38 @@ void RaymarchingIntersection()
 
         float prevDensity = SampleDensityMap(startPos);
 
-        // // If the entry point intersection is already inside the fluid. ReportHit.
-        // if (prevDensity >= isoLevel)
-        // {
-        //     attr.w_normal = ComputeDensityNormal(startPos);
-        //     attr.w_position = startPos;
-        //     attr.tMin = tMin;
-        //     attr.tMax = tMax;
+        // If the entry point intersection is already inside the fluid. ReportHit.
+        if (prevDensity >= isoLevel)
+        {
+            attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * tMin);
+            attr.w_position = startPos;
+            attr.tMin = tMin;
+            attr.tMax = tMax;
 
-        //     ReportHit(tMin, /*hitKind*/ 0, attr);
-        //     return;
-        // }
+            ReportHit(tMin, /*hitKind*/ 0, attr);
+            return;
+        }
 
         for (float dst = tMin + marchSize; dst < tMax; dst += marchSize)
         {
             float3 p = rayOrigin + rayDir * dst;
             float currDensity = SampleDensityMap(p);
 
-            bool isEntry = (prevDensity < isoLevel && currDensity >= isoLevel);
-            bool isExit = (prevDensity >= isoLevel && currDensity < isoLevel);
-
-            // Only report the kind of transition we’re looking for
-            if (isEntry || isExit)
+            // Detect a crossing from outside to inside fluid
+            if (prevDensity < isoLevel && currDensity >= isoLevel)
             {
-                // Interpolate to find accurate hit point
-                float alpha = abs(isoLevel - prevDensity) / abs(currDensity - prevDensity);
+                // Optional: refine hit position with linear interpolation
+                float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
                 float hitT = dst - marchSize + alpha * marchSize;
-                float3 refinedPos = rayOrigin + rayDir * hitT;
 
-                attr.w_normal = ComputeDensityNormal(refinedPos);
-                //if (isExit) attr.w_normal = -attr.w_normal; // flip for exit
-
-                attr.w_position = refinedPos;
+                attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+                attr.w_position = rayOrigin + rayDir * hitT;
                 attr.tMin = hitT;
                 attr.tMax = tMax;
 
-                ReportHit(hitT, 0, attr);
+                ReportHit(hitT, /*hitKind*/ 0, attr);
                 return;
             }
-
-            // Detect a crossing from outside to inside fluid
-            // if (prevDensity < isoLevel && currDensity >= isoLevel)
-            // {
-            //     // Optional: refine hit position with linear interpolation
-            //     float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
-            //     float hitT = dst - marchSize + alpha * marchSize;
-
-            //     float3 refinedPos = rayOrigin + rayDir * hitT;
-
-            //     attr.w_normal = ComputeDensityNormal(refinedPos);
-            //     attr.w_position = refinedPos;
-            //     attr.tMin = hitT;
-            //     attr.tMax = tMax;
-
-            //     ReportHit(hitT, /*hitKind*/ 0, attr);
-            //     return;
-            // }
 
             prevDensity = currDensity;
         }
