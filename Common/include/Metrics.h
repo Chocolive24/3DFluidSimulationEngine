@@ -19,7 +19,7 @@ namespace Metrics // Meter in physical world != meter irl
     constexpr int Width = MetersToPixels(19.20f);
     constexpr int Height = MetersToPixels(10.80f);
 
-    inline int NbParticles = 1'000;
+    inline int NbParticles = 5'000;
     
     static constexpr float WALLSIZE = Metrics::MetersToPixels(0.1f);
     static constexpr float WALLDIST = Metrics::MetersToPixels(0.5f);

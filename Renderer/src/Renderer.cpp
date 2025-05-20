@@ -273,10 +273,10 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
      compute_var["PerFrameCB"]["worldToLocal"] = worldToLocal;
 
      const float r = SPH::SmoothingRadius;
-     const float spikyPow2 = 15.f / (2 * PI * pow(r, 5));
-     const float spikyPow3 = 15.f / (PI * pow(r, 6));
-     const float spikyPow2Grad = 15.f / (PI * pow(r, 5));
-     const float spikyPow3Grad = 45.f / (PI * pow(r, 6));
+     const float spikyPow2 = 15.f / (2 * PI * Pow(r, 5));
+     const float spikyPow3 = 15.f / (PI * Pow(r, 6));
+     const float spikyPow2Grad = 15.f / (PI * Pow(r, 5));
+     const float spikyPow3Grad = 45.f / (PI * Pow(r, 6));
 
      compute_var["PerFrameCB"]["K_SpikyPow2"] = spikyPow2;
      compute_var["PerFrameCB"]["K_SpikyPow3"] = spikyPow3;

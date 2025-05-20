@@ -144,7 +144,7 @@ void UpdateSpatialHash(uint3 id: SV_DispatchThreadID)
     SpatialOffsets[id.x] = nbParticles;
     // Update index buffer
     uint index = id.x;
-    int3 cell = GetCell3D(bodies[index].Position, smoothingRadius);
+    int3 cell = GetCell3D(bodies[index].PredictedPosition, smoothingRadius);
     uint hash = HashCell3D(cell);
     uint key = KeyFromHash(hash, nbParticles);
     SpatialIndices[id.x] = uint3(index, hash, key);
@@ -291,11 +291,11 @@ void computeExternalForces(uint3 threadID: SV_DispatchThreadID)
     float3 acceleration = particlebody.Force * (1 / particlebody.Mass); // Calculate acceleration
 
     particlebody.Velocity += acceleration * fixedDeltaTime;          // Update velocity
-    particlebody.Position += particlebody.Velocity * fixedDeltaTime; // Update position
-    //particlebody.PredictedPosition = particlebody.Position + particlebody.Velocity * fixedDeltaTime; // Update position
+    //particlebody.Position += particlebody.Velocity * fixedDeltaTime; // Update position
+    particlebody.PredictedPosition = particlebody.Position + particlebody.Velocity * fixedDeltaTime; // Update position
 
     particlebody.Force = float3(0, 0, 0); // Reset force after applying
-    SimulationBounds(particlebody);
+    //SimulationBounds(particlebody);
 
     bodies[index] = particlebody; // Write the updated particlebody back to the buffer
 }
@@ -345,7 +345,7 @@ void computeNeighborsDensity(uint3 threadID: SV_DispatchThreadID)
 
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
 
-    float density = CalculateDensityAtPosition(particlebody.Position);
+    float density = CalculateDensityAtPosition(particlebody.PredictedPosition);
 
     // int3 originCell = GetCell3D(particlebody.Position, smoothingRadius);
     // float density = 0;
@@ -418,7 +418,7 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
 
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
 
-    int3 originCell = GetCell3D(particlebody.Position, smoothingRadius);
+    int3 originCell = GetCell3D(particlebody.PredictedPosition, smoothingRadius);
     float3 pressureForce = float3(0.f, 0.f, 0.f);
 
     // Neighbour search
@@ -443,7 +443,7 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
 
             ParticleBody otherParticleBody = bodies[neighbourIndex];
 
-            float3 offset = particlebody.Position - otherParticleBody.Position;
+            float3 offset = particlebody.PredictedPosition - otherParticleBody.PredictedPosition;
             float distance = length(offset);
             float3 direction = distance == 0 ? float3(0.f, 1.f, 0.f) : offset / distance;
             float slope = SmoothingKernelDerivative(smoothingRadius, distance);
@@ -467,7 +467,7 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
 
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
 
-    int3 originCell = GetCell3D(particlebody.Position, smoothingRadius);
+    int3 originCell = GetCell3D(particlebody.PredictedPosition, smoothingRadius);
     float3 viscosityForce = float3(0, 0, 0);
 
     // Neighbour search
@@ -492,7 +492,7 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
 
             ParticleBody otherParticleBody = bodies[neighbourIndex];
 
-            float3 r = particlebody.Position - otherParticleBody.Position;
+            float3 r = particlebody.PredictedPosition - otherParticleBody.PredictedPosition;
             float distance = length(r);
 
             if (distance > smoothingRadius) continue;
@@ -551,7 +551,7 @@ float CalculateDensityAtPosition(float3 position)
 
             ParticleBody otherParticleBody = bodies[neighbourIndex];
 
-            float3 neighbourPos = otherParticleBody.Position;
+            float3 neighbourPos = otherParticleBody.PredictedPosition;
             float3 offsetToNeighbour = neighbourPos - position;
             float sqrDstToNeighbour = dot(offsetToNeighbour, offsetToNeighbour);
 
@@ -561,12 +561,13 @@ float CalculateDensityAtPosition(float3 position)
 
             // Calculate density and near density
             float dst = sqrt(sqrDstToNeighbour);
-            float influence = SmoothingKernel(smoothingRadius, dst);
+            //float influence = SmoothingKernel(smoothingRadius, dst);
+            float influence = DensityKernel(dst, smoothingRadius);
             //nearDensity += NearDensityKernel(dst, smoothingRadius);
 
-            // float dx = position.x - otherParticleBody.Position.x;
-            // float dy = position.y - otherParticleBody.Position.y;
-            // float dz = position.z - otherParticleBody.Position.z;
+            // float dx = position.x - otherParticleBody.PredictedPosition.x;
+            // float dy = position.y - otherParticleBody.PredictedPosition.y;
+            // float dz = position.z - otherParticleBody.PredictedPosition.z;
 
             // float distance = sqrt(dx * dx + dy * dy + dz * dz);
 

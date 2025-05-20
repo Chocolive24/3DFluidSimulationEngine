@@ -254,10 +254,10 @@ void FluidApplication::executeParticleComputePass(
     compute_var["PerFrameCB"]["worldToLocal"] = worldToLocal;
 
     const float r = SPH::SmoothingRadius;
-    const float spikyPow2 = 15.f / (2 * PI * pow(r, 5));
-    const float spikyPow3 = 15.f / (PI * pow(r, 6));
-    const float spikyPow2Grad = 15.f / (PI * pow(r, 5));
-    const float spikyPow3Grad = 45.f / (PI * pow(r, 6));
+    const float spikyPow2 = 15.f / (2 * PI * Pow(r, 5));
+    const float spikyPow3 = 15.f / (PI * Pow(r, 6));
+    const float spikyPow2Grad = 15.f / (PI * Pow(r, 5));
+    const float spikyPow3Grad = 45.f / (PI * Pow(r, 6));
 
     compute_var["PerFrameCB"]["K_SpikyPow2"] = spikyPow2;
     compute_var["PerFrameCB"]["K_SpikyPow3"] = spikyPow3;
@@ -348,7 +348,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
             executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);
             executeParticleComputePass(compute_neighbors_viscosity_pass_, pRenderContext, totalThreadsX);
 
-            //executeParticleComputePass(compute_bodies_positions_pass_, pRenderContext, totalThreadsX);
+            executeParticleComputePass(compute_bodies_positions_pass_, pRenderContext, totalThreadsX);
 
             fixed_timer_ -= kFixedDeltaTime;
             time_since_last_fixed_update_ = 0.f;
