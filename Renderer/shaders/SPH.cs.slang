@@ -216,7 +216,7 @@ void SimulationBounds(inout ParticleBody Particlebody)
     const float3 halfSize = 0.5 * simBounds;
     const float3 edgeDst = halfSize - abs(posLocal);
 
-    const float damping = 0.1f;
+    const float damping = 0.9f;
 
     // Resolve collisions
     if (edgeDst.x <= 0)
