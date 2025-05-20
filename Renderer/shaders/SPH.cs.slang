@@ -337,6 +337,81 @@ float SmoothingKernelDerivative(float radius, float distance)
     float scale = 12 / (pow(radius, 4) * PI);
     return (distance - radius) * scale;
 }
+
+// Integrate[(h-r)^2 r^2 Sin[θ], {r, 0, h}, {θ, 0, π}, {φ, 0, 2*π}]
+float SpikyKernelPow2(float dst, float radius)
+{
+    if (dst < radius)
+    {
+        float v = radius - dst;
+        return v * v * K_SpikyPow2;
+    }
+    return 0;
+}
+
+float DensityKernel(float dst, float radius)
+{
+    // return SmoothingKernelPoly6(dst, radius);
+    return SpikyKernelPow2(dst, radius);
+}
+
+float CalculateDensityAtPosition(float3 position)
+{
+    int3 originCell = GetCell3D(position, smoothingRadius);
+    float sqrRadius = smoothingRadius * smoothingRadius;
+    float density = 0;
+
+    // Neighbour search
+    for (int i = 0; i < 27; i++)
+    {
+        uint hash = HashCell3D(originCell + offsets3D[i]);
+        uint key = KeyFromHash(hash, nbParticles);
+        uint currIndex = SpatialOffsets[key];
+
+        while (currIndex < nbParticles)
+        {
+            uint3 indexData = SpatialIndices[currIndex];
+            currIndex++;
+            // Exit if no longer looking at correct bin
+            if (indexData[2] != key) break;
+            // Skip if hash does not match
+            if (indexData[1] != hash) continue;
+
+            uint neighbourIndex = indexData[0];
+
+            ParticleBody otherParticleBody = bodies[neighbourIndex];
+
+            float3 neighbourPos = otherParticleBody.PredictedPosition;
+            float3 offsetToNeighbour = neighbourPos - position;
+            float sqrDstToNeighbour = dot(offsetToNeighbour, offsetToNeighbour);
+
+            // Skip if not within radius
+            if (sqrDstToNeighbour > sqrRadius)
+                continue;
+
+            // Calculate density and near density
+            float dst = sqrt(sqrDstToNeighbour);
+            // float influence = SmoothingKernel(smoothingRadius, dst);
+            float influence = DensityKernel(dst, smoothingRadius);
+            // nearDensity += NearDensityKernel(dst, smoothingRadius);
+
+            // float dx = position.x - otherParticleBody.PredictedPosition.x;
+            // float dy = position.y - otherParticleBody.PredictedPosition.y;
+            // float dz = position.z - otherParticleBody.PredictedPosition.z;
+
+            // float distance = sqrt(dx * dx + dy * dy + dz * dz);
+
+            // //if (distance > smoothingRadius) continue;
+
+            // float influence = SmoothingKernel(smoothingRadius, distance);
+            density += influence;
+        }
+    }
+
+    // density *= densityGraphicsMultiplier;
+
+    return density;
+}
  
 [numthreads(64, 1, 1)]
 void computeNeighborsDensity(uint3 threadID: SV_DispatchThreadID) 
@@ -411,6 +486,26 @@ float CalculateSharedPressure(float pressure1, float pressure2)
     return (ConvertDensityToPressure(pressure1) + ConvertDensityToPressure(pressure2)) * 0.5f;
 }
 
+float PressureFromDensity(float density)
+{
+    return (density - targetDensity) * pressureMultiplier;
+}
+
+float DerivativeSpikyPow2(float dst, float radius)
+{
+    if (dst <= radius)
+    {
+        float v = radius - dst;
+        return -v * K_SpikyPow2Grad;
+    }
+    return 0;
+}
+
+float DensityDerivative(float dst, float radius)
+{
+    return DerivativeSpikyPow2(dst, radius);
+}
+
 [numthreads(64, 1, 1)]
 void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
 {
@@ -419,6 +514,13 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
 
     int3 originCell = GetCell3D(particlebody.PredictedPosition, smoothingRadius);
+
+    // Calculate pressure
+    float density = particlebody.Density;
+    float pressure = PressureFromDensity(density);
+    float3 velocity = particlebody.Velocity;
+    int neighbourCount = 0;
+    float sqrRadius = smoothingRadius * smoothingRadius;
     float3 pressureForce = float3(0.f, 0.f, 0.f);
 
     // Neighbour search
@@ -438,24 +540,54 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
             if (indexData[1] != hash) continue;
 
             uint neighbourIndex = indexData[0];
+
             // Skip if looking at self
             if (neighbourIndex == threadID.x) continue;
 
             ParticleBody otherParticleBody = bodies[neighbourIndex];
 
-            float3 offset = particlebody.PredictedPosition - otherParticleBody.PredictedPosition;
-            float distance = length(offset);
-            float3 direction = distance == 0 ? float3(0.f, 1.f, 0.f) : offset / distance;
-            float slope = SmoothingKernelDerivative(smoothingRadius, distance);
-            float otherDensity = otherParticleBody.Density;
-            float sharedPressure = CalculateSharedPressure(otherDensity, particlebody.Density);
-            pressureForce += sharedPressure * direction * slope * otherParticleBody.Mass / otherDensity;
+            float3 offsetToNeighbour = particlebody.PredictedPosition - otherParticleBody.PredictedPosition;
+            float sqrDstToNeighbour = dot(offsetToNeighbour, offsetToNeighbour);
+
+            // Skip if not within radius
+            if (sqrDstToNeighbour > sqrRadius) continue;
+
+            // Calculate pressure force
+            float densityNeighbour = otherParticleBody.Density;
+            //float nearDensityNeighbour = Densities[neighbourIndex][1];
+            float neighbourPressure = PressureFromDensity(densityNeighbour);
+            //float neighbourPressureNear = NearPressureFromDensity(nearDensityNeighbour);
+
+            float sharedPressure = (pressure + neighbourPressure) / 2;
+            //float sharedNearPressure = (nearPressure + neighbourPressureNear) / 2;
+
+            float dstToNeighbour = sqrt(sqrDstToNeighbour);
+            float3 dirToNeighbour = dstToNeighbour > 0 ? offsetToNeighbour / dstToNeighbour : float3(0, 1, 0);
+            neighbourCount++;
+
+            // Update pressure force
+            pressureForce += dirToNeighbour * DensityDerivative(dstToNeighbour, smoothingRadius) * sharedPressure / densityNeighbour;
+            //pressureForce += dirToNeighbour * NearDensityDerivative(dstToNeighbour, smoothingRadius) * sharedNearPressure / nearDensityNeighbour;
+
+            // float distance = length(offset);
+            // float3 direction = distance == 0 ? float3(0.f, 1.f, 0.f) : offset / distance;
+            // float slope = SmoothingKernelDerivative(smoothingRadius, distance);
+            // float otherDensity = otherParticleBody.Density;
+            // float sharedPressure = CalculateSharedPressure(otherDensity, particlebody.Density);
+            // pressureForce += sharedPressure * direction * slope * otherParticleBody.Mass / otherDensity;
         }
     }
 
-    ApplyForce(particlebody, pressureForce / particlebody.Density);
+    ApplyForce(particlebody, pressureForce / density);
     // float3 acceleration = pressureForce / particlebody.Density;
     // particlebody.Velocity += acceleration * fixedDeltaTime;
+
+    // Quick test -- apply some drag to airborne fluid particles
+    if (neighbourCount < 8)
+    {
+        ApplyForce(particlebody, -velocity * 0.75f);
+        //Velocities[id.x] -= Velocities[id.x] * deltaTime * 0.75;
+    }
    
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 }
@@ -506,81 +638,6 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
     //particlebody.Velocity += viscosityForce * viscosityStrength * fixedDeltaTime;
 
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
-}
-
-// Integrate[(h-r)^2 r^2 Sin[θ], {r, 0, h}, {θ, 0, π}, {φ, 0, 2*π}]
-float SpikyKernelPow2(float dst, float radius)
-{
-    if (dst < radius)
-    {
-        float v = radius - dst;
-        return v * v * K_SpikyPow2;
-    }
-    return 0;
-}
-
-float DensityKernel(float dst, float radius)
-{
-    // return SmoothingKernelPoly6(dst, radius);
-    return SpikyKernelPow2(dst, radius);
-}
-
-float CalculateDensityAtPosition(float3 position)
-{
-    int3 originCell = GetCell3D(position, smoothingRadius);
-    float sqrRadius = smoothingRadius * smoothingRadius;
-    float density = 0;
-
-    // Neighbour search
-    for (int i = 0; i < 27; i++)
-    {
-        uint hash = HashCell3D(originCell + offsets3D[i]);
-        uint key = KeyFromHash(hash, nbParticles);
-        uint currIndex = SpatialOffsets[key];
-
-        while (currIndex < nbParticles)
-        {
-            uint3 indexData = SpatialIndices[currIndex];
-            currIndex++;
-            // Exit if no longer looking at correct bin
-            if (indexData[2] != key) break;
-            // Skip if hash does not match
-            if (indexData[1] != hash) continue;
-
-            uint neighbourIndex = indexData[0];
-
-            ParticleBody otherParticleBody = bodies[neighbourIndex];
-
-            float3 neighbourPos = otherParticleBody.PredictedPosition;
-            float3 offsetToNeighbour = neighbourPos - position;
-            float sqrDstToNeighbour = dot(offsetToNeighbour, offsetToNeighbour);
-
-            // Skip if not within radius
-            if (sqrDstToNeighbour > sqrRadius)
-                continue;
-
-            // Calculate density and near density
-            float dst = sqrt(sqrDstToNeighbour);
-            //float influence = SmoothingKernel(smoothingRadius, dst);
-            float influence = DensityKernel(dst, smoothingRadius);
-            //nearDensity += NearDensityKernel(dst, smoothingRadius);
-
-            // float dx = position.x - otherParticleBody.PredictedPosition.x;
-            // float dy = position.y - otherParticleBody.PredictedPosition.y;
-            // float dz = position.z - otherParticleBody.PredictedPosition.z;
-
-            // float distance = sqrt(dx * dx + dy * dy + dz * dz);
-
-            // //if (distance > smoothingRadius) continue;
-
-            //float influence = SmoothingKernel(smoothingRadius, distance);
-            density += influence;
-        }
-    }
-
-    //density *= densityGraphicsMultiplier;
-
-    return density;
 }
 
 [numthreads(8, 8, 8)]
