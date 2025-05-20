@@ -578,15 +578,15 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
         }
     }
 
-    ApplyForce(particlebody, pressureForce / density);
-    // float3 acceleration = pressureForce / particlebody.Density;
-    // particlebody.Velocity += acceleration * fixedDeltaTime;
+    //ApplyForce(particlebody, pressureForce / density);
+    float3 acceleration = pressureForce / particlebody.Density;
+    particlebody.Velocity += acceleration * fixedDeltaTime;
 
     // Quick test -- apply some drag to airborne fluid particles
     if (neighbourCount < 8)
     {
-        ApplyForce(particlebody, -velocity * 0.75f);
-        //Velocities[id.x] -= Velocities[id.x] * deltaTime * 0.75;
+        //ApplyForce(particlebody, -velocity * 0.75f);
+        particlebody.Velocity -= particlebody.Velocity * fixedDeltaTime * 0.75;
     }
    
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
@@ -634,8 +634,8 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
         }
     }
 
-    ApplyForce(particlebody, viscosityForce * viscosityStrength);
-    //particlebody.Velocity += viscosityForce * viscosityStrength * fixedDeltaTime;
+    //ApplyForce(particlebody, viscosityForce * viscosityStrength);
+    particlebody.Velocity += viscosityForce * viscosityStrength * fixedDeltaTime;
 
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 }
