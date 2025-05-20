@@ -1,6 +1,8 @@
 #pragma once
 
-constexpr double PI = 3.141592653589793238462643383279502884197;
+//constexpr double PI = 3.141592653589793238462643383279502884197;
+
+static constexpr float PI = 3.1415926535f;
 
 template<typename T>
 [[nodiscard]] constexpr T Clamp(T x, T min, T max) noexcept

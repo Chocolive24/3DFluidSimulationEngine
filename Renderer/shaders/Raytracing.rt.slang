@@ -455,6 +455,10 @@ bool IsInsideFluid(float3 pos)
 [shader("closesthit")]
 void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
 {
+    // hitData.color = float4(0.1, 0.3, 1, 1.0);
+    // hitData.hitT = RayTCurrent();
+    // return;
+
     Ray ray;
     ray.origin = WorldRayOrigin();
     ray.dir = WorldRayDirection();
@@ -856,7 +860,7 @@ void RaymarchingIntersection()
         return;
     }
 
-    SDF_GeometryAttributes attr;
+    SDF_GeometryAttributes attr = {};
 
     float3 rayDir = WorldRayDirection();
     float3 rayOrigin = WorldRayOrigin();

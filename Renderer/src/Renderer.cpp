@@ -72,7 +72,8 @@ void Renderer::Init(RenderContext* render_context) noexcept
     fluid_node.name = "RaymarchingNode";
     fluid_transform = Transform();
     fluid_transform.setTranslation(float3(0.f, 0, 0.f));
-    fluid_transform.setRotationEuler(float3(3.14 / 4, 3.14 / 4, 3.14 / 4));
+    fluid_transform.setRotationEuler(float3(0.f));
+    //fluid_transform.setRotationEuler(float3(3.14 / 4, 3.14 / 4, 3.14 / 4));
     fluid_transform.setScaling(float3(1.f, 1.f, 1.f));
     fluid_node.transform = fluid_transform.getMatrix();
     auto raymarching_node_id = scene_builder_->addNode(fluid_node);
@@ -264,6 +265,23 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
      compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
      compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
      compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = Metrics::densityGraphicsMultiplier;
+
+     const float4x4 localToWorld = fluid_transform.getMatrix();
+     const float4x4 worldToLocal = inverse(localToWorld);
+
+     compute_var["PerFrameCB"]["localToWorld"] = localToWorld;
+     compute_var["PerFrameCB"]["worldToLocal"] = worldToLocal;
+
+     const float r = SPH::SmoothingRadius;
+     const float spikyPow2 = 15.f / (2 * PI * pow(r, 5));
+     const float spikyPow3 = 15.f / (PI * pow(r, 6));
+     const float spikyPow2Grad = 15.f / (PI * pow(r, 5));
+     const float spikyPow3Grad = 45.f / (PI * pow(r, 6));
+
+     compute_var["PerFrameCB"]["K_SpikyPow2"] = spikyPow2;
+     compute_var["PerFrameCB"]["K_SpikyPow3"] = spikyPow3;
+     compute_var["PerFrameCB"]["K_SpikyPow2Grad"] = spikyPow2Grad;
+     compute_var["PerFrameCB"]["K_SpikyPow3Grad"] = spikyPow3Grad;
 
     // const uint32_t thread_groups = (density_map_size + 7) / 8;
      compute_density_map_pass_->execute(pRenderContext,
