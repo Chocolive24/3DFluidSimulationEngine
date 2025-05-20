@@ -80,15 +80,17 @@ cbuffer PerFrameCB
 struct SDF_GeometryAttributes
 {
     float3 w_position;
+    float densityAlongRay;
     // float t;
-    float tMin;
+    //float tMin;
     float3 w_normal;
-    float tMax;
+    //float tMax;
 }
 
 struct PrimaryRayData
 {
     float4 color = float4(0, 0, 0, 0);
+    float3 transmittance = float3(1, 1, 1);
     uint depth = 0;
     float hitT = -1.f;
     float absorptionDistance = 0.f;
@@ -462,13 +464,13 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     float3 transmittance = float3(1, 1, 1);
     float3 light = float3(0, 0, 0);
 
-    float3 debugNormal = float3(0.f);
     for (int i = 0; i < maxRayBounce; i++)
+    //if (hitData.depth < maxRayBounce)
     {
-        float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
+        float densityStepSize = sunLightMarchSize * (hitData.depth + 1); // increase step size with each iteration
         bool searchEntry = !travelThrougFluid;
 
-        SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchEntry, attribs.tMax - attribs.tMin);
+        SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchEntry, RayTCurrent());
 
         transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
 
@@ -476,11 +478,13 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         if (!hitInfo.foundSurface) break;
 
         float3 normal = ComputeDensityNormal(hitInfo.pos);
-        if (dot(normal, ray.dir) > 0) normal = -normal;
-        debugNormal = normal;
+        // bool travelThrougFluid = (dot(attribs.w_normal, ray.dir) > 0);
+        // if (travelThrougFluid) attribs.w_normal = -attribs.w_normal;
+        bool travelThrougFluid = (dot(normal, ray.dir) > 0);
+        if (travelThrougFluid) normal = -normal;
 
         // Compute IoR ratio based on fluid state
-        float eta = IsInsideFluid(ray.origin) ? IoR : 1.0;
+        float eta = travelThrougFluid ? IoR : 1.0;
 
         // Fresnel reflectance using Schlick approximation
         float cosTheta = abs(dot(normalize(ray.dir), normal));
@@ -516,6 +520,17 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         ray.origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
         ray.dir = followRefrac ? refractDir : reflectDir;
 
+        // Define dominant ray
+        RayDesc dominantRayDesc;
+        dominantRayDesc.Origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
+        dominantRayDesc.Direction = followRefrac ? refractDir : reflectDir;
+
+        // Trace dominant ray
+        PrimaryRayData dominantRayData = {};
+        dominantRayData.depth = hitData.depth + 1;
+        dominantRayData.hitT = 0;
+        //TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, dominantRayDesc, dominantRayData);
+
         // Update transmittance
         transmittance *= followRefrac ? refractionRatio : reflectionRatio;
     }
@@ -523,9 +538,6 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     // Final raymarch if no more bounces
     float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
     light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
-
-    debugNormal += float3(1, 1, 1);
-    debugNormal *= 0.5f;
 
     hitData.color = float4(1 - light, 1.0);
     hitData.hitT = RayTCurrent();
@@ -866,53 +878,67 @@ void RaymarchingIntersection()
 
         float3 startPos = rayOrigin + rayDir * tMin;
 
-        attr.w_position = startPos;
-        attr.tMin = tMin;
-        attr.tMax = tMax;
-
-        ReportHit(tMin, /*hitKind*/ 0, attr);
+        ReportHit(tMax - tMin, 0, attr);
         return;
 
-        float prevDensity = SampleDensityMap(startPos);
+        bool searchEntry = !IsInsideFluid(startPos);
+        SurfaceInfo hitInfo = FindNextSurface(startPos, ray.dir, searchEntry, tMax - tMin);
 
-        // If the entry point intersection is already inside the fluid. ReportHit.
-        if (prevDensity >= isoLevel)
+        if (hitInfo.foundSurface)
         {
-            attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * tMin);
-            attr.w_position = startPos;
-            attr.tMin = tMin;
-            attr.tMax = tMax;
+            attr.w_position = hitInfo.pos;
+            attr.w_normal = ComputeDensityNormal(hitInfo.pos);
+            attr.densityAlongRay = hitInfo.densityAlongRay;
 
-            ReportHit(tMin, /*hitKind*/ 0, attr);
+            float tHit = length(hitInfo.pos - rayOrigin); // or dot(ray.dir, hitInfo.pos - ray.origin)
+
+            ReportHit(tHit, /*hitKind*/ 0, attr);
             return;
-        }
-
-        for (float dst = tMin + marchSize; dst < tMax; dst += marchSize)
-        {
-            float3 p = rayOrigin + rayDir * dst;
-            float currDensity = SampleDensityMap(p);
-
-            // Detect a crossing from outside to inside fluid
-            if (prevDensity < isoLevel && currDensity >= isoLevel)
-            {
-                // Optional: refine hit position with linear interpolation
-                float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
-                float hitT = dst - marchSize + alpha * marchSize;
-
-                attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
-                attr.w_position = rayOrigin + rayDir * hitT;
-                attr.tMin = hitT;
-                attr.tMax = tMax;
-
-                ReportHit(hitT, /*hitKind*/ 0, attr);
-                return;
-            }
-
-            prevDensity = currDensity;
         }
     }
 }
 
+//     ReportHit(tMin, /*hitKind*/ 0, attr);
+//     return;
+
+//     float prevDensity = SampleDensityMap(startPos);
+
+//     // If the entry point intersection is already inside the fluid. ReportHit.
+//     if (prevDensity >= isoLevel)
+//     {
+//         attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * tMin);
+//         attr.w_position = startPos;
+//         // attr.tMin = tMin;
+//         // attr.tMax = tMax;
+
+//         ReportHit(tMin, /*hitKind*/ 0, attr);
+//         return;
+//     }
+
+//     for (float dst = tMin + marchSize; dst < tMax; dst += marchSize)
+//     {
+//         float3 p = rayOrigin + rayDir * dst;
+//         float currDensity = SampleDensityMap(p);
+
+//         // Detect a crossing from outside to inside fluid
+//         if (prevDensity < isoLevel && currDensity >= isoLevel)
+//         {
+//             // Optional: refine hit position with linear interpolation
+//             float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
+//             float hitT = dst - marchSize + alpha * marchSize;
+
+//             attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+//             attr.w_position = rayOrigin + rayDir * hitT;
+//             // attr.tMin = hitT;
+//             // attr.tMax = tMax;
+
+//             ReportHit(hitT, /*hitKind*/ 0, attr);
+//             return;
+//         }
+
+//         prevDensity = currDensity;
+//     }
+// }
 
 
 // Ray generation (just a simple ray going through the scene)

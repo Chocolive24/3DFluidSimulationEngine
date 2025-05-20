@@ -114,7 +114,7 @@ private:
 public:
     float DensityRayMarchMultiplier = 0.05f;
     float volumeValueOffset = 0.1f;
-    float normalOffset = 1.f;
+    float normalOffset = 0.5f;
 
     bool draw_fluid_ = false;
     bool lightScattering = false;
@@ -142,7 +142,7 @@ public:
     uint kMaxRayBounce = 3;
 
     float3 absorptionCoeff = float3(1.0, 0.4, 0.05);
-    float3 scatteringCoeff = float3(3, 0.66, 0.1);
+    float3 scatteringCoeff = float3(0.1, .33, 0.8);
     float phaseG = 0.8f;
 
     float water_turbulence_ = 2.5f;
