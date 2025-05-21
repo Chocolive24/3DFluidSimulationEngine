@@ -100,6 +100,7 @@ private:
     MeshID cube_mesh_id;
     MeshID marching_cubes_mesh_id_;
     NodeID sphere_node_id_;
+    NodeID raymarching_node_id;
     ref<TriangleMesh> sphere;
 
     ref<Buffer> b_pos;
@@ -154,6 +155,11 @@ public:
     float kMarchSize = 0.1f; //*Metrics::voxelSize;
     float maxLighMarchingDistance = 3.f;
     float sunLightMarchSize = 0.5f;
+
+    Transform transfrom{};
+    float3 translation{0.f, 0.f, 0.f};
+    float3 rotation{0.f, 0.f, 0.f};
+    float3 scale{1.f, 1.f, 1.f};
 
     float3 lightColor = float3(1, 1, 1);
     float3 lightDir = normalize(float3(1, -1, -1));

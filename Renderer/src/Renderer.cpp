@@ -1,4 +1,7 @@
 #include "Renderer.h"
+
+#include <DirectXMath.h>
+
 #include "Metrics.h"
 
 #include "Core/Program/Program.h"
@@ -71,12 +74,17 @@ void Renderer::Init(RenderContext* render_context) noexcept
     auto fluid_node = SceneBuilder::Node();
     fluid_node.name = "RaymarchingNode";
     fluid_transform = Transform();
-    fluid_transform.setTranslation(float3(0.f, 0, 0.f));
-    fluid_transform.setRotationEuler(float3(0.f));
-    //fluid_transform.setRotationEuler(float3(3.14 / 4, 3.14 / 4, 3.14 / 4));
-    fluid_transform.setScaling(float3(1.f, 1.f, 1.f));
+    fluid_transform.setTranslation(translation);
+    //fluid_transform.setRotationEuler(float3(0.f));
+    //float3 rotation_rad{};
+    //rotation_rad.x = math::radians(rotation.x);
+    //rotation_rad.y = math::radians(rotation.y);
+    //rotation_rad.z = math::radians(rotation.z);
+
+    fluid_transform.setRotationEulerDeg(rotation);
+    fluid_transform.setScaling(scale);
     fluid_node.transform = fluid_transform.getMatrix();
-    auto raymarching_node_id = scene_builder_->addNode(fluid_node);
+    raymarching_node_id = scene_builder_->addNode(fluid_node);
 
     //auto sdf = SDFSVS::create(device_);
     //sdf->generateCheeseValues(64, 0);
@@ -287,6 +295,8 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
      compute_density_map_pass_->execute(pRenderContext,
          Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
 
+    scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
+
     //std::cout << "Before scene update\n";
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
 
@@ -334,6 +344,21 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     app_gui_window->checkbox("Light Scattering ?", lightScattering);
+
+
+    app_gui_window->slider("translation", translation, -50.f, 50.f);
+    float3 rotation_degree{};
+    app_gui_window->slider("rotation", rotation, 0.f, 360.f);
+    //rotation.x = math::radians(rotation_degree.x);
+    //rotation.y = math::radians(rotation_degree.y);
+    //rotation.z = math::radians(rotation_degree.z);
+    app_gui_window->slider("scale", scale, 0.1f, 5.f);
+
+    fluid_transform.setTranslation(translation);
+    fluid_transform.setRotationEulerDeg(rotation);
+    fluid_transform.setScaling(scale);
+    scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
+
     //if (draw_fluid_)
     //{
         app_gui_window->var("Water Turbulance", water_turbulence_);
