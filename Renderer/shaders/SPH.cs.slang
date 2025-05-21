@@ -287,9 +287,10 @@ void computeExternalForces(uint3 threadID: SV_DispatchThreadID)
 
     ParticleBody particlebody = bodies[index]; // Access the Particlebody at the calculated index
 
-    ApplyForce(particlebody, float3(0, -gravity, 0));                   // Apply gravity
-    float3 acceleration = particlebody.Force * (1 / particlebody.Mass); // Calculate acceleration
-
+    // ApplyForce(particlebody, float3(0, -gravity, 0));                   // Apply gravity
+    // float3 acceleration = particlebody.Force * (1 / particlebody.Mass); // Calculate acceleration
+    float3 acceleration = float3(0, -gravity, 0);
+    
     particlebody.Velocity += acceleration * fixedDeltaTime;          // Update velocity
     //particlebody.Position += particlebody.Velocity * fixedDeltaTime; // Update position
     particlebody.PredictedPosition = particlebody.Position + particlebody.Velocity * fixedDeltaTime; // Update position

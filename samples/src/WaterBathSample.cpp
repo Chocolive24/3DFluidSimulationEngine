@@ -30,6 +30,12 @@ void WaterBathSample::DrawImgui() noexcept
 	if (ImGui::SliderFloat("Viscosity strength", &SPH::ViscosityStrength, 0.0f, 10000.0f)) {
 		SPH::ViscosityStrength = SPH::ViscosityStrength;
 	}
+        if (ImGui::SliderFloat("Fixed DeltaTime Diviser", &Metrics::fixedDeltaTimeDiviser, 0.0f, 200.f))
+        {
+            Metrics::fixedDeltaTimeDiviser = Metrics::fixedDeltaTimeDiviser;
+            Metrics::kFixedDeltaTime = 1.f / Metrics::fixedDeltaTimeDiviser;
+            std::cout << kFixedDeltaTime << '\n' << std::endl;
+        }
 }
 
 void WaterBathSample::OnCollisionEnter(ColliderRef col1,

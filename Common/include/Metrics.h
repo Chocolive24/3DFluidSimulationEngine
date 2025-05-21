@@ -14,7 +14,9 @@ namespace Metrics // Meter in physical world != meter irl
         return meters * MeterRatio;
     }
 
-    static constexpr float kFixedDeltaTime = 1.f / 60.f;
+    static float fixedDeltaTimeDiviser = 120.f;
+    static float kFixedDeltaTime = 1.f / fixedDeltaTimeDiviser;
+    
 
     constexpr int Width = MetersToPixels(19.20f);
     constexpr int Height = MetersToPixels(10.80f);
