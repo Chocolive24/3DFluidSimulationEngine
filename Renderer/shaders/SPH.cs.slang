@@ -290,7 +290,7 @@ void computeExternalForces(uint3 threadID: SV_DispatchThreadID)
     // ApplyForce(particlebody, float3(0, -gravity, 0));                   // Apply gravity
     // float3 acceleration = particlebody.Force * (1 / particlebody.Mass); // Calculate acceleration
     float3 acceleration = float3(0, -gravity, 0);
-    
+
     particlebody.Velocity += acceleration * fixedDeltaTime;          // Update velocity
     //particlebody.Position += particlebody.Velocity * fixedDeltaTime; // Update position
     particlebody.PredictedPosition = particlebody.Position + particlebody.Velocity * fixedDeltaTime; // Update position
@@ -593,6 +593,17 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 }
 
+float SmoothingKernelPoly6(float dst, float radius)
+{
+    if (dst < radius)
+    {
+        float scale = 315 / (64 * PI * pow(abs(radius), 9));
+        float v = radius * radius - dst * dst;
+        return v * v * v * scale;
+    }
+    return 0;
+}
+
 [numthreads(64, 1, 1)]
 void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
 {
@@ -601,7 +612,9 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
     ParticleBody particlebody = bodies[threadID.x]; // Access the Particlebody at the calculated index
 
     int3 originCell = GetCell3D(particlebody.PredictedPosition, smoothingRadius);
+    float sqrRadius = smoothingRadius * smoothingRadius;
     float3 viscosityForce = float3(0, 0, 0);
+    //float3 velocity = particlebody.Velocity;
 
     // Neighbour search
     for (int i = 0; i < 27; i++)
@@ -620,18 +633,31 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
             if (indexData[1] != hash) continue;
 
             uint neighbourIndex = indexData[0];
+
             // Skip if looking at self
             if (neighbourIndex == threadID.x) continue;
 
             ParticleBody otherParticleBody = bodies[neighbourIndex];
 
-            float3 r = particlebody.PredictedPosition - otherParticleBody.PredictedPosition;
-            float distance = length(r);
+            // float3 r = particlebody.PredictedPosition - otherParticleBody.PredictedPosition;
+            float3 offsetToNeighbour = otherParticleBody.PredictedPosition - particlebody.PredictedPosition;
+            float sqrDstToNeighbour = dot(offsetToNeighbour, offsetToNeighbour);
 
-            if (distance > smoothingRadius) continue;
+            // Skip if not within radius
+            if (sqrDstToNeighbour > sqrRadius)
+                continue;
 
-            float influence = SmoothingKernel(smoothingRadius, distance);
-            viscosityForce += (otherParticleBody.Velocity - particlebody.Velocity) * influence * particlebody.Mass;
+            // Calculate viscosity
+            float dst = sqrt(sqrDstToNeighbour);
+            float3 neighbourVelocity = otherParticleBody.Velocity;
+            viscosityForce += (neighbourVelocity - particlebody.Velocity) * SmoothingKernelPoly6(dst, smoothingRadius);
+
+            // float distance = length(r);
+
+            // if (distance > smoothingRadius) continue;
+
+            // float influence = SmoothingKernel(smoothingRadius, distance);
+            // viscosityForce += (otherParticleBody.Velocity - particlebody.Velocity) * influence * particlebody.Mass;
         }
     }
 
