@@ -324,8 +324,8 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
     app_gui_window->rgbColor("Background color", bg_clear_color);
 
     app_gui_window->slider("densityGraphicsMultiplier",
-        Metrics::densityGraphicsMultiplier, 0.f, 200.f);
-    app_gui_window->slider("volumeValueOffset", volumeValueOffset, 0.f, 1.f);
+        Metrics::densityGraphicsMultiplier, 0.f, 1000.f);
+    app_gui_window->slider("volumeValueOffset", volumeValueOffset, 0.f, 100.f);
     app_gui_window->slider("DensityDepth", DensityRayMarchMultiplier, 0.f, 1.f);
     app_gui_window->slider("SphereRadius", SphereRadius, 0.f, 200.f);
 

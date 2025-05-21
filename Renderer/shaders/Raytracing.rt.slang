@@ -79,11 +79,11 @@ cbuffer PerFrameCB
 
 struct SDF_GeometryAttributes
 {
-    float3 w_position;
+    float3 pos;
     float densityAlongRay;
     // float t;
     //float tMin;
-    float3 w_normal;
+    float3 normal;
     //float tMax;
 }
 
@@ -158,7 +158,7 @@ float3 CalculateTransmittanceRaymarching(SDF_GeometryAttributes attribs, float3 
 
     for (float t = 0.f; t < maxRaymarchingDistance; t += marchSize)
     {
-        float3 position = attribs.w_position + rayDir * t;
+        float3 position = attribs.pos + rayDir * t;
         bool isInVolume = map(position, waterTurbulence, time, iFrame) < 0.001f;
 
         if (isInVolume)
@@ -455,37 +455,36 @@ bool IsInsideFluid(float3 pos)
 [shader("closesthit")]
 void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
 {
-    // hitData.color = float4(0.1, 0.3, 1, 1.0);
-    // hitData.hitT = RayTCurrent();
-    // return;
-
     Ray ray;
     ray.origin = WorldRayOrigin();
     ray.dir = WorldRayDirection();
 
-    bool travelThrougFluid = IsInsideFluid(ray.origin);
+    //bool travelThrougFluid = IsInsideFluid(ray.origin);
 
-    float3 transmittance = float3(1, 1, 1);
+    //float3 transmittance = float3(1, 1, 1);
+    float3 transmittance = hitData.transmittance;
     float3 light = float3(0, 0, 0);
 
-    for (int i = 0; i < maxRayBounce; i++)
-    //if (hitData.depth < maxRayBounce)
+    //for (int i = 0; i < maxRayBounce; i++)
+    if (hitData.depth < maxRayBounce)
     {
         float densityStepSize = sunLightMarchSize * (hitData.depth + 1); // increase step size with each iteration
-        bool searchEntry = !travelThrougFluid;
+        //bool searchEntry = !travelThrougFluid;
 
-        SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchEntry, RayTCurrent());
+        //SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchEntry, RayTCurrent());
 
-        transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
+        //transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
+        transmittance *= exp(-attribs.densityAlongRay * scatteringCoeff);
 
         // If no surface found, exit loop but still accumulate final light
-        if (!hitInfo.foundSurface) break;
+        //if (!hitInfo.foundSurface) break;
 
-        float3 normal = ComputeDensityNormal(hitInfo.pos);
-        // bool travelThrougFluid = (dot(attribs.w_normal, ray.dir) > 0);
-        // if (travelThrougFluid) attribs.w_normal = -attribs.w_normal;
-        bool travelThrougFluid = (dot(normal, ray.dir) > 0);
-        if (travelThrougFluid) normal = -normal;
+        // float3 normal = ComputeDensityNormal(hitInfo.pos);
+        // bool travelThrougFluid = (dot(normal, ray.dir) > 0);
+        // if (travelThrougFluid) normal = -normal;
+        float3 normal = attribs.normal;
+        bool travelThrougFluid = (dot(attribs.normal, ray.dir) > 0);
+        if (travelThrougFluid) attribs.normal = -attribs.normal;
 
         // Compute IoR ratio based on fluid state
         float eta = travelThrougFluid ? IoR : 1.0;
@@ -502,8 +501,10 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         bool tir = all(refractDir == float3(0.0, 0.0, 0.0)); // Total internal reflection
 
         // Compute transmittance of both paths
-        float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
-        float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
+        // float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
+        // float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
+        float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(attribs.pos, refractDir, densityStepSize);
+        float densityReflect = CalculateDensityAlongRay(attribs.pos, reflectDir, densityStepSize);
 
         float3 transRefract = exp(-densityRefrac * scatteringCoeff) * refractionRatio;
         float3 transReflect = exp(-densityReflect * scatteringCoeff) * reflectionRatio;
@@ -521,29 +522,33 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         }
 
         // Advance ray
-        ray.origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
+        // ray.origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
+        ray.origin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
         ray.dir = followRefrac ? refractDir : reflectDir;
+        
+
+        // Update transmittance
+        transmittance *= followRefrac ? refractionRatio : reflectionRatio;
 
         // Define dominant ray
         RayDesc dominantRayDesc;
-        dominantRayDesc.Origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
+        //dominantRayDesc.Origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
+        dominantRayDesc.Origin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
         dominantRayDesc.Direction = followRefrac ? refractDir : reflectDir;
 
         // Trace dominant ray
         PrimaryRayData dominantRayData = {};
         dominantRayData.depth = hitData.depth + 1;
         dominantRayData.hitT = 0;
-        //TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, dominantRayDesc, dominantRayData);
-
-        // Update transmittance
-        transmittance *= followRefrac ? refractionRatio : reflectionRatio;
+        //dominantRayData.transmittance = transmittance;
+        //TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, dominantRayDesc, dominantRayData);       
     }
 
     // Final raymarch if no more bounces
     float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
     light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
 
-    hitData.color = float4(1 - light, 1.0);
+    hitData.color = float4(1- light, 1.0);
     hitData.hitT = RayTCurrent();
     return;
 
@@ -869,36 +874,41 @@ void RaymarchingIntersection()
     ray.origin = rayOrigin;
     ray.dir = rayDir;
 
-    float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
+    // float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
 
-    float tMin = 0.f;
-    float tMax = 0.f;
+    // float tMin = 0.f;
+    // float tMax = 0.f;
 
-    if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
+    // if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
+    // {
+    //     // Ensure tMin is in the AABB when the camera is already inside it.
+    //     tMin = max(tMin, RayTMin());
+    //     tMax = min(tMax, RayTCurrent());
+
+    //     float3 startPos = rayOrigin + rayDir * tMin;
+
+    //     // float prevDensity = SampleDensityMap(startPos);
+
+    //     // ReportHit(tMax - tMin, 0, attr);
+    //     // return;
+    // }
+
+    // ReportHit(tMin, /*hitKind*/ 0, attr);
+    // return;
+
+    bool searchEntry = !IsInsideFluid(rayOrigin);
+    SurfaceInfo hitInfo = FindNextSurface(rayOrigin, ray.dir, searchEntry, RayTCurrent());
+
+    if (hitInfo.foundSurface)
     {
-        // Ensure tMin is in the AABB when the camera is already inside it.
-        tMin = max(tMin, RayTMin());
-        tMax = min(tMax, RayTCurrent());
+        attr.pos = hitInfo.pos;
+        attr.normal = ComputeDensityNormal(hitInfo.pos);
+        attr.densityAlongRay = hitInfo.densityAlongRay;
 
-        float3 startPos = rayOrigin + rayDir * tMin;
+        float tHit = length(hitInfo.pos - rayOrigin); // or dot(ray.dir, hitInfo.pos - ray.origin)
 
-        ReportHit(tMax - tMin, 0, attr);
+        ReportHit(tHit, /*hitKind*/ 0, attr);
         return;
-
-        bool searchEntry = !IsInsideFluid(startPos);
-        SurfaceInfo hitInfo = FindNextSurface(startPos, ray.dir, searchEntry, tMax - tMin);
-
-        if (hitInfo.foundSurface)
-        {
-            attr.w_position = hitInfo.pos;
-            attr.w_normal = ComputeDensityNormal(hitInfo.pos);
-            attr.densityAlongRay = hitInfo.densityAlongRay;
-
-            float tHit = length(hitInfo.pos - rayOrigin); // or dot(ray.dir, hitInfo.pos - ray.origin)
-
-            ReportHit(tHit, /*hitKind*/ 0, attr);
-            return;
-        }
     }
 }
 
@@ -944,6 +954,60 @@ void RaymarchingIntersection()
 //     }
 // }
 
+// bool findEntry = prevDensity < 0;
+
+// If the entry point intersection is already inside the fluid. ReportHit.
+// if (findEntry)
+// {
+//     attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * tMin);
+//     attr.w_position = startPos;
+//     // attr.tMin = tMin;
+//     // attr.tMax = tMax;
+
+//     ReportHit(tMin, /*hitKind*/ 0, attr);
+//     return;
+// }
+
+// for (float dst = tMin + marchSize; dst < tMax + marchSize; dst += marchSize)
+// {
+//     float3 p = rayOrigin + rayDir * dst;
+//     float currDensity = SampleDensityMap(p);
+
+//     // Detect a crossing from outside to inside fluid
+//     if (prevDensity < 0 && currDensity >= 0 && findEntry)
+//     {
+//         // Optional: refine hit position with linear interpolation
+//         float alpha = (0 - prevDensity) / (currDensity - prevDensity);
+//         float hitT = dst - marchSize + alpha * marchSize;
+
+//         attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+//         attr.w_position = rayOrigin + rayDir * hitT;
+//         // attr.tMin = hitT;
+//         // attr.tMax = tMax;
+
+//         ReportHit(hitT, /*hitKind*/ 0, attr);
+//         return;
+//     }
+
+//     // Detect a crossing from inside to outside fluid
+//     if (prevDensity >= 0 && currDensity < 0 && !findEntry)
+//     {
+//         // Optional: refine hit position with linear interpolation
+//         float alpha = (0 - prevDensity) / (currDensity - prevDensity);
+//         float hitT = dst - marchSize + alpha * marchSize;
+
+//         attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+//         attr.w_normal = -attr.w_normal;
+//         attr.w_position = rayOrigin + rayDir * hitT;
+//         // attr.tMin = hitT;
+//         // attr.tMax = tMax;
+
+//         ReportHit(hitT, /*hitKind*/ 0, attr);
+//         return;
+//     }
+
+//     prevDensity = currDensity;
+// }
 
 // Ray generation (just a simple ray going through the scene)
 [shader("raygeneration")]

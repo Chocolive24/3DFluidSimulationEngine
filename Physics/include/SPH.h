@@ -12,7 +12,7 @@ namespace SPH {
         inline float TargetDensity = 25;
         inline float PressureMultiplier = 15.f;
         inline float nearPressureMultiplier = 2.16f;
-        inline float ViscosityStrength = 0;
+        inline float ViscosityStrength = 10.f;
 
 	//inline float SpikyPow2ScalingFactor = 6 / (PI * Pow(SmoothingRadius, 4));;
 	//inline float SpikyPow3ScalingFactor = 10 / (PI * Pow(SmoothingRadius, 5));;
