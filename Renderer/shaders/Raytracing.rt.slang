@@ -91,6 +91,7 @@ struct PrimaryRayData
 {
     float4 color = float4(0, 0, 0, 0);
     float3 transmittance = float3(1, 1, 1);
+    float3 light = float3(0, 0, 0);
     uint depth = 0;
     float hitT = -1.f;
     float absorptionDistance = 0.f;
@@ -459,32 +460,37 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     ray.origin = WorldRayOrigin();
     ray.dir = WorldRayDirection();
 
-    //bool travelThrougFluid = IsInsideFluid(ray.origin);
+    bool travelThrougFluid = IsInsideFluid(ray.origin);
 
-    //float3 transmittance = float3(1, 1, 1);
-    float3 transmittance = hitData.transmittance;
+    float3 transmittance = float3(1, 1, 1);
     float3 light = float3(0, 0, 0);
+    // float3 transmittance = hitData.transmittance;
+    // float3 light = hitData.light;
 
-    //for (int i = 0; i < maxRayBounce; i++)
-    if (hitData.depth < maxRayBounce)
+    for (int i = 0; i < maxRayBounce; i++)
+    //if (hitData.depth < maxRayBounce)
     {
-        float densityStepSize = sunLightMarchSize * (hitData.depth + 1); // increase step size with each iteration
-        //bool searchEntry = !travelThrougFluid;
+        float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
+        //float densityStepSize = sunLightMarchSize * (hitData.depth + 1); // increase step size with each iteration
 
-        //SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchEntry, RayTCurrent());
+        bool searchEntry = !travelThrougFluid;
 
-        //transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
-        transmittance *= exp(-attribs.densityAlongRay * scatteringCoeff);
+        SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchEntry, RayTCurrent());
+
+        transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
+        //transmittance *= exp(-attribs.densityAlongRay * scatteringCoeff);
+        //hitData.transmittance *= exp(-attribs.densityAlongRay * scatteringCoeff);
 
         // If no surface found, exit loop but still accumulate final light
-        //if (!hitInfo.foundSurface) break;
+        if (!hitInfo.foundSurface) break;
+        //if (!hitInfo.foundSurface) return;
 
-        // float3 normal = ComputeDensityNormal(hitInfo.pos);
-        // bool travelThrougFluid = (dot(normal, ray.dir) > 0);
-        // if (travelThrougFluid) normal = -normal;
-        float3 normal = attribs.normal;
-        bool travelThrougFluid = (dot(attribs.normal, ray.dir) > 0);
-        if (travelThrougFluid) attribs.normal = -attribs.normal;
+        float3 normal = ComputeDensityNormal(hitInfo.pos);
+        bool travelThrougFluid = (dot(normal, ray.dir) > 0);
+        if (travelThrougFluid) normal = -normal;
+        // float3 normal = attribs.normal;
+        // bool travelThrougFluid = (dot(attribs.normal, ray.dir) > 0);
+        // if (travelThrougFluid) attribs.normal = -attribs.normal;
 
         // Compute IoR ratio based on fluid state
         float eta = travelThrougFluid ? IoR : 1.0;
@@ -501,10 +507,10 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         bool tir = all(refractDir == float3(0.0, 0.0, 0.0)); // Total internal reflection
 
         // Compute transmittance of both paths
-        // float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
-        // float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
-        float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(attribs.pos, refractDir, densityStepSize);
-        float densityReflect = CalculateDensityAlongRay(attribs.pos, reflectDir, densityStepSize);
+        float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
+        float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
+        // float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(attribs.pos, refractDir, densityStepSize);
+        // float densityReflect = CalculateDensityAlongRay(attribs.pos, reflectDir, densityStepSize);
 
         float3 transRefract = exp(-densityRefrac * scatteringCoeff) * refractionRatio;
         float3 transReflect = exp(-densityReflect * scatteringCoeff) * reflectionRatio;
@@ -514,41 +520,67 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         // Accumulate light from the less dominant path
         if (followRefrac)
         {
-            light += 1.f * transmittance * transReflect;
+            //light += 1.f * transmittance * transReflect;
+            light += gScene.envMap.eval(reflectDir) * transmittance * transReflect;
+            //hitData.light += 1.f * hitData.transmittance * transReflect;
         }
         else
         {
-            light += 1.f * transmittance * transRefract;
+            //light += 1.f * transmittance * transRefract;
+            light += gScene.envMap.eval(refractDir) * transmittance * transReflect;
+            //hitData.light += 1.f * hitData.transmittance * transRefract;
         }
 
         // Advance ray
-        // ray.origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
-        ray.origin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
+        ray.origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
+        //ray.origin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
         ray.dir = followRefrac ? refractDir : reflectDir;
-        
 
         // Update transmittance
         transmittance *= followRefrac ? refractionRatio : reflectionRatio;
+        //hitData.transmittance *= followRefrac ? refractionRatio : reflectionRatio;
 
-        // Define dominant ray
-        RayDesc dominantRayDesc;
-        //dominantRayDesc.Origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
-        dominantRayDesc.Origin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
-        dominantRayDesc.Direction = followRefrac ? refractDir : reflectDir;
+        // // Define dominant ray
+        // RayDesc dominantRayDesc;
+        // //dominantRayDesc.Origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
+        // dominantRayDesc.Origin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
+        // dominantRayDesc.Direction = followRefrac ? refractDir : reflectDir;
 
-        // Trace dominant ray
-        PrimaryRayData dominantRayData = {};
-        dominantRayData.depth = hitData.depth + 1;
-        dominantRayData.hitT = 0;
-        //dominantRayData.transmittance = transmittance;
-        //TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, dominantRayDesc, dominantRayData);       
+        // // Trace dominant ray
+        // PrimaryRayData dominantRayData = {};
+        // dominantRayData.depth = hitData.depth + 1;
+        // dominantRayData.hitT = 0;
+        // dominantRayData.transmittance = hitData.transmittance;
+        // //dominantRayData.light = hitData.light;
+        // TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, dominantRayDesc, dominantRayData);
+
+        // // Accumulate values from the recursive ray
+        // hitData.light += dominantRayData.light;
+        // hitData.transmittance *= dominantRayData.transmittance;
+
+        // hitData.color = float4(hitData.light, 1.0);
+        // hitData.hitT = RayTCurrent();
+        // return;
     }
+    // else
+    // {
+    //     // Final raymarch if no more bounces
+    //     float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
+    //     //light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
+    //     hitData.light += 1.f * hitData.transmittance * exp(-densityRemainder * scatteringCoeff);
+
+    //     hitData.color = float4(1 - hitData.light, 1.0);
+    //     hitData.hitT = RayTCurrent();
+    //     return;
+    // }
 
     // Final raymarch if no more bounces
     float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
-    light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
+    //light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
+    light += gScene.envMap.eval(ray.dir) * transmittance * exp(-densityRemainder * scatteringCoeff);
 
-    hitData.color = float4(1- light, 1.0);
+    //hitData.color = float4(1 - light, 1.0);
+    hitData.color = float4(light, 1.0);
     hitData.hitT = RayTCurrent();
     return;
 

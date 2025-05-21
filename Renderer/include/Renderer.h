@@ -146,7 +146,7 @@ public:
     uint kMaxRayBounce = 3;
 
     float3 absorptionCoeff = float3(1.0, 0.4, 0.05);
-    float3 scatteringCoeff = float3(0.1, .33, 0.8);
+    float3 scatteringCoeff = float3(.8, .33, .1);
     float phaseG = 0.8f;
 
     float water_turbulence_ = 2.5f;
