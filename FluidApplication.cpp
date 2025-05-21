@@ -160,7 +160,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         NbParticles,
         ResourceBindFlags::None,
         MemoryType::Upload, // Must be Upload to map from CPU
-        nullptr,
+        particle_bodies_.data(),
         false
     );
 
@@ -283,18 +283,14 @@ uint32_t NextPowerOfTwo(int n)
 
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
+    if (regenrate_particles_)
+    {
+        pRenderContext->copyResource(bodies_buffer_.get(), regenrated_particles_.get());
+        regenrate_particles_ = false;
+    }
+
     if (start_simul_)
     {
-        /*if (regenrate_particles_)
-        {
-            std::cout << "Before blov\n";
-            regenrated_particles_->setBlob(particle_bodies_.data(), 0, particle_bodies_.size());
-            std::cout << "Before copy\n";
-            pRenderContext->copyResource(bodies_buffer_.get(), regenrated_particles_.get());
-            std::cout << "Before idk ?\n";
-            regenrate_particles_ = false;
-        }*/
-
         const auto delta_time = getGlobalClock().getDelta();
         fixed_timer_ += delta_time;
         time_since_last_fixed_update_ += delta_time;

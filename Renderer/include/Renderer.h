@@ -146,14 +146,14 @@ public:
     uint kMaxRayBounce = 3;
 
     float3 absorptionCoeff = float3(1.0, 0.4, 0.05);
-    float3 scatteringCoeff = float3(.8, .33, .1);
+    float3 scatteringCoeff = float3(.3, .1, .01);
     float phaseG = 0.8f;
 
     float water_turbulence_ = 2.5f;
     float maxRayMarchingDistance = 5.f;
-    float kMarchSize = 0.5f; //*Metrics::voxelSize;
+    float kMarchSize = 0.1f; //*Metrics::voxelSize;
     float maxLighMarchingDistance = 3.f;
-    float sunLightMarchSize = 1.f;
+    float sunLightMarchSize = 0.5f;
 
     float3 lightColor = float3(1, 1, 1);
     float3 lightDir = normalize(float3(1, -1, -1));

@@ -493,7 +493,8 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         // if (travelThrougFluid) attribs.normal = -attribs.normal;
 
         // Compute IoR ratio based on fluid state
-        float eta = travelThrougFluid ? IoR : 1.0;
+        // float eta = travelThrougFluid ? 1.0 : IoR;
+        float eta = travelThrougFluid ? (IoR / 1.0) : (1.0 / IoR);
 
         // Fresnel reflectance using Schlick approximation
         float cosTheta = abs(dot(normalize(ray.dir), normal));
@@ -504,30 +505,34 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         // Compute directions
         float3 reflectDir = reflect(ray.dir, normal);
         float3 refractDir = refract(ray.dir, normal, eta);
-        bool tir = all(refractDir == float3(0.0, 0.0, 0.0)); // Total internal reflection
+        //bool tir = all(refractDir == float3(0.0, 0.0, 0.0)); // Total internal reflection
 
         // Compute transmittance of both paths
-        float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
+        //float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
+        float densityRefrac =  CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
         float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
         // float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(attribs.pos, refractDir, densityStepSize);
         // float densityReflect = CalculateDensityAlongRay(attribs.pos, reflectDir, densityStepSize);
 
-        float3 transRefract = exp(-densityRefrac * scatteringCoeff) * refractionRatio;
-        float3 transReflect = exp(-densityReflect * scatteringCoeff) * reflectionRatio;
+        // float3 transRefract = exp(-densityRefrac * scatteringCoeff) * refractionRatio;
+        // float3 transReflect = exp(-densityReflect * scatteringCoeff) * reflectionRatio;
 
-        bool followRefrac = !tir && length(transRefract) > length(transReflect);
+        //bool followRefrac = !tir && length(transRefract) > length(transReflect);
+        bool followRefrac = densityRefrac * refractionRatio > densityReflect * reflectionRatio;
 
         // Accumulate light from the less dominant path
         if (followRefrac)
         {
-            //light += 1.f * transmittance * transReflect;
-            light += gScene.envMap.eval(reflectDir) * transmittance * transReflect;
+            // light += 1.f * transmittance * transReflect;
+            // light += gScene.envMap.eval(reflectDir) * transmittance * transReflect;
+            light += gScene.envMap.eval(reflectDir) * transmittance * exp(-densityReflect * scatteringCoeff) * reflectionRatio;
             //hitData.light += 1.f * hitData.transmittance * transReflect;
         }
         else
         {
-            //light += 1.f * transmittance * transRefract;
-            light += gScene.envMap.eval(refractDir) * transmittance * transReflect;
+            // light += 1.f * transmittance * transRefract;
+            // light += gScene.envMap.eval(refractDir) * transmittance * transReflect;
+            light += gScene.envMap.eval(refractDir) * transmittance * exp(-densityRefrac * scatteringCoeff) * refractionRatio;
             //hitData.light += 1.f * hitData.transmittance * transRefract;
         }
 
