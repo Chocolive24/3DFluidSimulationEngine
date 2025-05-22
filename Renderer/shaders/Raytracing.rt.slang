@@ -453,90 +453,91 @@ bool IsInsideFluid(float3 pos)
     return (boundsDstInfo.x <= 0 && boundsDstInfo.y > 0) && SampleDensityMap(pos) > 0;
 }
 
-// [shader("closesthit")]
-// void RaymarchingClosestHit(inout PrimaryRayData payload, SDF_GeometryAttributes attribs)
-// {
-//     Ray ray;
-//     //ray.origin = WorldRayOrigin();
-//     ray.dir = WorldRayDirection();
+[shader("closesthit")]
+void RaymarchingClosestHit(inout PrimaryRayData payload, SDF_GeometryAttributes attribs)
+{
+    Ray ray;
+    //ray.origin = WorldRayOrigin();
+    ray.dir = WorldRayDirection();
 
-//     float densityStepSize = sunLightMarchSize * (payload.depth + 1); // increase step size with each iteration
+    float densityStepSize = sunLightMarchSize * (payload.depth + 1); // increase step size with each iteration
 
-//     // === Raymarch once ===
-//     payload.transmittance *= exp(-attribs.densityAlongRay * scatteringCoeff);
+    // === Raymarch once ===
+    payload.transmittance *= exp(-attribs.densityAlongRay * scatteringCoeff);
 
-//     // === Surface interaction ===
-//     float3 normal = ComputeDensityNormal(attribs.pos);
-//     bool localTravel = dot(normal, ray.dir) > 0;
-//     if (localTravel) normal = -normal;
+    // === Surface interaction ===
+    float3 normal = ComputeDensityNormal(attribs.pos);
+    bool localTravel = dot(normal, ray.dir) > 0;
+    if (localTravel) normal = -normal;
 
-//     // Compute IoR ratio based on fluid state
-//     float eta = localTravel ? (IoR / 1.0) : (1.0 / IoR);
+    // Compute IoR ratio based on fluid state
+    float eta = localTravel ? (IoR / 1.0) : (1.0 / IoR);
 
-//     // Fresnel reflectance using Schlick approximation
-//     float cosTheta = abs(dot(normalize(ray.dir), normal));
-//     float F0 = pow((1.0 - eta) / (1.0 + eta), 2.0);
-//     float reflectionRatio = evalFresnelSchlick(F0, 1.0, cosTheta);
-//     float refractionRatio = 1.0 - reflectionRatio;
+    // Fresnel reflectance using Schlick approximation
+    float cosTheta = abs(dot(normalize(ray.dir), normal));
+    float F0 = pow((1.0 - eta) / (1.0 + eta), 2.0);
+    float reflectionRatio = evalFresnelSchlick(F0, 1.0, cosTheta);
+    float refractionRatio = 1.0 - reflectionRatio;
 
-//     // Compute directions
-//     float3 reflectDir = reflect(ray.dir, normal);
-//     float3 refractDir = refract(ray.dir, normal, eta);
+    // Compute directions
+    float3 reflectDir = reflect(ray.dir, normal);
+    float3 refractDir = refract(ray.dir, normal, eta);
 
-//     float densityRefrac = CalculateDensityAlongRay(attribs.pos, refractDir, densityStepSize);
-//     float densityReflect = CalculateDensityAlongRay(attribs.pos, reflectDir, densityStepSize);
+    float densityRefrac = CalculateDensityAlongRay(attribs.pos, refractDir, densityStepSize);
+    float densityReflect = CalculateDensityAlongRay(attribs.pos, reflectDir, densityStepSize);
 
-//     bool followRefrac = densityRefrac * refractionRatio > densityReflect * reflectionRatio;
+    bool followRefrac = densityRefrac * refractionRatio > densityReflect * reflectionRatio;
 
-//     // Accumulate light from the less dominant path
-//     // if (followRefrac)
-//     // {
-//     //     payload.light += gScene.envMap.eval(reflectDir) * payload.transmittance * exp(-densityReflect * scatteringCoeff) * reflectionRatio;
-//     // }
-//     // else
-//     // {
-//     //     payload.light += gScene.envMap.eval(refractDir) * payload.transmittance * exp(-densityRefrac * scatteringCoeff) * refractionRatio;
-//     // }
+    // Accumulate light from the less dominant path
+    if (followRefrac)
+    {
+        payload.light += gScene.envMap.eval(reflectDir) * payload.transmittance * exp(-densityReflect * scatteringCoeff) * reflectionRatio;
+    }
+    else
+    {
+        payload.light += gScene.envMap.eval(refractDir) * payload.transmittance * exp(-densityRefrac * scatteringCoeff) * refractionRatio;
+    }
 
-//     // Advance ray
-//     float3 nextOrigin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
-//     float3 nextDir = followRefrac ? refractDir : reflectDir;
+    // Advance ray
+    float3 nextOrigin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
+    float3 nextDir = followRefrac ? refractDir : reflectDir;
 
-//     // Update transmittance
-//     payload.transmittance *= followRefrac ? refractionRatio : reflectionRatio;
+    // Update transmittance
+    payload.transmittance *= followRefrac ? refractionRatio : reflectionRatio;
 
-//     // === Spawn new recursive ray ===
-//     if (payload.depth < maxRayBounce)
-//     {
-//         PrimaryRayData newPayload;
-//         newPayload.transmittance = payload.transmittance;
-//         newPayload.light = float3(0, 0, 0);
-//         newPayload.depth = payload.depth + 1;
+    // === Spawn new recursive ray ===
+    if (payload.depth < maxRayBounce)
+    {
+        PrimaryRayData newPayload;
+        newPayload.transmittance = payload.transmittance;
+        newPayload.light = float3(0, 0, 0);
+        newPayload.depth = payload.depth + 1;
 
-//         RayDesc newRay;
-//         newRay.Origin = nextOrigin;
-//         newRay.Direction = nextDir;
-//         newRay.TMin = 0.001;
-//         newRay.TMax = 1e+4;
+        RayDesc newRay;
+        newRay.Origin = nextOrigin;
+        newRay.Direction = nextDir;
+        newRay.TMin = 0.001;
+        newRay.TMax = 1e+4;
 
-//         TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, 1, 0, newRay, newPayload);
+        TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, 1, 0, newRay, newPayload);
 
-//         // payload.light += newPayload.light; // Recover new light data for final shading.
-//         payload.light = newPayload.light; // Recover new light data for final shading.
-//         //payload.color = newPayload.color;
-//     }
+        payload.light += newPayload.light; // Recover new light data for final shading.
+        payload.transmittance = newPayload.transmittance;
+        //payload.light = newPayload.light; // Recover new light data for final shading.
+        //payload.color = newPayload.color;
+    }
 
-//     if (payload.depth >= maxRayBounce)
-//     {
-//         // Max depth: sample env map
-//         //float densityRemainder = CalculateDensityAlongRay(nextOrigin, nextDir, sunLightMarchSize);
-//         //payload.light += gScene.envMap.eval(nextDir) * payload.transmittance * exp(-densityRemainder * scatteringCoeff);
-//         payload.light += gScene.envMap.eval(WorldRayDirection());
-//     }
+    if (payload.depth >= maxRayBounce)
+    {
+        // Max depth: sample env map
+        //float densityRemainder = CalculateDensityAlongRay(nextOrigin, nextDir, sunLightMarchSize);
+        //payload.light += gScene.envMap.eval(nextDir) * payload.transmittance * exp(-densityRemainder * scatteringCoeff);
+        payload.light += gScene.envMap.eval(WorldRayDirection());
+    }
 
-//     payload.color = float4(payload.light, 1.0);
-//     payload.hitT = RayTCurrent();
-// }
+    payload.color = float4(payload.light, 1.0);
+    payload.hitT = RayTCurrent();
+}
 
 // [shader("closesthit")]
 // void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
@@ -545,41 +546,33 @@ bool IsInsideFluid(float3 pos)
 //     ray.origin = WorldRayOrigin();
 //     ray.dir = WorldRayDirection();
 
-//     bool travelThrougFluid = IsInsideFluid(ray.origin);
+//     bool travellingThroughFluid = IsInsideFluid(ray.origin);
 
 //     float3 transmittance = float3(1, 1, 1);
 //     float3 light = float3(0, 0, 0);
-//     // float3 transmittance = hitData.transmittance;
-//     // float3 light = hitData.light;
 
 //     for (int i = 0; i < maxRayBounce; i++)
 //     //if (hitData.depth < maxRayBounce)
 //     {
 //         float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
-//         //float densityStepSize = sunLightMarchSize * (hitData.depth + 1); // increase step size with each iteration
 
-//         bool searchEntry = !travelThrougFluid;
+//         bool searchForNextFluidEntryPoint = !travellingThroughFluid;
 
-//         SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchEntry, RayTCurrent());
+//         // ATTENTION: cette ligne créé des artéfcats blancs sur la surface du fluide.
+//         // bool searchForNextFluidEntryPoint = !IsInsideFluid(ray.origin);
+
+//         SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, RayTCurrent());
 
 //         transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
-//         //transmittance *= exp(-attribs.densityAlongRay * scatteringCoeff);
-//         //hitData.transmittance *= exp(-attribs.densityAlongRay * scatteringCoeff);
 
 //         // If no surface found, exit loop but still accumulate final light
 //         if (!hitInfo.foundSurface) break;
-//         //if (!hitInfo.foundSurface) return;
 
 //         float3 normal = ComputeDensityNormal(hitInfo.pos);
-//         bool travelThrougFluid = (dot(normal, ray.dir) > 0);
-//         if (travelThrougFluid) normal = -normal;
-//         // float3 normal = attribs.normal;
-//         // bool travelThrougFluid = (dot(attribs.normal, ray.dir) > 0);
-//         // if (travelThrougFluid) attribs.normal = -attribs.normal;
+//         if (travellingThroughFluid) normal = -normal;
 
 //         // Compute IoR ratio based on fluid state
-//         // float eta = travelThrougFluid ? 1.0 : IoR;
-//         float eta = travelThrougFluid ? (IoR / 1.0) : (1.0 / IoR);
+//         float eta = travellingThroughFluid ? (IoR / 1.0) : (1.0 / IoR);
 
 //         // Fresnel reflectance using Schlick approximation
 //         float cosTheta = abs(dot(normalize(ray.dir), normal));
@@ -590,128 +583,43 @@ bool IsInsideFluid(float3 pos)
 //         // Compute directions
 //         float3 reflectDir = reflect(ray.dir, normal);
 //         float3 refractDir = refract(ray.dir, normal, eta);
-//         //bool tir = all(refractDir == float3(0.0, 0.0, 0.0)); // Total internal reflection
 
 //         // Compute transmittance of both paths
-//         //float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
 //         float densityRefrac =  CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
 //         float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
-//         // float densityRefrac = tir ? 0.0 : CalculateDensityAlongRay(attribs.pos, refractDir, densityStepSize);
-//         // float densityReflect = CalculateDensityAlongRay(attribs.pos, reflectDir, densityStepSize);
 
-//         // float3 transRefract = exp(-densityRefrac * scatteringCoeff) * refractionRatio;
-//         // float3 transReflect = exp(-densityReflect * scatteringCoeff) * reflectionRatio;
-
-//         //bool followRefrac = !tir && length(transRefract) > length(transReflect);
 //         bool followRefrac = densityRefrac * refractionRatio > densityReflect * reflectionRatio;
 
 //         // Accumulate light from the less dominant path
 //         if (followRefrac)
 //         {
-//             // light += 1.f * transmittance * transReflect;
-//             // light += gScene.envMap.eval(reflectDir) * transmittance * transReflect;
 //             light += gScene.envMap.eval(reflectDir) * transmittance * exp(-densityReflect * scatteringCoeff) * reflectionRatio;
-//             //hitData.light += 1.f * hitData.transmittance * transReflect;
 //         }
 //         else
 //         {
-//             // light += 1.f * transmittance * transRefract;
-//             // light += gScene.envMap.eval(refractDir) * transmittance * transReflect;
 //             light += gScene.envMap.eval(refractDir) * transmittance * exp(-densityRefrac * scatteringCoeff) * refractionRatio;
-//             //hitData.light += 1.f * hitData.transmittance * transRefract;
 //         }
 
 //         // Advance ray
 //         ray.origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
-//         //ray.origin = attribs.pos + ray.dir * 1e-3f; // Avoid self-hit
 //         ray.dir = followRefrac ? refractDir : reflectDir;
 
 //         // Update transmittance
 //         transmittance *= followRefrac ? refractionRatio : reflectionRatio;
-//         // hitData.transmittance *= followRefrac ? refractionRatio : reflectionRatio;
+
+//         travellingThroughFluid = followRefrac != travellingThroughFluid;
 //     }
 
-[shader("closesthit")]
-void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
-{
-    Ray ray;
-    ray.origin = WorldRayOrigin();
-    ray.dir = WorldRayDirection();
+//     // Final raymarch if no more bounces
+//     float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
+//     //light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
+//     light += gScene.envMap.eval(ray.dir) * transmittance * exp(-densityRemainder * scatteringCoeff);
 
-    bool travellingThroughFluid = IsInsideFluid(ray.origin);
-
-    float3 transmittance = float3(1, 1, 1);
-    float3 light = float3(0, 0, 0);
-
-    for (int i = 0; i < maxRayBounce; i++)
-    //if (hitData.depth < maxRayBounce)
-    {
-        float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
-
-        bool searchForNextFluidEntryPoint = !travellingThroughFluid;
-
-        // ATTENTION: cette ligne créé des artéfcats blancs sur la surface du fluide.
-        // bool searchForNextFluidEntryPoint = !IsInsideFluid(ray.origin);
-
-        SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, RayTCurrent());
-
-        transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
-
-        // If no surface found, exit loop but still accumulate final light
-        if (!hitInfo.foundSurface) break;
-
-        float3 normal = ComputeDensityNormal(hitInfo.pos);
-        if (travellingThroughFluid) normal = -normal;
-
-        // Compute IoR ratio based on fluid state
-        float eta = travellingThroughFluid ? (IoR / 1.0) : (1.0 / IoR);
-
-        // Fresnel reflectance using Schlick approximation
-        float cosTheta = abs(dot(normalize(ray.dir), normal));
-        float F0 = pow((1.0 - eta) / (1.0 + eta), 2.0);
-        float reflectionRatio = evalFresnelSchlick(F0, 1.0, cosTheta);
-        float refractionRatio = 1.0 - reflectionRatio;
-
-        // Compute directions
-        float3 reflectDir = reflect(ray.dir, normal);
-        float3 refractDir = refract(ray.dir, normal, eta);
-
-        // Compute transmittance of both paths
-        float densityRefrac =  CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
-        float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
-
-        bool followRefrac = densityRefrac * refractionRatio > densityReflect * reflectionRatio;
-
-        // Accumulate light from the less dominant path
-        if (followRefrac)
-        {
-            light += gScene.envMap.eval(reflectDir) * transmittance * exp(-densityReflect * scatteringCoeff) * reflectionRatio;
-        }
-        else
-        {
-            light += gScene.envMap.eval(refractDir) * transmittance * exp(-densityRefrac * scatteringCoeff) * refractionRatio;
-        }
-
-        // Advance ray
-        ray.origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
-        ray.dir = followRefrac ? refractDir : reflectDir;
-
-        // Update transmittance
-        transmittance *= followRefrac ? refractionRatio : reflectionRatio;
-
-        travellingThroughFluid = followRefrac != travellingThroughFluid;
-    }
-
-    // Final raymarch if no more bounces
-    float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
-    //light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
-    light += gScene.envMap.eval(ray.dir) * transmittance * exp(-densityRemainder * scatteringCoeff);
-
-    //hitData.color = float4(1 - light, 1.0);
-    hitData.color = float4(light, 1.0);
-    hitData.hitT = RayTCurrent();
-    return;
-}
+//     //hitData.color = float4(1 - light, 1.0);
+//     hitData.color = float4(light, 1.0);
+//     hitData.hitT = RayTCurrent();
+//     return;
+// }
 
 //     // float densityAlongViewRay = 0.f;
 //     // densityAlongViewRay = CalculateDensityAlongRay(attribs.w_position, WorldRayDirection(), marchSize);
