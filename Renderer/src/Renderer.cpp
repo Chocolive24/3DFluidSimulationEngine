@@ -34,7 +34,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
     auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
-    //auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds - 1.f));
+    auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds -1.f));
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
@@ -42,7 +42,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
     dielectric_blue->setIndexOfRefraction(1.f);
     dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
 
-    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue, true);
+  
     //cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue);
 
     // Create a lambertian material
@@ -54,18 +54,34 @@ void Renderer::Init(RenderContext* render_context) noexcept
     //sphere = TriangleMesh::createQuad(float2(5.f));
     //sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue, true);
 
-    //auto node = SceneBuilder::Node();
-    //const std::string name = "Sphere " /* + std::to_string(i)*/;
-    //node.name = name;
-    //auto transform = Transform();
-    //transform.setTranslation(float3(0.f, 0.f, 0.f));
-    //transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    //transform.setScaling(float3(1.f, 1.f, 1.f));
-    //node.transform = transform.getMatrix();
-    //sphere_node_id_ = scene_builder_->addNode(node);
+    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian, true);
 
-    //// Add Mesh Instances
-    //scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
+    auto node = SceneBuilder::Node();
+    const std::string name = "Sphere " /* + std::to_string(i)*/;
+    node.name = name;
+    auto transform = Transform();
+    transform.setTranslation(float3(50.f, 0.f, 0.f));
+    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    transform.setScaling(float3(20, 20, 20));
+    node.transform = transform.getMatrix();
+    sphere_node_id_ = scene_builder_->addNode(node);
+
+    scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
+    
+    //cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue, true);
+
+    //node = SceneBuilder::Node();
+    //auto name2 = "Cube " /* + std::to_string(i)*/;
+    //node.name = name;
+    //transform = Transform();
+    //transform.setTranslation(float3(0, 0.f, 0.f));
+    //transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //transform.setScaling(float3(1, 1, 1));
+    //node.transform = transform.getMatrix();
+    //auto cube_node = scene_builder_->addNode(node);
+
+    ////// Add Mesh Instances
+    //scene_builder_->addMeshInstance(cube_node, cube_mesh_id);
 
     AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
     uint32_t fluid_AABB_ID = 1;
@@ -357,7 +373,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept
     fluid_transform.setTranslation(translation);
     fluid_transform.setRotationEulerDeg(rotation);
     fluid_transform.setScaling(scale);
-    scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
+    //scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
 
     //if (draw_fluid_)
     //{
@@ -444,7 +460,7 @@ void Renderer::CreateRaytracingProgram() noexcept
     rtProgDesc.addShaderModules(shaderModules);
     rtProgDesc.addShaderLibrary("Samples/3DFluidSimulationEngine/Renderer/shaders/Raytracing.rt.slang");
     rtProgDesc.addTypeConformances(typeConformances);
-    rtProgDesc.setMaxTraceRecursionDepth(kMaxRayBounce + 1);
+    rtProgDesc.setMaxTraceRecursionDepth(10);
     rtProgDesc.setMaxPayloadSize(72); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
                                       // should be set as small as possible for maximum performance.
 
