@@ -650,6 +650,9 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
         bool searchForNextFluidEntryPoint = !travellingThroughFluid;
 
+        // ATTENTION: cette ligne créé des artéfcats blancs sur la surface du fluide.
+        // bool searchForNextFluidEntryPoint = !IsInsideFluid(ray.origin);
+
         SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, RayTCurrent());
 
         transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
@@ -1028,7 +1031,7 @@ void RaymarchingIntersection()
     ray.origin = rayOrigin;
     ray.dir = rayDir;
 
-    bool searchEntry = !IsInsideFluid(rayOrigin);
+    bool searchEntry = !IsInsideFluid(rayOrigin); // This can cause white artifacts on top of fluid surface.
     SurfaceInfo hitInfo = FindNextSurface(rayOrigin, rayDir, searchEntry, RayTCurrent());
 
     if (!hitInfo.foundSurface)
