@@ -264,6 +264,8 @@ void FluidApplication::executeParticleComputePass(
     compute_var["PerFrameCB"]["K_SpikyPow2Grad"] = spikyPow2Grad;
     compute_var["PerFrameCB"]["K_SpikyPow3Grad"] = spikyPow3Grad;
 
+    compute_var["PerFrameCB"]["collisionDamping"] = SPH::collisionDamping;
+
     compute_pass->execute(pRenderContext, total_threads_x, total_threads_y, total_threads_z);
 }
 
@@ -482,7 +484,7 @@ void FluidApplication::renderPhysicsSampleGui()
     {
         //sample_manager_.RegenerateSample();
 
-        std::cout << "regen\n";
+        //std::cout << "regen\n";
 
         regenrate_particles_ = true;
         std::vector<XMVECTOR> particlePositions;
@@ -518,7 +520,7 @@ void FluidApplication::renderPhysicsSampleGui()
             }
         }
 
-        std::cout << "End regen\n";
+        //std::cout << "End regen\n";
     }
 
     ImGui::SameLine();

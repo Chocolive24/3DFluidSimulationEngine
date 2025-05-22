@@ -49,6 +49,7 @@ cbuffer PerFrameCB
     float pressureMultiplier;
     float viscosityStrength;
     float densityGraphicsMultiplier;
+    float collisionDamping;
 
     // Bitonic Sort.
     uint groupWidth;
@@ -221,23 +222,21 @@ void SimulationBounds(inout ParticleBody Particlebody)
     const float3 halfSize = 0.5 * simBounds;
     const float3 edgeDst = halfSize - abs(posLocal);
 
-    const float damping = 0.9f;
-
     // Resolve collisions
     if (edgeDst.x <= 0)
     {
         posLocal.x = halfSize.x * sign(posLocal.x);
-        velocityLocal.x *= -1 * damping;
+        velocityLocal.x *= -1 * collisionDamping;
     }
     if (edgeDst.y <= 0)
     {
         posLocal.y = halfSize.y * sign(posLocal.y);
-        velocityLocal.y *= -1 * damping;
+        velocityLocal.y *= -1 * collisionDamping;
     }
     if (edgeDst.z <= 0)
     {
         posLocal.z = halfSize.z * sign(posLocal.z);
-        velocityLocal.z *= -1 * damping;
+        velocityLocal.z *= -1 * collisionDamping;
     }
 
     // Transform resolved position/velocity back to world space

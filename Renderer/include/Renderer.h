@@ -164,5 +164,5 @@ public:
     float3 lightColor = float3(1, 1, 1);
     float3 lightDir = normalize(float3(1, -1, -1));
 
-    float IoR = 1.f;
+    float IoR = 1.33f;
 };
