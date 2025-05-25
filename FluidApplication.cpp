@@ -211,7 +211,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
     compute_var["SpatialIndices"] = SpatialIndices;
     compute_var["SpatialOffsets"] = SpatialOffsets;
 
-    renderer_->CreateRaytracingProgram();
+    renderer_->CreateRaytracingProgram(getRenderContext());
 
     // renderer_->LaunchMarchingCubeComputePasses(getRenderContext());
 }
@@ -407,7 +407,7 @@ void FluidApplication::onGuiRender(Gui* pGui)
     Gui::Window w(pGui, "Raytracing Fluid Rendering", {250, 200});
     renderGlobalUI(pGui);
 
-    renderer_->RenderUI(pGui, &w);
+    renderer_->RenderUI(pGui, &w, getRenderContext());
 
     renderPhysicsSampleGui();
 }

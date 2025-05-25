@@ -298,14 +298,15 @@ static const int triangulation[256][16] = {
 };
 
 struct Vertex {
-    float3 position = float3(-20000.f, 0.f, 0.f);
+    float3 position = float3(0.f, 0.f, 0.f);
     float pad0;
     float3 normal = float3(0.f, 0.f, 1.f);
     float pad1;
     float3 tangent = float3(0.f, 0.f, 1.f);
     float pad2;
     float2 texcrd = float2(0.f, 0.f);
-    float2 pad34;
+    float pad3;
+    float pad4;
     //float pad0 = -1.f;
     // float3 normal;
     // int2 id;
@@ -327,6 +328,7 @@ cbuffer PerFrameCB
     int textureSize;
     float boundSize;
     float SphereRadius;
+    float var;
 }
 
 [numthreads(8, 8, 8)]
@@ -345,7 +347,9 @@ float sampleDensity(int3 position)
     if (any(position < 0) || any(position >= textureSize))
         return 1e6f; // Treat out-of-bounds as "far outside" the surface
 
-    return DensityTexture[position];
+    int3 coord = max(0, min(position, textureSize));
+
+    return DensityTexture[coord];
 }
 
 [numthreads(8, 8, 8)]
@@ -355,7 +359,7 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
 
     if (any(threadID) >= numCubesPerAxis) return;
 
-    // // Calculate positions of each vertex.
+    // Calculate positions of each vertex.
     // Vertex vertexA;
     // Vertex vertexB;
     // Vertex vertexC;
@@ -391,7 +395,7 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         // Think of the configuration as an 8-bit binary number (each bit represents the state of a corner point).
         // The state of each corner point is either 0: above the surface, or 1: below the surface.
         // The code below sets the corresponding bit to 1, if the point is below the surface.
-        if (sampleDensity(cornerCoords[i]) < 0) {
+        if (sampleDensity(cornerCoords[i]) > 0) {
             cubeConfiguration |= (1 << i);
         }
     }
@@ -418,7 +422,23 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         int c0 = cornerIndexAFromEdge[edgeIndexC];
         int c1 = cornerIndexBFromEdge[edgeIndexC];
 
-        // Calculate positions of each vertex.
+        // Vertex vertexA;
+        // Vertex vertexB;
+        // Vertex vertexC;
+        // vertexA.position = float3(0 + threadID.x, 1, -10);
+        // vertexB.position = float3(-1 + threadID.x, -1, -10);
+        // vertexC.position = float3(1 + threadID.x, -1, -10);
+
+        // // Create triangle
+        // Triangle tri;
+        // tri.vertexA = vertexA;
+        // tri.vertexB = vertexB;
+        // tri.vertexC = vertexC;
+        // triangles.Append(tri);
+
+        // return;
+
+        //Calculate positions of each vertex.
         Vertex vertexA;
         Vertex vertexB;
         Vertex vertexC;

@@ -9,17 +9,15 @@ using namespace Falcor;
 
 struct MarchingCubeVertex
 {
-    float3 position{-300.f};
+    float3 position = float3(0.f, 0.f, 0.f);
     float pad0;
     float3 normal = float3(0.f, 0.f, 1.f);
     float pad1;
     float3 tangent = float3(0.f, 0.f, 1.f);
     float pad2;
     float2 texcrd = float2(0.f, 0.f);
-    float2 pad34;
-    //float pad0;
-    // float3 normal;
-    // int2 id;
+    float pad3;
+    float pad4;
 };
 
 struct MarchingCubesTriangle
@@ -34,12 +32,12 @@ class Renderer
 public:
     Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept;
 
-    void Init(RenderContext* render_context) noexcept;
+    void Init(RenderContext* render_context, bool rebuildBvh = false) noexcept;
     void RenderFrame(RenderContext* pRenderContext, const double& currentTime,
         const ref<Buffer>& bodies,
         const ref<Buffer>& SpatialIndices,
         const ref<Buffer>& SpatialOffsets) noexcept;
-    void RenderUI(Gui* pGui, Gui::Window* app_gui_window) noexcept;
+    void RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* render_context) noexcept;
     void OnResize(uint32_t width, uint32_t height) noexcept;
     [[nodiscard]] bool onKeyEvent(const KeyboardEvent& keyEvent) const noexcept;
     [[nodiscard]] bool onMouseEvent(const MouseEvent& mouseEvent) const noexcept;
@@ -49,7 +47,7 @@ public:
      * \brief CreateRaytracingProgram is a method which creates the raytracing
      * program and links it to the scene's BVH. It should be called after all meshes were added to the scene.
      */
-    void CreateRaytracingProgram() noexcept;
+    void CreateRaytracingProgram(RenderContext* render_context) noexcept;
 
     void LaunchMarchingCubeComputePasses(RenderContext* render_context) noexcept;
 
@@ -98,6 +96,7 @@ private:
 
     ref<Texture> rt_output_tex_;
     ref<Texture> density_3d_tex_;
+    ref<Texture> marching_cube_dens_tex;
     ref<Sampler> linearClampSampler_;
     ref<Buffer> bodies_buffer_ = nullptr;
     std::vector<float>* particle_densities_ = nullptr;
@@ -112,9 +111,14 @@ private:
 
     ref<Buffer> b_pos;
     ref<Buffer> b_pos_readback;
+    ref<Buffer> b_norm_readback;
+    ref<Buffer> b_tang_readback;
+    ref<Buffer> b_uv_readback;
     ref<Buffer> b_normal;
     ref<Buffer> b_tang;
     ref<Buffer> b_uv;
+
+    float var_ = 0.f;
 
     ref<ComputePass> compute_density_map_pass_ = nullptr;
     ref<ComputePass> marching_cubes_pass_ = nullptr;
@@ -133,8 +137,9 @@ public:
     bool lightScattering = false;
 
 
-    unsigned marching_cubes_triangle_count_ = 0;
-    int marching_cube_vertex_count = 0;
+    unsigned MaxTriangleCount = 0;
+    size_t MaxVertexCount = 0;
+    unsigned marching_cube_vertex_count = 0;
     //ref<Texture> density_3d_tex_ = nullptr;
 
     TriangleMesh::VertexList v;
@@ -154,7 +159,7 @@ public:
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
     int numPointsPerAxis = 64;
     float IsoLevel = 0.f;
-    float SphereRadius = 135.f;
+    float SphereRadius = 15.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);
 
