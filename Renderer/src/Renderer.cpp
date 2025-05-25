@@ -68,39 +68,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
 
     //scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
 
-    v = {
-        {float3(0.0f, 1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.5f, 1.0f)},   // Top
-        {float3(-1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.0f, 0.0f)}, // Left
-        {float3(1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(1.0f, 0.0f)}   // Right
-    };
 
-    // Add enough duplicated vertices to reach 10,000 total
-    /*while (v.size() < 30'000)
-    {
-        v.push_back(v[2]);
-    }*/
-
-    // Now define the indices safely
-    TriangleMesh::IndexList indices{0, 1, 2};
-    /*for (int idx = 0; idx < 30'000; idx++)
-    {
-        indices.push_back(idx);
-    }*/
-
-    auto tri_mesh = TriangleMesh::create(v, indices);
-    tri_id = scene_builder_->addTriangleMesh(tri_mesh, lambertian, true);
-
-    node = SceneBuilder::Node();
-    name = "Sphere " /* + std::to_string(i)*/;
-    node.name = name;
-    transform = Transform();
-    transform.setTranslation(float3(50.f, 0.f, 0.f));
-    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    transform.setScaling(float3(20, 20, 20));
-    node.transform = transform.getMatrix();
-    auto tri_node_id = scene_builder_->addNode(node);
-
-    scene_builder_->addMeshInstance(tri_node_id, tri_id);
     
     //cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue, true);
 
@@ -184,6 +152,93 @@ void Renderer::Init(RenderContext* render_context) noexcept
     );
     linearClampSampler_ = make_ref<Sampler>(device_, sampler_desc);
 
+    // 1) Buffer allocation
+    marching_cubes_triangle_count_ = 5 * (numPointsPerAxis - 1) * (numPointsPerAxis - 1) * (numPointsPerAxis - 1);
+    // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
+
+    // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
+    marching_cubes_triangle_buffer_ = make_ref<Buffer>(
+        device_,                               // Falcor device
+        sizeof(MarchingCubeVertex),            // structSize (bytes per element)
+        marching_cubes_triangle_count_,        // elementCount
+        ResourceBindFlags::UnorderedAccess |   // UAV for compute
+            ResourceBindFlags::ShaderResource, // SRV for rendering or readback
+        MemoryType::DeviceLocal,               // GPU-only (faster)
+        nullptr,                               // no init data
+        true                                   // create hidden counter
+    );
+
+    marching_cubes_pass_ =
+        ComputePass::create(device_,
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang",
+            "ProcessCube");
+
+    compute_marching_cube_density_map_ =
+        ComputePass::create(device_,
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang",
+            "ComputeDensityTexture");
+
+    // A small readback buffer to fetch the append counter:
+    read_back_triangle_buffer_ = make_ref<Buffer>(
+        device_,
+        sizeof(MarchingCubeVertex),
+        marching_cubes_triangle_count_,
+        ResourceBindFlags::None,
+        MemoryType::ReadBack,
+        nullptr,
+        false
+    );
+
+    //v = {
+    //    {float3(0.0f, 1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.5f, 1.0f)},   // Top
+    //    {float3(-1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.0f, 0.0f)}, // Left
+    //    {float3(1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(1.0f, 0.0f)}   // Right
+    //};
+
+    TriangleMesh::Vertex vert{float3(10, 10, 10),
+        float3(0, 0, 1),
+        float2(0, 1)};
+    v.resize(marching_cubes_triangle_count_, vert);
+
+    std::cout << "\n\n\nPDPDPDPDPDPDPDP" << v[0].position.x << " " << v[0].position.y << " " << v[0].position.z << '\n';
+
+    // Add enough duplicated vertices to reach 10,000 total
+    /*while (v.size() < 30'000)
+    {
+        v.push_back(v[2]);
+    }*/
+
+    // Now define the indices safely
+    //TriangleMesh::IndexList indices{0, 1, 2};
+
+    std::cout << marching_cubes_triangle_count_ << "\n";
+
+    if (marching_cubes_triangle_count_ % 3 != 0)
+    {
+        std::cout << "PUTE\n";
+        std::exit(666);
+    }
+
+    TriangleMesh::IndexList indices;
+    for (unsigned idx = 0; idx < marching_cubes_triangle_count_; idx++)
+    {
+        indices.push_back(idx);
+    }
+
+    auto tri_mesh = TriangleMesh::create(v, indices);
+    tri_id = scene_builder_->addTriangleMesh(tri_mesh, lambertian, true);
+
+    node = SceneBuilder::Node();
+    name = "Sphere " /* + std::to_string(i)*/;
+    node.name = name;
+    transform = Transform();
+    transform.setTranslation(float3(50.f, 0.f, 0.f));
+    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    transform.setScaling(float3(20, 20, 20));
+    node.transform = transform.getMatrix();
+    auto tri_node_id = scene_builder_->addNode(node);
+
+    scene_builder_->addMeshInstance(tri_node_id, tri_id);
 
     std::vector<float3> positions;
     std::vector<float3> normals;
@@ -209,14 +264,14 @@ void Renderer::Init(RenderContext* render_context) noexcept
         false
     );
 
-    //b_pos_readback =
-    //    make_ref<Buffer>(device_,
-    //        sizeof(positions[0]),
-    //        positions.size(),
-    //        ResourceBindFlags::None,
-    //        MemoryType::Upload,
-    //        nullptr,
-    //        false);
+     b_pos_readback =
+         make_ref<Buffer>(device_,
+             sizeof(float) * 3,
+             positions.size(),
+             ResourceBindFlags::None,
+             MemoryType::ReadBack,
+             nullptr,
+             false);
 
     b_normal = make_ref<Buffer>(
         device_,
@@ -254,63 +309,6 @@ void Renderer::Init(RenderContext* render_context) noexcept
         {"tangents", b_tang},
         {"texcrds", b_uv},
     };
-
-    // 1) Buffer allocation
-    marching_cubes_triangle_count_ = 5 * (numPointsPerAxis - 1) * (numPointsPerAxis - 1) * (numPointsPerAxis - 1);
-    // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
-
-    // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
-    marching_cubes_triangle_buffer_ = make_ref<Buffer>(
-        device_,                               // Falcor device
-        sizeof(MarchingCubeVertex),            // structSize (bytes per element)
-        marching_cubes_triangle_count_,        // elementCount
-        ResourceBindFlags::UnorderedAccess |   // UAV for compute
-            ResourceBindFlags::ShaderResource, // SRV for rendering or readback
-        MemoryType::DeviceLocal,               // GPU-only (faster)
-        nullptr,                               // no init data
-        true                                   // create hidden counter
-    );
-
-    marching_cubes_pass_ =
-        ComputePass::create(device_,
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang",
-            "ProcessCube");
-
-    compute_marching_cube_density_map_ =
-        ComputePass::create(device_,
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang",
-            "ComputeDensityTexture");
-
-    auto compute_var = marching_cubes_pass_->getRootVar();
-    compute_var["DensityTexture"] = density_3d_tex_;
-    compute_var["triangles"] = marching_cubes_triangle_buffer_;
-
-    compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
-    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
-    compute_var["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
-    compute_var["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
-    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
-
-    compute_var = compute_marching_cube_density_map_->getRootVar();
-    compute_var["DensityTexture"] = density_3d_tex_;
-    compute_var["triangles"] = marching_cubes_triangle_buffer_;
-
-    compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
-    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
-    compute_var["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
-    compute_var["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
-    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
-
-    // A small readback buffer to fetch the append counter:
-    read_back_triangle_buffer_ = make_ref<Buffer>(
-        device_,
-        sizeof(MarchingCubeVertex),
-        marching_cubes_triangle_count_,
-        ResourceBindFlags::None,
-        MemoryType::ReadBack,
-        nullptr,
-        false
-    );
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime,
@@ -321,53 +319,6 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     pRenderContext->clearFbo(target_fbo_.get(),
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
-
-    v[0].position.x += 1;
-    v[1].position.x += 1;
-    v[2].position.x += 1;
-
-    if (currentTime >= 0.f)
-    {
-        //std::cout << "Pos count: " << b_pos->getElementCount() << "\n";
-
-        //auto& desc = scene_->getMesh(tri_id);
-        //std::cout << "vbOffset: " << desc.vbOffset << "\n";
-        //std::cout << "ibOffset: " << desc.ibOffset << "\n";
-
-        //std::cout << "Is dynamic ? " << desc.isDynamic() << '\n';
-
-        //std::cout << "Mesh vertex count: " << desc.getVertexCount() << "\n"; // should also be 3
-
-        if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
-        {
-            std::cout << "BUG VERTEX COUNT AND B_POS\n";
-            std::exit(666);
-        }
-
-       scene_->setMeshVertices(tri_id, vertices);
-    }
-
-
-
-    //auto transform = Transform();
-    //transform.setTranslation(float3(10, 0, 0));
-    //scene_->updateNodeTransform(sphere_node_id_.get(), transform.getMatrix());
-
-    //static bool hasUpdated = false;
-    //if (true)
-    //{
-    //    //hasUpdated = true;
-    //    //std::cout << "\nUPDATES VERTICES\n";
-
-    //    const std::map < std::string, ref<Buffer>> vertices{
-    //        {"positions", b_pos},
-    //        {"normals", b_normal},
-    //        {"tangents", b_tang},
-    //        {"texcrds", b_uv},
-    //    };
-
-    //    scene_->setMeshVertices(sphere_mesh_id, vertices);
-    //}
 
      const auto compute_var = compute_density_map_pass_->getRootVar();
      compute_var["bodies"] = bodies;
@@ -411,6 +362,41 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     //scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
 
     LaunchMarchingCubeComputePasses(pRenderContext);
+
+    pRenderContext->copyResource(b_pos_readback.get(), b_pos.get());
+
+    const float3* poses = static_cast<const float3*>(b_pos_readback->map());
+
+    std::cout << marching_cube_vertex_count << '\n';
+    std::cout << "POS 0: " << poses[0].x << " " << poses[0].y << " " << poses[0].z << '\n';
+    std::cout << "POS " << 1 << ": " << poses[1].x << " "
+              << poses[1].y << " " << poses[1].z
+              << '\n';
+    std::cout << "POS " << 10 << ": " << poses[10].x << " " << poses[10].y << " " << poses[10].z << '\n';
+    std::cout << "POS " << marching_cube_vertex_count << ": " << poses[marching_cube_vertex_count].x << " "
+              << poses[marching_cube_vertex_count].y << " " << poses[marching_cube_vertex_count].z << '\n';
+
+    b_pos_readback->unmap();
+
+    //for (unsigned i = 0; i < marching_cubes_triangle_count_; i+=50'000)
+    //{
+    //    std::cout << poses[i].x << " " << poses[i].y << " " << poses[i].z << '\n';
+    //}
+
+   /* vertices = {
+        {"positions", b_pos},
+        {"normals", b_normal},
+        {"tangents", b_tang},
+        {"texcrds", b_uv},
+    };*/
+
+    if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
+    {
+        std::cout << "BUG VERTEX COUNT AND B_POS\n";
+        std::exit(666);
+    }
+
+    scene_->setMeshVertices(tri_id, vertices);
 
     //std::cout << "Before scene update\n";
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
@@ -608,16 +594,27 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
     marching_cubes_pass_->execute(render_context, 64, 64, 64);
 
     render_context->uavBarrier(marching_cubes_triangle_buffer_.get());
-    marching_cubes_triangle_count_ = marching_cubes_triangle_buffer_->getUAVCounter()->getElement<uint>(0);
+    marching_cube_vertex_count = marching_cubes_triangle_buffer_->getUAVCounter()->getElement<uint>(0);
 
     render_context->copyBufferRegion(
         read_back_triangle_buffer_.get(), 0, marching_cubes_triangle_buffer_.get(), 0,
-        marching_cubes_triangle_count_ * sizeof(MarchingCubeVertex)
+        marching_cube_vertex_count * sizeof(MarchingCubeVertex)
     );
 
     const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
 
-    for (uint i = 0; i < 12; i++)
+    std::vector<float3> new_pos;
+    new_pos.resize(marching_cubes_triangle_count_);
+    for (int i = 0; i < marching_cube_vertex_count; i+=3)
+    {
+        new_pos[i + 0] = triangles[i + 0].vertexA.position;
+        new_pos[i + 1] = triangles[i + 1].vertexB.position;
+        new_pos[i + 2] = triangles[i + 2].vertexC.position;
+    }
+
+    b_pos->setBlob(new_pos.data(), 0, marching_cubes_triangle_count_);
+
+   /* for (uint i = 0; i < 12; i++)
     {
         std::cout << "i = " << i << '\n';
         std::cout << "UAV counter aka triangle count: " << marching_cubes_triangle_count_ << '\n';
@@ -628,7 +625,7 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
                   << '\n';
         std::cout << triangles[i].vertexC.position.x << " " << triangles[i].vertexC.position.y << " " << triangles[i].vertexC.position.z
                   << '\n';
-    }
+    }*/
 
     read_back_triangle_buffer_->unmap();
 }

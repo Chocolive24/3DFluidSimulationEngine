@@ -134,6 +134,7 @@ public:
 
 
     unsigned marching_cubes_triangle_count_ = 0;
+    int marching_cube_vertex_count = 0;
     //ref<Texture> density_3d_tex_ = nullptr;
 
     TriangleMesh::VertexList v;
