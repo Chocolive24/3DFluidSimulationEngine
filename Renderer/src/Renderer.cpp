@@ -54,19 +54,53 @@ void Renderer::Init(RenderContext* render_context) noexcept
     //sphere = TriangleMesh::createQuad(float2(5.f));
     //sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue, true);
 
-    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian, true);
+    //sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian, true);
 
     auto node = SceneBuilder::Node();
-    const std::string name = "Sphere " /* + std::to_string(i)*/;
+    std::string name = "Sphere " /* + std::to_string(i)*/;
     node.name = name;
     auto transform = Transform();
     transform.setTranslation(float3(50.f, 0.f, 0.f));
     transform.setRotationEuler(float3(0.f, 0.f, 0.f));
     transform.setScaling(float3(20, 20, 20));
     node.transform = transform.getMatrix();
-    sphere_node_id_ = scene_builder_->addNode(node);
+    //sphere_node_id_ = scene_builder_->addNode(node);
 
-    scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
+    //scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
+
+    v = {
+        {float3(0.0f, 1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.5f, 1.0f)},   // Top
+        {float3(-1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.0f, 0.0f)}, // Left
+        {float3(1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(1.0f, 0.0f)}   // Right
+    };
+
+    // Add enough duplicated vertices to reach 10,000 total
+    /*while (v.size() < 30'000)
+    {
+        v.push_back(v[2]);
+    }*/
+
+    // Now define the indices safely
+    TriangleMesh::IndexList indices{0, 1, 2};
+    /*for (int idx = 0; idx < 30'000; idx++)
+    {
+        indices.push_back(idx);
+    }*/
+
+    auto tri_mesh = TriangleMesh::create(v, indices);
+    tri_id = scene_builder_->addTriangleMesh(tri_mesh, lambertian, true);
+
+    node = SceneBuilder::Node();
+    name = "Sphere " /* + std::to_string(i)*/;
+    node.name = name;
+    transform = Transform();
+    transform.setTranslation(float3(50.f, 0.f, 0.f));
+    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    transform.setScaling(float3(20, 20, 20));
+    node.transform = transform.getMatrix();
+    auto tri_node_id = scene_builder_->addNode(node);
+
+    scene_builder_->addMeshInstance(tri_node_id, tri_id);
     
     //cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue, true);
 
@@ -83,24 +117,18 @@ void Renderer::Init(RenderContext* render_context) noexcept
     ////// Add Mesh Instances
     //scene_builder_->addMeshInstance(cube_node, cube_mesh_id);
 
-    AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
-    uint32_t fluid_AABB_ID = 1;
-    scene_builder_->addCustomPrimitive(fluid_AABB_ID, fluid_AABB);
+    //AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+    //uint32_t fluid_AABB_ID = 1;
+    //scene_builder_->addCustomPrimitive(fluid_AABB_ID, fluid_AABB);
 
-    auto fluid_node = SceneBuilder::Node();
-    fluid_node.name = "RaymarchingNode";
-    fluid_transform = Transform();
-    fluid_transform.setTranslation(translation);
-    //fluid_transform.setRotationEuler(float3(0.f));
-    //float3 rotation_rad{};
-    //rotation_rad.x = math::radians(rotation.x);
-    //rotation_rad.y = math::radians(rotation.y);
-    //rotation_rad.z = math::radians(rotation.z);
-
-    fluid_transform.setRotationEulerDeg(rotation);
-    fluid_transform.setScaling(scale);
-    fluid_node.transform = fluid_transform.getMatrix();
-    raymarching_node_id = scene_builder_->addNode(fluid_node);
+    //auto fluid_node = SceneBuilder::Node();
+    //fluid_node.name = "RaymarchingNode";
+    //fluid_transform = Transform();
+    //fluid_transform.setTranslation(translation);
+    //fluid_transform.setRotationEulerDeg(rotation);
+    //fluid_transform.setScaling(scale);
+    //fluid_node.transform = fluid_transform.getMatrix();
+    //raymarching_node_id = scene_builder_->addNode(fluid_node);
 
     //auto sdf = SDFSVS::create(device_);
     //sdf->generateCheeseValues(64, 0);
@@ -157,29 +185,29 @@ void Renderer::Init(RenderContext* render_context) noexcept
     linearClampSampler_ = make_ref<Sampler>(device_, sampler_desc);
 
 
-    //    std::vector<float3> positions;
-    //std::vector<float3> normals;
-    //std::vector<float3> tangents;
-    //std::vector<float2> uv;
-    //for (const auto& vertex : sphere->getVertices())
-    //{
-    //    // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
-    //    const auto new_Pos = vertex.position + float3(0, 1, 0);
-    //    positions.push_back(new_Pos);
-    //    normals.push_back(vertex.normal);
-    //    tangents.push_back(vertex.normal);
-    //    uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
-    //}
+    std::vector<float3> positions;
+    std::vector<float3> normals;
+    std::vector<float3> tangents;
+    std::vector<float2> uv;
+    for (const auto& vertex : v)
+    {
+        // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
+        const auto new_Pos = vertex.position; // +float3(0, 1, 0);
+        positions.push_back(new_Pos);
+        normals.push_back(vertex.normal);
+        tangents.push_back(vertex.normal);
+        uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
+    }
 
-    //b_pos = make_ref<Buffer>(
-    //    device_,
-    //    sizeof(float) * 3,
-    //    positions.size(),
-    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //    MemoryType::DeviceLocal,
-    //    positions.data(),
-    //    false
-    //);
+    b_pos = make_ref<Buffer>(
+        device_,
+        sizeof(float) * 3,
+        positions.size(),
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::DeviceLocal,
+        positions.data(),
+        false
+    );
 
     //b_pos_readback =
     //    make_ref<Buffer>(device_,
@@ -190,35 +218,42 @@ void Renderer::Init(RenderContext* render_context) noexcept
     //        nullptr,
     //        false);
 
-    //b_normal = make_ref<Buffer>(
-    //    device_,
-    //    sizeof(normals[0]),
-    //    normals.size(),
-    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //    MemoryType::Upload,
-    //    normals.data(),
-    //    false
-    //);
+    b_normal = make_ref<Buffer>(
+        device_,
+        sizeof(normals[0]),
+        normals.size(),
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::Upload,
+        normals.data(),
+        false
+    );
 
-    //b_tang = make_ref<Buffer>(
-    //    device_,
-    //    sizeof(tangents[0]),
-    //    tangents.size(),
-    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //    MemoryType::Upload,
-    //    tangents.data(),
-    //    false
-    //);
+    b_tang = make_ref<Buffer>(
+        device_,
+        sizeof(tangents[0]),
+        tangents.size(),
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::Upload,
+        tangents.data(),
+        false
+    );
 
-    //b_uv = make_ref<Buffer>(
-    //    device_,
-    //    sizeof(uv[0]),
-    //    uv.size(),
-    //    ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //    MemoryType::Upload,
-    //    uv.data(),
-    //    false
-    //);
+    b_uv = make_ref<Buffer>(
+        device_,
+        sizeof(uv[0]),
+        uv.size(),
+        ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+        MemoryType::Upload,
+        uv.data(),
+        false
+    );
+
+    vertices = {
+        {"positions", b_pos},
+        {"normals", b_normal},
+        {"tangents", b_tang},
+        {"texcrds", b_uv},
+    };
 
     //render_context->copyResource(b_pos_readback.get(), b_pos.get());
 
@@ -251,6 +286,33 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     pRenderContext->clearFbo(target_fbo_.get(),
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
+
+    v[0].position.x += 1;
+    v[1].position.x += 1;
+    v[2].position.x += 1;
+
+    if (currentTime >= 0.f)
+    {
+        std::cout << "Pos count: " << b_pos->getElementCount() << "\n";
+
+        auto& desc = scene_->getMesh(tri_id);
+        std::cout << "vbOffset: " << desc.vbOffset << "\n";
+        std::cout << "ibOffset: " << desc.ibOffset << "\n";
+
+        std::cout << "Is dynamic ? " << desc.isDynamic() << '\n';
+
+        std::cout << "Mesh vertex count: " << desc.getVertexCount() << "\n"; // should also be 3
+
+        if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
+        {
+            std::cout << "BUG VERTEX COUNT AND B_POS\n";
+            std::exit(666);
+        }
+
+       //scene_->setMeshVertices(tri_id, vertices);
+    }
+
+
 
     //auto transform = Transform();
     //transform.setTranslation(float3(10, 0, 0));
@@ -311,7 +373,7 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
      compute_density_map_pass_->execute(pRenderContext,
          Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
 
-    scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
+    //scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
 
     //std::cout << "Before scene update\n";
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);

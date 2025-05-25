@@ -128,6 +128,11 @@ public:
     unsigned marching_cubes_triangle_count_ = 0;
     //ref<Texture> density_3d_tex_ = nullptr;
 
+    TriangleMesh::VertexList v;
+    MeshID tri_id;
+
+    std::map<std::string, ref<Buffer>> vertices;
+
     //bool mUseDOF = false;
     //uint32_t mSampleIndex = 0;
 

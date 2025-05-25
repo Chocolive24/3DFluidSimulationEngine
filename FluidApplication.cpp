@@ -65,8 +65,8 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         };
         const float3 force{XMVectorGetX(body._force), XMVectorGetY(body._force), XMVectorGetZ(body._force)};
 
-        const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
-        sphereNodeIDs.push_back(sphere_node_id);
+        //const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
+        //sphereNodeIDs.push_back(sphere_node_id);
 
         ParticleBody pb{};
         // pb.Position = XMFLOAT3{position.x, position.y, position.z};
@@ -353,44 +353,44 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         }
     }
 
-    if (!renderer_->draw_fluid_)
-    {
-        pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
+    //if (!renderer_->draw_fluid_)
+    //{
+    //    pRenderContext->copyResource(readback_bodies_buffer_.get(), bodies_buffer_.get());
 
-        const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
+    //    const ParticleBody* body_data = static_cast<const ParticleBody*>(readback_bodies_buffer_->map());
 
-        int sphere_iterator = 0;
-        for (uint32_t i = 0; i < particle_bodies_.size(); i++)
-        {
-            const auto pos = body_data[i].Position;
+    //    int sphere_iterator = 0;
+    //    for (uint32_t i = 0; i < particle_bodies_.size(); i++)
+    //    {
+    //        const auto pos = body_data[i].Position;
 
-            Transform transform;
-            transform.setTranslation(pos);
-            transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-            transform.setScaling(float3(1.f, 1.f, 1.f));
+    //        Transform transform;
+    //        transform.setTranslation(pos);
+    //        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //        transform.setScaling(float3(1.f, 1.f, 1.f));
 
-            // Update node transform
-            renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-            sphere_iterator++;
-        }
+    //        // Update node transform
+    //        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+    //        sphere_iterator++;
+    //    }
 
-        readback_bodies_buffer_->unmap();
-    }
-    else
-    {
-        int sphere_iterator = 0;
-        for (uint32_t i = 0; i < particle_bodies_.size(); i++)
-        {
-            Transform transform;
-            transform.setTranslation(float3(0, -10'000, 0));
-            transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-            transform.setScaling(float3(1.f, 1.f, 1.f));
+    //    readback_bodies_buffer_->unmap();
+    //}
+    //else
+    //{
+    //    int sphere_iterator = 0;
+    //    for (uint32_t i = 0; i < particle_bodies_.size(); i++)
+    //    {
+    //        Transform transform;
+    //        transform.setTranslation(float3(0, -10'000, 0));
+    //        transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+    //        transform.setScaling(float3(1.f, 1.f, 1.f));
 
-            // Update node transform
-            renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-            sphere_iterator++;
-        }
-    }
+    //        // Update node transform
+    //        renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+    //        sphere_iterator++;
+    //    }
+    //}
 
     renderer_->RenderFrame(pRenderContext, getGlobalClock().getTime(), bodies_buffer_, SpatialIndices, SpatialOffsets);
 

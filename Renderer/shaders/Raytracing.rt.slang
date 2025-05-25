@@ -521,23 +521,27 @@ void RaymarchingClosestHit(inout PrimaryRayData payload, SDF_GeometryAttributes 
 
         TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, 1, 0, newRay, newPayload);
 
-        payload.light += newPayload.light; // Recover new light data for final shading.
+        //payload.light += newPayload.light; // Recover new light data for final shading.
         payload.transmittance = newPayload.transmittance;
         //payload.light = newPayload.light; // Recover new light data for final shading.
-        //payload.color = newPayload.color;
+        payload.color = newPayload.color;
     }
 
     if (payload.depth >= maxRayBounce)
     {
         // Max depth: sample env map
-        //float densityRemainder = CalculateDensityAlongRay(nextOrigin, nextDir, sunLightMarchSize);
-        //payload.light += gScene.envMap.eval(nextDir) * payload.transmittance * exp(-densityRemainder * scatteringCoeff);
-        payload.light += gScene.envMap.eval(WorldRayDirection());
+        // float densityRemainder = CalculateDensityAlongRay(nextOrigin, nextDir, sunLightMarchSize);
+        // payload.light += gScene.envMap.eval(nextDir) * payload.transmittance * exp(-densityRemainder * scatteringCoeff);
+        //payload.light += gScene.envMap.eval(WorldRayDirection());
+        payload.color.rgb += gScene.envMap.eval(WorldRayDirection());
     }
 
-    payload.color = float4(payload.light, 1.0);
+    //payload.color = float4(payload.light, 1.0);
     payload.hitT = RayTCurrent();
 }
+
+// static bool travellingThroughFluid = false;
+// static bool firstIntersection = true;
 
 // [shader("closesthit")]
 // void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
@@ -939,19 +943,108 @@ void RaymarchingIntersection()
     ray.origin = rayOrigin;
     ray.dir = rayDir;
 
-    bool searchEntry = !IsInsideFluid(rayOrigin); // This can cause white artifacts on top of fluid surface.
+    SDF_GeometryAttributes attr = {};
+
+    float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
+
+    float tMin = 0.f;
+    float tMax = 0.f;
+
+    if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
+    {
+        // Ensure tMin is in the AABB when the camera is already inside it.
+        tMin = max(tMin, RayTMin());
+        tMax = min(tMax, RayTCurrent());
+    }
+    else
+    {
+        return;
+    }
+
+    float3 startPos = rayOrigin + rayDir * tMin;
+
+    float prevDensity = SampleDensityMap(startPos);
+
+    bool searchEntry = prevDensity > 0;
+
+    // If the entry point intersection is already inside the fluid. ReportHit.
+    if (searchEntry)
+    {
+        attr.normal = ComputeDensityNormal(startPos);
+        attr.pos = startPos;
+        // attr.tMin = tMin;
+        // attr.tMax = tMax;
+
+        ReportHit(tMin, /*hitKind*/ 0, attr);
+        return;
+    }
+
+    for (float dst = tMin + marchSize; dst < tMax; dst += marchSize)
+    {
+        float3 p = rayOrigin + rayDir * dst;
+        float currDensity = SampleDensityMap(p);
+
+        if (searchEntry)
+        {
+            // Detect a crossing from outside to inside fluid
+            if (prevDensity <= 0 && currDensity > 0)
+            {
+                // Optional: refine hit position with linear interpolation
+                float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
+                float hitT = dst - marchSize + alpha * marchSize;
+
+                attr.normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+                attr.pos = rayOrigin + rayDir * hitT;
+                // attr.tMin = hitT;
+                // attr.tMax = tMax;
+
+                ReportHit(hitT, /*hitKind*/ 0, attr);
+                return;
+            }
+        }
+
+        if (!searchEntry)
+        {
+            // Detect a crossing from outside to inside fluid
+            if (prevDensity > 0 && currDensity <= 0)
+            {
+                // Optional: refine hit position with linear interpolation
+                float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
+                float hitT = dst - marchSize + alpha * marchSize;
+
+                attr.normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
+                attr.pos = rayOrigin + rayDir * hitT;
+                // attr.tMin = hitT;
+                // attr.tMax = tMax;
+
+                ReportHit(hitT, /*hitKind*/ 0, attr);
+                return;
+            }
+        }
+      
+
+        prevDensity = currDensity;
+    }
+
+    return;
+
+    //if (firstIntersection) travellingThroughFluid = IsInsideFluid(ray.origin);
+
+    // bool searchEntry = !travellingThroughFluid; ; // This can cause white artifacts on top of fluid surface.
+    /*bool*/ searchEntry = !IsInsideFluid(ray.origin); ; // This can cause white artifacts on top of fluid surface.
     SurfaceInfo hitInfo = FindNextSurface(rayOrigin, rayDir, searchEntry, RayTCurrent());
 
     if (!hitInfo.foundSurface)
         return;
 
-    SDF_GeometryAttributes attr = {};
     attr.pos = hitInfo.pos;
     attr.normal = ComputeDensityNormal(hitInfo.pos);
     attr.densityAlongRay = hitInfo.densityAlongRay;
 
     // tHit computation
     float tHit = dot(hitInfo.pos - rayOrigin, rayDir);
+
+    //travellingThroughFluid = followRefrac != travellingThroughFluid;
 
     ReportHit(tHit, 0, attr);
 }
