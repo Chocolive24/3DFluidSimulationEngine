@@ -11,6 +11,13 @@ struct MarchingCubeVertex
 {
     float3 position{-300.f};
     float pad0;
+    float3 normal = float3(0.f, 0.f, 1.f);
+    float pad1;
+    float3 tangent = float3(0.f, 0.f, 1.f);
+    float pad2;
+    float2 texcrd = float2(0.f, 0.f);
+    float2 pad34;
+    //float pad0;
     // float3 normal;
     // int2 id;
 };
@@ -111,6 +118,7 @@ private:
 
     ref<ComputePass> compute_density_map_pass_ = nullptr;
     ref<ComputePass> marching_cubes_pass_ = nullptr;
+    ref<ComputePass> compute_marching_cube_density_map_ = nullptr;
     ref<Buffer> marching_cubes_triangle_buffer_ = nullptr;
     ref<Buffer> read_back_triangle_buffer_ = nullptr;
 
@@ -144,7 +152,7 @@ public:
     //float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
     int numPointsPerAxis = 64;
-    float IsoLevel = 0.01f;
+    float IsoLevel = 0.f;
     float SphereRadius = 135.f;
 
     float3 bg_clear_color = float3(.2, 1, .1);

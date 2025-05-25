@@ -192,7 +192,7 @@ void Renderer::Init(RenderContext* render_context) noexcept
     for (const auto& vertex : v)
     {
         // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
-        const auto new_Pos = vertex.position; // +float3(0, 1, 0);
+        const auto new_Pos = vertex.position; // + float3(5, 1, 0);
         positions.push_back(new_Pos);
         normals.push_back(vertex.normal);
         tangents.push_back(vertex.normal);
@@ -255,27 +255,62 @@ void Renderer::Init(RenderContext* render_context) noexcept
         {"texcrds", b_uv},
     };
 
-    //render_context->copyResource(b_pos_readback.get(), b_pos.get());
+    // 1) Buffer allocation
+    marching_cubes_triangle_count_ = 5 * (numPointsPerAxis - 1) * (numPointsPerAxis - 1) * (numPointsPerAxis - 1);
+    // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
 
-    //const float3* poses = static_cast<const float3*>(b_pos_readback->map());
+    // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
+    marching_cubes_triangle_buffer_ = make_ref<Buffer>(
+        device_,                               // Falcor device
+        sizeof(MarchingCubeVertex),            // structSize (bytes per element)
+        marching_cubes_triangle_count_,        // elementCount
+        ResourceBindFlags::UnorderedAccess |   // UAV for compute
+            ResourceBindFlags::ShaderResource, // SRV for rendering or readback
+        MemoryType::DeviceLocal,               // GPU-only (faster)
+        nullptr,                               // no init data
+        true                                   // create hidden counter
+    );
 
-    //  for (int i = 0; i < 4; i++)
-    //  {
-    //      const auto p = poses[i];
+    marching_cubes_pass_ =
+        ComputePass::create(device_,
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang",
+            "ProcessCube");
 
-    //      std::cout << p.x << " " << p.y << " " << p.z << '\n';
-    //  }
+    compute_marching_cube_density_map_ =
+        ComputePass::create(device_,
+            "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang",
+            "ComputeDensityTexture");
 
-    //b_pos_readback->unmap();
+    auto compute_var = marching_cubes_pass_->getRootVar();
+    compute_var["DensityTexture"] = density_3d_tex_;
+    compute_var["triangles"] = marching_cubes_triangle_buffer_;
 
-    //auto r = RtAccelerationStructure::create(device_, {});
-    //RtAccelerationStructure::BuildDesc b;
-   /* b.
-    render_context->buildAccelerationStructure()*/
+    compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
+    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
+    compute_var["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
+    compute_var["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
+    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
 
-  /*  scene_->getMeshVerticesAndIndices()
+    compute_var = compute_marching_cube_density_map_->getRootVar();
+    compute_var["DensityTexture"] = density_3d_tex_;
+    compute_var["triangles"] = marching_cubes_triangle_buffer_;
 
-    render_context->in*/
+    compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
+    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
+    compute_var["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
+    compute_var["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
+    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
+
+    // A small readback buffer to fetch the append counter:
+    read_back_triangle_buffer_ = make_ref<Buffer>(
+        device_,
+        sizeof(MarchingCubeVertex),
+        marching_cubes_triangle_count_,
+        ResourceBindFlags::None,
+        MemoryType::ReadBack,
+        nullptr,
+        false
+    );
 }
 
 void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime,
@@ -293,15 +328,15 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
 
     if (currentTime >= 0.f)
     {
-        std::cout << "Pos count: " << b_pos->getElementCount() << "\n";
+        //std::cout << "Pos count: " << b_pos->getElementCount() << "\n";
 
-        auto& desc = scene_->getMesh(tri_id);
-        std::cout << "vbOffset: " << desc.vbOffset << "\n";
-        std::cout << "ibOffset: " << desc.ibOffset << "\n";
+        //auto& desc = scene_->getMesh(tri_id);
+        //std::cout << "vbOffset: " << desc.vbOffset << "\n";
+        //std::cout << "ibOffset: " << desc.ibOffset << "\n";
 
-        std::cout << "Is dynamic ? " << desc.isDynamic() << '\n';
+        //std::cout << "Is dynamic ? " << desc.isDynamic() << '\n';
 
-        std::cout << "Mesh vertex count: " << desc.getVertexCount() << "\n"; // should also be 3
+        //std::cout << "Mesh vertex count: " << desc.getVertexCount() << "\n"; // should also be 3
 
         if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
         {
@@ -309,7 +344,7 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
             std::exit(666);
         }
 
-       //scene_->setMeshVertices(tri_id, vertices);
+       scene_->setMeshVertices(tri_id, vertices);
     }
 
 
@@ -370,10 +405,12 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
      compute_var["PerFrameCB"]["K_SpikyPow3Grad"] = spikyPow3Grad;
 
     // const uint32_t thread_groups = (density_map_size + 7) / 8;
-     compute_density_map_pass_->execute(pRenderContext,
+    compute_density_map_pass_->execute(pRenderContext,
          Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
 
     //scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
+
+    LaunchMarchingCubeComputePasses(pRenderContext);
 
     //std::cout << "Before scene update\n";
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
@@ -542,34 +579,19 @@ void Renderer::CreateRaytracingProgram() noexcept
 
 void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) noexcept
 {
-    density_3d_tex_ = device_->createTexture3D(
-        Metrics::density_map_size,
-        Metrics::density_map_size,
-        Metrics::density_map_size,
-        ResourceFormat::R32Float,
-        1, // mips
-        nullptr,
-        ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
+    const auto compute_var2 = compute_marching_cube_density_map_->getRootVar();
+    compute_var2["DensityTexture"] = density_3d_tex_;
+    compute_var2["triangles"] = marching_cubes_triangle_buffer_;
+
+    compute_var2["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
+    compute_var2["PerFrameCB"]["isoLevel"] = IsoLevel;
+    compute_var2["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
+    compute_var2["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
+    compute_var2["PerFrameCB"]["SphereRadius"] = SphereRadius;
+
+    compute_marching_cube_density_map_->execute(
+        render_context, Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size
     );
-
-    // 1) Buffer allocation
-    const auto maxTriangleCount = 5 * (numPointsPerAxis - 1) * (numPointsPerAxis - 1) * (numPointsPerAxis - 1);
-    const size_t triangleStructSize = sizeof(MarchingCubesTriangle);
-
-    // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
-    marching_cubes_triangle_buffer_ = make_ref<Buffer>(
-        device_,                               // Falcor device
-        triangleStructSize,                    // structSize (bytes per element)
-        maxTriangleCount,                      // elementCount
-        ResourceBindFlags::UnorderedAccess |   // UAV for compute
-            ResourceBindFlags::ShaderResource, // SRV for rendering or readback
-        MemoryType::DeviceLocal,               // GPU-only (faster)
-        nullptr,                               // no init data
-        true                                   // create hidden counter
-    );
-
-    marching_cubes_pass_ =
-        ComputePass::create(device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ProcessCube");
 
     render_context->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
 
@@ -588,23 +610,23 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
     render_context->uavBarrier(marching_cubes_triangle_buffer_.get());
     marching_cubes_triangle_count_ = marching_cubes_triangle_buffer_->getUAVCounter()->getElement<uint>(0);
 
-    // A small readback buffer to fetch the append counter:
-    read_back_triangle_buffer_ = make_ref<Buffer>(
-        device_, triangleStructSize, marching_cubes_triangle_count_, ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-    );
-
     render_context->copyBufferRegion(
-        read_back_triangle_buffer_.get(), 0, marching_cubes_triangle_buffer_.get(), 0, marching_cubes_triangle_count_ * triangleStructSize
+        read_back_triangle_buffer_.get(), 0, marching_cubes_triangle_buffer_.get(), 0,
+        marching_cubes_triangle_count_ * sizeof(MarchingCubeVertex)
     );
 
     const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
 
     for (uint i = 0; i < 12; i++)
     {
-        std::cout << "Init " << '\n';
+        std::cout << "i = " << i << '\n';
         std::cout << "UAV counter aka triangle count: " << marching_cubes_triangle_count_ << '\n';
 
         std::cout << triangles[i].vertexA.position.x << " " << triangles[i].vertexA.position.y << " " << triangles[i].vertexA.position.z
+                  << '\n';
+        std::cout << triangles[i].vertexB.position.x << " " << triangles[i].vertexB.position.y << " " << triangles[i].vertexB.position.z
+                  << '\n';
+        std::cout << triangles[i].vertexC.position.x << " " << triangles[i].vertexC.position.y << " " << triangles[i].vertexC.position.z
                   << '\n';
     }
 

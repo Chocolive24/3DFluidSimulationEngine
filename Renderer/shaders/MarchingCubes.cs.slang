@@ -299,7 +299,14 @@ static const int triangulation[256][16] = {
 
 struct Vertex {
     float3 position = float3(-20000.f, 0.f, 0.f);
-    float pad0 = -1.f;
+    float pad0;
+    float3 normal = float3(0.f, 0.f, 1.f);
+    float pad1;
+    float3 tangent = float3(0.f, 0.f, 1.f);
+    float pad2;
+    float2 texcrd = float2(0.f, 0.f);
+    float2 pad34;
+    //float pad0 = -1.f;
     // float3 normal;
     // int2 id;
 };
@@ -322,7 +329,6 @@ cbuffer PerFrameCB
     float SphereRadius;
 }
 
-
 [numthreads(8, 8, 8)]
 void ComputeDensityTexture(uint3 threadID: SV_DispatchThreadID)
 {
@@ -337,9 +343,9 @@ float sampleDensity(int3 position)
 {
     // Bounds check
     if (any(position < 0) || any(position >= textureSize))
-        return 0.f;
+        return 1e6f; // Treat out-of-bounds as "far outside" the surface
 
-    return -1.f;
+    return DensityTexture[position];
 }
 
 [numthreads(8, 8, 8)]
@@ -348,6 +354,23 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
     int numCubesPerAxis = numPointsPerAxis - 1;
 
     if (any(threadID) >= numCubesPerAxis) return;
+
+    // // Calculate positions of each vertex.
+    // Vertex vertexA;
+    // Vertex vertexB;
+    // Vertex vertexC;
+    // vertexA.position = float3(10, 10, 10);
+    // vertexB.position = float3(5, 5, 5);
+    // vertexC.position = float3(0, 0, 0);
+
+    // // Create triangle
+    // Triangle tri;
+    // tri.vertexA = vertexA;
+    // tri.vertexB = vertexB;
+    // tri.vertexC = vertexC;
+    // triangles.Append(tri);
+
+    // return;
 
     int3 cornerCoords[8];
     cornerCoords[0] = threadID + int3(0, 0, 0);
@@ -368,7 +391,7 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         // Think of the configuration as an 8-bit binary number (each bit represents the state of a corner point).
         // The state of each corner point is either 0: above the surface, or 1: below the surface.
         // The code below sets the corresponding bit to 1, if the point is below the surface.
-        if (sampleDensity(cornerCoords[i]) < isoLevel) {
+        if (sampleDensity(cornerCoords[i]) < 0) {
             cubeConfiguration |= (1 << i);
         }
     }
