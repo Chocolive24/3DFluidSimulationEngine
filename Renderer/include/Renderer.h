@@ -10,14 +10,14 @@ using namespace Falcor;
 struct MarchingCubeVertex
 {
     float3 position = float3(0.f, 0.f, 0.f);
-    float pad0;
+    //float pad0;
     float3 normal = float3(0.f, 0.f, 1.f);
-    float pad1;
-    float3 tangent = float3(0.f, 0.f, 1.f);
-    float pad2;
-    float2 texcrd = float2(0.f, 0.f);
-    float pad3;
-    float pad4;
+    //float pad1;
+    //float3 tangent = float3(0.f, 0.f, 1.f);
+    //float pad2;
+    //float2 texcrd = float2(0.f, 0.f);
+    //float pad3;
+    //float pad4;
 };
 
 struct MarchingCubesTriangle
@@ -118,6 +118,9 @@ private:
     ref<Buffer> b_tang;
     ref<Buffer> b_uv;
 
+    uint32_t oldTriangleCount = 0;
+    uint32_t triangleCount = 0;
+
     float var_ = 0.f;
 
     ref<ComputePass> compute_density_map_pass_ = nullptr;
@@ -133,13 +136,15 @@ public:
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.1f;
 
+    bool useMarchingCubes = false;
     bool draw_fluid_ = false;
     bool lightScattering = false;
 
 
-    unsigned MaxTriangleCount = 0;
+    size_t MaxTriangleCount = 0;
     size_t MaxVertexCount = 0;
     unsigned marching_cube_vertex_count = 0;
+    float3 march_mesh_scale = float3(Metrics::sim_bounds);
     //ref<Texture> density_3d_tex_ = nullptr;
 
     TriangleMesh::VertexList v;
