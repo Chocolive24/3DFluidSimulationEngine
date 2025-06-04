@@ -33,7 +33,9 @@ public:
     Renderer(const ref<Device>& device, const ref<Fbo>& target_fbo) noexcept;
 
     void Init(RenderContext* render_context, bool rebuildBvh = false) noexcept;
-    void RenderFrame(RenderContext* pRenderContext, const double& currentTime,
+    void RenderFrame(
+        RenderContext* pRenderContext,
+        const ref<Fbo>& pTargetFbo, const double& currentTime,
         const ref<Buffer>& bodies,
         const ref<Buffer>& SpatialIndices,
         const ref<Buffer>& SpatialOffsets) noexcept;
@@ -48,6 +50,7 @@ public:
      * program and links it to the scene's BVH. It should be called after all meshes were added to the scene.
      */
     void CreateRaytracingProgram(RenderContext* render_context) noexcept;
+    void CreateRasterizationProgram() noexcept;
 
     void LaunchMarchingCubeComputePasses(RenderContext* render_context) noexcept;
 
@@ -71,10 +74,11 @@ public:
 
 
     Transform fluid_transform;
+    ref<RasterPass> raster_pass_;
 
 private:
     void setPerFrameVariables(const double& currentTime) const noexcept;
-    void createRasterizationProgram() const noexcept;
+
 
     const ref<Device>& device_;
     const ref<Fbo>& target_fbo_;
@@ -136,7 +140,7 @@ public:
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.1f;
 
-    bool useMarchingCubes = false;
+    bool useMarchingCubes = true;
     bool draw_fluid_ = false;
     bool lightScattering = false;
 

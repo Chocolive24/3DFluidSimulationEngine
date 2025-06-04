@@ -25,8 +25,6 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         FALCOR_THROW("Device does not support raytracing!");
     }
 
-    //createRasterizationProgram();
-
     Settings settings{};
 
     // Create the SceneBuilder
@@ -48,94 +46,98 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     lambertian->setRoughnessMollification(1.f);
     lambertian->setIndexOfRefraction(0.f);
 
-    //if (useMarchingCubes)
-    //{
-    //    // 1) Buffer allocation
-    //    MaxTriangleCount =
-    //        static_cast<size_t>(5) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1);
-    //    MaxVertexCount = MaxTriangleCount * 3;
-    //    // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
+    if (useMarchingCubes)
+    {
+        // 1) Buffer allocation
+        MaxTriangleCount =
+            static_cast<size_t>(5) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1);
+        MaxVertexCount = MaxTriangleCount * 3;
+        // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
 
-    //    // v = {
-    //    //    {float3(0.0f, 1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.5f, 1.0f)},   // Top
-    //    //    {float3(-1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.0f, 0.0f)}, // Left
-    //    //    {float3(1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(1.0f, 0.0f)}   // Right
-    //    //};
+        // v = {
+        //    {float3(0.0f, 1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.5f, 1.0f)},   // Top
+        //    {float3(-1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.0f, 0.0f)}, // Left
+        //    {float3(1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(1.0f, 0.0f)}   // Right
+        //};
 
-    //    //    v = {
-    //    //        //        position               normal             texcoord
-    //    //        {{-0.5f, -0.5f, -0.5f}, {0, 0, -1}, {0, 0}}, // 0 - Back face
-    //    //        {{0.5f, -0.5f, -0.5f}, {0, 0, -1}, {1, 0}},  // 1
-    //    //        {{0.5f, 0.5f, -0.5f}, {0, 0, -1}, {1, 1}},   // 2
-    //    //        {{-0.5f, 0.5f, -0.5f}, {0, 0, -1}, {0, 1}},  // 3
-    //    //
-    //    //        {{-0.5f, -0.5f, 0.5f}, {0, 0, 1}, {0, 0}}, // 4 - Front face
-    //    //        {{0.5f, -0.5f, 0.5f}, {0, 0, 1}, {1, 0}},  // 5
-    //    //        {{0.5f, 0.5f, 0.5f}, {0, 0, 1}, {1, 1}},   // 6
-    //    //        {{-0.5f, 0.5f, 0.5f}, {0, 0, 1}, {0, 1}},  // 7
-    //    //    };
-    //    //
-    //    //
+        //    v = {
+        //        //        position               normal             texcoord
+        //        {{-0.5f, -0.5f, -0.5f}, {0, 0, -1}, {0, 0}}, // 0 - Back face
+        //        {{0.5f, -0.5f, -0.5f}, {0, 0, -1}, {1, 0}},  // 1
+        //        {{0.5f, 0.5f, -0.5f}, {0, 0, -1}, {1, 1}},   // 2
+        //        {{-0.5f, 0.5f, -0.5f}, {0, 0, -1}, {0, 1}},  // 3
+        //
+        //        {{-0.5f, -0.5f, 0.5f}, {0, 0, 1}, {0, 0}}, // 4 - Front face
+        //        {{0.5f, -0.5f, 0.5f}, {0, 0, 1}, {1, 0}},  // 5
+        //        {{0.5f, 0.5f, 0.5f}, {0, 0, 1}, {1, 1}},   // 6
+        //        {{-0.5f, 0.5f, 0.5f}, {0, 0, 1}, {0, 1}},  // 7
+        //    };
+        //
+        //
 
-    //    //
-    //    //    std::vector<uint32_t> indices = {
-    //    //    // Back face
-    //    //    0, 1, 2,
-    //    //    0, 2, 3,
-    //    //
-    //    //    // Front face
-    //    //    4, 6, 5,
-    //    //    4, 7, 6,
-    //    //
-    //    //    // Left face
-    //    //    4, 5, 1,
-    //    //    4, 1, 0,
-    //    //
-    //    //    // Right face
-    //    //    3, 2, 6,
-    //    //    3, 6, 7,
-    //    //
-    //    //    // Bottom face
-    //    //    4, 0, 3,
-    //    //    4, 3, 7,
-    //    //
-    //    //    // Top face
-    //    //    1, 5, 6,
-    //    //    1, 6, 2,
-    //    //};
+        //
+        //    std::vector<uint32_t> indices = {
+        //    // Back face
+        //    0, 1, 2,
+        //    0, 2, 3,
+        //
+        //    // Front face
+        //    4, 6, 5,
+        //    4, 7, 6,
+        //
+        //    // Left face
+        //    4, 5, 1,
+        //    4, 1, 0,
+        //
+        //    // Right face
+        //    3, 2, 6,
+        //    3, 6, 7,
+        //
+        //    // Bottom face
+        //    4, 0, 3,
+        //    4, 3, 7,
+        //
+        //    // Top face
+        //    1, 5, 6,
+        //    1, 6, 2,
+        //};
 
-    //    TriangleMesh::Vertex vert{float3(10, 10, 10), float3(0, 0, 1), float2(0, 1)};
-    //    v.resize(MaxVertexCount, vert);
+        TriangleMesh::Vertex vert{float3(10, 10, 10), float3(0, 0, 1), float2(0, 1)};
+        v.resize(MaxVertexCount, vert);
 
-    //    TriangleMesh::IndexList indices;
-    //    for (unsigned idx = 0; idx < MaxVertexCount; idx++)
-    //    {
-    //        indices.push_back(idx);
-    //    }
+        TriangleMesh::IndexList indices;
+        for (unsigned idx = 0; idx < MaxVertexCount; idx++)
+        {
+            indices.push_back(idx);
+        }
 
-    //    auto tri_mesh = TriangleMesh::create(v, indices);
-    //    tri_id = scene_builder_->addTriangleMesh(tri_mesh, dielectric_blue, true);
+        auto tri_mesh = TriangleMesh::create(v, indices);
+        tri_id = scene_builder_->addTriangleMesh(tri_mesh, dielectric_blue, true);
 
-    //    auto node_tri = SceneBuilder::Node();
-    //    auto tri_name = "Marhcing cube mesh " /* + std::to_string(i)*/;
-    //    node_tri.name = tri_name;
-    //    auto transform_tri = Transform();
-    //    transform_tri.setTranslation(float3(0, 0.f, 0.f));
-    //    transform_tri.setRotationEuler(float3(0.f, 0.f, 0.f));
-    //    transform_tri.setScaling(float3(1, 1, 1));
-    //    node_tri.transform = transform_tri.getMatrix();
-    //    auto tri_node_id = scene_builder_->addNode(node_tri);
+        auto node_tri = SceneBuilder::Node();
+        auto tri_name = "Marhcing cube mesh " /* + std::to_string(i)*/;
+        node_tri.name = tri_name;
+        auto transform_tri = Transform();
+        transform_tri.setTranslation(float3(0, 0.f, 0.f));
+        transform_tri.setRotationEuler(float3(0.f, 0.f, 0.f));
+        transform_tri.setScaling(float3(1, 1, 1));
+        node_tri.transform = transform_tri.getMatrix();
+        auto tri_node_id = scene_builder_->addNode(node_tri);
 
-    //    scene_builder_->addMeshInstance(tri_node_id, tri_id);
-    //}
+        scene_builder_->addMeshInstance(tri_node_id, tri_id);
+    }
 
-    auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
-    //auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds -1.f));
+    if (!useMarchingCubes)
+    {
+        auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
+        sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian);
+    }
 
-    //sphere = TriangleMesh::createQuad(float2(5.f));
-    //sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue, true);
 
-    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian);
+    // auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds -1.f));
+
+    // sphere = TriangleMesh::createQuad(float2(5.f));
+    // sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue, true);
 
     //auto node = SceneBuilder::Node();
     //std::string name = "Sphere " /* + std::to_string(i)*/;
@@ -164,18 +166,22 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     ////// Add Mesh Instances
     //scene_builder_->addMeshInstance(cube_node, cube_mesh_id);
 
-    AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
-    uint32_t fluid_AABB_ID = 1;
-    scene_builder_->addCustomPrimitive(fluid_AABB_ID, fluid_AABB);
+    if (!useMarchingCubes)
+    {
+        AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+        uint32_t fluid_AABB_ID = 1;
+        scene_builder_->addCustomPrimitive(fluid_AABB_ID, fluid_AABB);
 
-    auto fluid_node = SceneBuilder::Node();
-    fluid_node.name = "RaymarchingNode";
-    fluid_transform = Transform();
-    fluid_transform.setTranslation(translation);
-    fluid_transform.setRotationEulerDeg(rotation);
-    fluid_transform.setScaling(scale);
-    fluid_node.transform = fluid_transform.getMatrix();
-    raymarching_node_id = scene_builder_->addNode(fluid_node);
+        auto fluid_node = SceneBuilder::Node();
+        fluid_node.name = "RaymarchingNode";
+        fluid_transform = Transform();
+        fluid_transform.setTranslation(translation);
+        fluid_transform.setRotationEulerDeg(rotation);
+        fluid_transform.setScaling(scale);
+        fluid_node.transform = fluid_transform.getMatrix();
+        raymarching_node_id = scene_builder_->addNode(fluid_node);
+    }
+
 
     //auto sdf = SDFSVS::create(device_);
     //sdf->generateCheeseValues(64, 0);
@@ -224,148 +230,149 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     sampler_desc.setAddressingMode(TextureAddressingMode::Clamp, TextureAddressingMode::Clamp, TextureAddressingMode::Clamp);
     linearClampSampler_ = make_ref<Sampler>(device_, sampler_desc);
 
-    //if (!rebuildBvh)
-    //{
-    //    if (useMarchingCubes)
-    //    {
-    //        marching_cube_dens_tex = device_->createTexture3D(
-    //            Metrics::density_map_size,
-    //            Metrics::density_map_size,
-    //            Metrics::density_map_size,
-    //            ResourceFormat::R32Float,
-    //            1, // mips
-    //            nullptr,
-    //            ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
-    //        );
+    if (!rebuildBvh)
+    {
+        if (useMarchingCubes)
+        {
+            marching_cube_dens_tex = device_->createTexture3D(
+                Metrics::density_map_size,
+                Metrics::density_map_size,
+                Metrics::density_map_size,
+                ResourceFormat::R32Float,
+                1, // mips
+                nullptr,
+                ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
+            );
 
-    //        // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
-    //        marching_cubes_triangle_buffer_ = make_ref<Buffer>(
-    //            device_,                               // Falcor device
-    //            sizeof(MarchingCubesTriangle),         // structSize (bytes per element)
-    //            MaxTriangleCount,                      // elementCount
-    //            ResourceBindFlags::UnorderedAccess |   // UAV for compute
-    //                ResourceBindFlags::ShaderResource, // SRV for rendering or readback
-    //            MemoryType::DeviceLocal,               // GPU-only (faster)
-    //            nullptr,                               // no init data
-    //            true                                   // create hidden counter
-    //        );
+            // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
+            marching_cubes_triangle_buffer_ = make_ref<Buffer>(
+                device_,                               // Falcor device
+                sizeof(MarchingCubesTriangle),         // structSize (bytes per element)
+                MaxTriangleCount,                      // elementCount
+                ResourceBindFlags::UnorderedAccess |   // UAV for compute
+                    ResourceBindFlags::ShaderResource, // SRV for rendering or readback
+                MemoryType::DeviceLocal,               // GPU-only (faster)
+                nullptr,                               // no init data
+                true                                   // create hidden counter
+            );
 
-    //        marching_cubes_pass_ =
-    //            ComputePass::create(device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ProcessCube");
+            marching_cubes_pass_ =
+                ComputePass::create(device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ProcessCube");
 
-    //        /*compute_marching_cube_density_map_ = ComputePass::create(
-    //            device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ComputeDensityTexture"
-    //        );*/
+            /*compute_marching_cube_density_map_ = ComputePass::create(
+                device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ComputeDensityTexture"
+            );*/
 
-    //        // A small readback buffer to fetch the append counter:
-    //        read_back_triangle_buffer_ = make_ref<Buffer>(
-    //            device_, sizeof(MarchingCubesTriangle), MaxTriangleCount, ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-    //        );
+            // A small readback buffer to fetch the append counter:
+            read_back_triangle_buffer_ = make_ref<Buffer>(
+                device_, sizeof(MarchingCubesTriangle), MaxTriangleCount, ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
+            );
 
-    //        std::vector<float3> positions;
-    //        std::vector<float3> normals;
-    //        std::vector<float3> tangents;
-    //        std::vector<float2> uv;
-    //        for (const auto& vertex : v)
-    //        {
-    //            // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
-    //            const auto new_Pos = vertex.position; // + float3(5, 1, 0);
-    //            positions.push_back(new_Pos);
-    //            normals.push_back(vertex.normal);
-    //            tangents.push_back(vertex.normal);
-    //            uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
-    //        }
-    //        // for (const auto& vertex : tri_mesh->getVertices())
-    //        //{
-    //        //     // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
-    //        //     const auto new_Pos = vertex.position; // + float3(5, 1, 0);
-    //        //     positions.push_back(new_Pos);
-    //        //     normals.push_back(vertex.normal);
-    //        //     tangents.push_back(vertex.normal);
-    //        //     uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
-    //        // }
+            std::vector<float3> positions;
+            std::vector<float3> normals;
+            std::vector<float3> tangents;
+            std::vector<float2> uv;
+            for (const auto& vertex : v)
+            {
+                // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
+                const auto new_Pos = vertex.position; // + float3(5, 1, 0);
+                positions.push_back(new_Pos);
+                normals.push_back(vertex.normal);
+                tangents.push_back(vertex.normal);
+                uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
+            }
+            // for (const auto& vertex : tri_mesh->getVertices())
+            //{
+            //     // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
+            //     const auto new_Pos = vertex.position; // + float3(5, 1, 0);
+            //     positions.push_back(new_Pos);
+            //     normals.push_back(vertex.normal);
+            //     tangents.push_back(vertex.normal);
+            //     uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
+            // }
 
-    //        b_pos = make_ref<Buffer>(
-    //            device_,
-    //            sizeof(float) * 3,
-    //            positions.size(),
-    //            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //            MemoryType::DeviceLocal,
-    //            positions.data(),
-    //            false
-    //        );
+            b_pos = make_ref<Buffer>(
+                device_,
+                sizeof(float) * 3,
+                positions.size(),
+                ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+                MemoryType::DeviceLocal,
+                positions.data(),
+                false
+            );
 
-    //        b_pos_readback = make_ref<Buffer>(
-    //            device_, sizeof(float) * 3, positions.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-    //        );
+            b_pos_readback = make_ref<Buffer>(
+                device_, sizeof(float) * 3, positions.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
+            );
 
-    //        b_normal = make_ref<Buffer>(
-    //            device_,
-    //            sizeof(normals[0]),
-    //            normals.size(),
-    //            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //            MemoryType::Upload,
-    //            normals.data(),
-    //            false
-    //        );
+            b_normal = make_ref<Buffer>(
+                device_,
+                sizeof(normals[0]),
+                normals.size(),
+                ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+                MemoryType::Upload,
+                normals.data(),
+                false
+            );
 
-    //        b_norm_readback = make_ref<Buffer>(
-    //            device_, sizeof(normals[0]), normals.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-    //        );
+            b_norm_readback = make_ref<Buffer>(
+                device_, sizeof(normals[0]), normals.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
+            );
 
-    //        b_tang = make_ref<Buffer>(
-    //            device_,
-    //            sizeof(tangents[0]),
-    //            tangents.size(),
-    //            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //            MemoryType::Upload,
-    //            tangents.data(),
-    //            false
-    //        );
+            b_tang = make_ref<Buffer>(
+                device_,
+                sizeof(tangents[0]),
+                tangents.size(),
+                ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+                MemoryType::Upload,
+                tangents.data(),
+                false
+            );
 
-    //        b_tang_readback = make_ref<Buffer>(
-    //            device_, sizeof(tangents[0]), tangents.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-    //        );
+            b_tang_readback = make_ref<Buffer>(
+                device_, sizeof(tangents[0]), tangents.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
+            );
 
-    //        b_uv = make_ref<Buffer>(
-    //            device_,
-    //            sizeof(uv[0]),
-    //            uv.size(),
-    //            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-    //            MemoryType::Upload,
-    //            uv.data(),
-    //            false
-    //        );
+            b_uv = make_ref<Buffer>(
+                device_,
+                sizeof(uv[0]),
+                uv.size(),
+                ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+                MemoryType::Upload,
+                uv.data(),
+                false
+            );
 
-    //        b_uv_readback =
-    //            make_ref<Buffer>(device_, sizeof(uv[0]), uv.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false);
+            b_uv_readback =
+                make_ref<Buffer>(device_, sizeof(uv[0]), uv.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false);
 
-    //        vertices = {
-    //            {"positions", b_pos},
-    //            {"normals", b_normal},
-    //            {"tangents", b_tang},
-    //            {"texcrds", b_uv},
-    //        };
-    //    }
-    //}
-    //else
-    //{
-    //    if (useMarchingCubes)
-    //    {
-    //        scene_->setMeshVertices(
-    //            tri_id,
-    //            {
-    //                {"positions", b_pos},
-    //                {"normals", b_normal},
-    //                {"tangents", b_tang},
-    //                {"texcrds", b_uv},
-    //            }
-    //        );
-    //    }
-    //}
+            vertices = {
+                {"positions", b_pos},
+                {"normals", b_normal},
+                {"tangents", b_tang},
+                {"texcrds", b_uv},
+            };
+        }
+    }
+    else
+    {
+        if (useMarchingCubes)
+        {
+            scene_->setMeshVertices(
+                tri_id,
+                {
+                    {"positions", b_pos},
+                    {"normals", b_normal},
+                    {"tangents", b_tang},
+                    {"texcrds", b_uv},
+                }
+            );
+        }
+    }
 }
 
-void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentTime,
+void Renderer::RenderFrame(
+    RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo,  const double& currentTime,
     const ref<Buffer>& bodies,
     const ref<Buffer>& SpatialIndices,
     const ref<Buffer>& SpatialOffsets) noexcept
@@ -413,7 +420,10 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     compute_density_map_pass_->execute(pRenderContext,
          Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
 
-    scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
+    if (!useMarchingCubes)
+    {
+        scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
+    }
 
     if (draw_fluid_ && useMarchingCubes)
     {
@@ -460,10 +470,12 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
             std::exit(666);
         }
 
-        if (triangleCount != oldTriangleCount)
+        /*if (triangleCount != oldTriangleCount)
         {
             scene_->setMeshVertices(tri_id, vertices);
-        }
+        }*/
+
+        scene_->setMeshVertices(tri_id, vertices);
     }
 
     //std::cout << "Before scene update\n";
@@ -494,6 +506,10 @@ void Renderer::RenderFrame(RenderContext* pRenderContext, const double& currentT
     setPerFrameVariables(currentTime);
 
     pRenderContext->clearUAV(rt_output_tex_->getUAV().get(), float4(bg_clear_color, 1));
+
+   /* raster_pass_->getState()->setFbo(pTargetFbo);
+    scene_->rasterize(pRenderContext, raster_pass_->getState().get(), raster_pass_->getVars().get());*/
+
     scene_->raytrace(pRenderContext, rt_program_.get(), rt_program_vars_, uint3(target_fbo_->getWidth(), target_fbo_->getHeight(), 1));
     pRenderContext->blit(rt_output_tex_->getSRV(), target_fbo_->getRenderTargetView(0));
 
@@ -705,7 +721,6 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
     compute_var["PerFrameCB"]["volumeValueOffset"] = volumeValueOffset;
     compute_var["PerFrameCB"]["scale"] = march_mesh_scale;
 
-
     compute_var["linearClampSampler"] = linearClampSampler_;
 
     render_context->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
@@ -727,7 +742,7 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
         triangleCount * sizeof(MarchingCubesTriangle)
     );*/
 
-    if (triangleCount != oldTriangleCount)
+    //if (triangleCount != oldTriangleCount)
     {
         // std::cout << "New triangle count: " << triangleCount << '\n';
 
@@ -869,33 +884,43 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["linearClampSampler"] = linearClampSampler_;
 }
 
-void Renderer::createRasterizationProgram() const noexcept
+void Renderer::CreateRasterizationProgram() noexcept
 {
-    //    // Create the RenderState
-    //    raster_pass_ = RasterPass::create(device_,
-    //        "Samples/Raytracing/triangle.slang", "vsMain", "psMain");
-    //    auto& pState = raster_pass_->getState();
-    //
-    //    // create the depth-state
-    //    DepthStencilState::Desc dsDesc;
-    //    dsDesc.setDepthEnabled(false);
-    //    pState->setDepthStencilState(DepthStencilState::create(dsDesc));
-    //
-    //    // Rasterizer state
-    //    RasterizerState::Desc rsState;
-    //    rsState.setCullMode(RasterizerState::CullMode::None);
-    //    pState->setRasterizerState(RasterizerState::create(rsState));
+    // Create raster pass.
+    // This utility wraps the creation of the program and vars, and sets the necessary scene defines.
+    ProgramDesc rasterProgDesc;
+    rasterProgDesc.addShaderModules(scene_->getShaderModules());
+    rasterProgDesc.addShaderLibrary("Samples/Raytracing/HelloDXR.3d.slang").vsEntry("vsMain").psEntry("psMain");
+    rasterProgDesc.addTypeConformances(scene_->getTypeConformances());
 
-    // Blend state
-    // BlendState::Desc blendDesc;
-    // blendDesc.setRtBlend(0, true).setRtParams(
-    //    0,
-    //    BlendState::BlendOp::Add,
-    //    BlendState::BlendOp::Add,
-    //    BlendState::BlendFunc::SrcAlpha,
-    //    BlendState::BlendFunc::OneMinusSrcAlpha,
-    //    BlendState::BlendFunc::One,
-    //    BlendState::BlendFunc::One
-    //);
-    // pState->setBlendState(BlendState::create(blendDesc));
+    raster_pass_ = RasterPass::create(device_, rasterProgDesc, scene_->getSceneDefines());
+
+    //// Create the RenderState
+    //raster_pass_ = RasterPass::create(device_,
+    //        "Samples/Raytracing/triangle.slang", "vsMain", "psMain");
+
+    auto& pState = raster_pass_->getState();
+    
+    // create the depth-state
+    DepthStencilState::Desc dsDesc;
+    dsDesc.setDepthEnabled(false);
+    pState->setDepthStencilState(DepthStencilState::create(dsDesc));
+    
+    // Rasterizer state
+    RasterizerState::Desc rsState;
+    rsState.setCullMode(RasterizerState::CullMode::None);
+    pState->setRasterizerState(RasterizerState::create(rsState));
+
+     // Blend state
+     BlendState::Desc blendDesc;
+     blendDesc.setRtBlend(0, true).setRtParams(
+        0,
+        BlendState::BlendOp::Add,
+        BlendState::BlendOp::Add,
+        BlendState::BlendFunc::SrcAlpha,
+        BlendState::BlendFunc::OneMinusSrcAlpha,
+        BlendState::BlendFunc::One,
+        BlendState::BlendFunc::One
+    );
+     pState->setBlendState(BlendState::create(blendDesc));
 }
