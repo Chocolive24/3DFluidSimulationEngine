@@ -36,7 +36,7 @@ using namespace Falcor;
 struct ParticleBody
 {
     float3 Position = float3(0.f, 0.f, 0.f);
-    float Density = 1.0f;
+    float Density = 0.0f;
     // 16 bytes
     float3 Velocity = float3(0.f, 0.f, 0.f);
     float NearDensity = 1.0f;
