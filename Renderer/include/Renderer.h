@@ -140,7 +140,7 @@ public:
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.1f;
 
-    bool useMarchingCubes = true;
+    bool useMarchingCubes = false;
     bool draw_fluid_ = false;
     bool lightScattering = false;
 
