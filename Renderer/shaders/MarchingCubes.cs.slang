@@ -338,6 +338,7 @@ cbuffer PerFrameCB
     float var;
 
     float3 simBounds;
+    float normalOffset;
     float volumeValueOffset;
     float3 scale;
 }
@@ -382,16 +383,45 @@ float SampleDensity(uint3 coord)
     return -DensityTexture.SampleLevel(linearClampSampler, uvw, 0);
 }
 
+float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
+{
+    float3 halfSize = boxSize * 0.5;
+    float3 o = (halfSize - abs(p));
+    return (o.x < o.y && o.x < o.z) ? float3(sign(p.x), 0, 0) : (o.y < o.z) ? float3(0, sign(p.y), 0) : float3(0, 0, sign(p.z));
+}
+
 float3 calculateNormal(int3 coord) {
-    int3 offsetX = int3(1, 0, 0);
-    int3 offsetY = int3(0, 1, 0);
-    int3 offsetZ = int3(0, 0, 1);
+    float3 offsetX = int3(1, 0, 0) * normalOffset;
+    float3 offsetY = int3(0, 1, 0) * normalOffset;
+    float3 offsetZ = int3(0, 0, 1) * normalOffset;
 
     float dx = SampleDensity(coord + offsetX) - SampleDensity(coord - offsetX);
     float dy = SampleDensity(coord + offsetY) - SampleDensity(coord - offsetY);
     float dz = SampleDensity(coord + offsetZ) - SampleDensity(coord - offsetZ);
 
     return normalize(float3(dx, dy, dz));
+
+    // float3 offsetX = float3(1, 0, 0) * normalOffset;
+    // float3 offsetY = float3(0, 1, 0) * normalOffset;
+    // float3 offsetZ = float3(0, 0, 1) * normalOffset;
+
+    // float3 fcoord = float3(coord.x, coord.y, coord.z);
+
+    // float dx = SampleDensity(fcoord - offsetX) - SampleDensity(fcoord + offsetX);
+    // float dy = SampleDensity(fcoord - offsetY) - SampleDensity(fcoord + offsetY);
+    // float dz = SampleDensity(fcoord - offsetZ) - SampleDensity(fcoord + offsetZ);
+
+    // float3 volumeNormal = normalize(float3(dx, dy, dz));
+
+    // // Smoothly flatten normals out at boundary edges
+    // float3 o = simBounds / 2 - abs(coord);
+    // float faceWeight = min(o.x, min(o.y, o.z));
+    // float3 faceNormal = CalculateClosestFaceNormal(simBounds, coord);
+    // const float smoothDst = 0.3;
+    // const float smoothPow = 5;
+    // faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
+
+    // return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
 }
 
 float3 coordToWorld(int3 coord) {

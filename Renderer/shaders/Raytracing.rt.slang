@@ -197,67 +197,25 @@ void miss(inout PrimaryRayData hitData)
 [shader("closesthit")]
 void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
 {
-    // hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
-    // hitData.hitT = RayTCurrent();
-    // hitData.absorptionDistance = 0;
-    // return;
-
-    // if (hitData.depth >= maxRayBounce)
-    // {
-    //     hitData.color = float4(1.f, 1.f, 0.f, 1);
-    //     hitData.hitT = 0;
-    //     hitData.absorptionDistance = 0;
-    //     return;
-    // }
-
-    //TODO: calculer les normals dans le compute shader marching cubes.
-    // TODO: pour le moment les normals puent la merde
-
     // // Get the hit-point data.
     float3 rayDir = WorldRayDirection();
     float currentRayDistance = RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
 
-    // // Retrieve hit information
-    // const GeometryInstanceID geomInstanceID = getGeometryInstanceID();
-    // VertexData vd = getVertexData(geomInstanceID, triangleIndex, attribs);
-    // float3 w_pos = vd.posW;
-    // float3 w_normal = vd.normalW;
-
-    // // Handle total internal reflection
-    // float3 reflectDir = reflect(rayDir, w_normal); // Compute the reflection direction
-
-    // // Define reflection ray
-    // RayDesc reflectRay;
-    // reflectRay.Origin = w_pos + rayDir * 0.001f; // Offset to avoid self-intersection
-    // reflectRay.Direction = reflectDir;
-    // reflectRay.TMin = 0.001f;
-    // reflectRay.TMax = 100000.f;
-
-    // // Trace reflection ray
-    // PrimaryRayData reflectedRayData = {};
-    // reflectedRayData.depth = hitData.depth + 1;
-    // reflectedRayData.hitT = 0;
-    // reflectedRayData.absorptionDistance = hitData.absorptionDistance;
-    // TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, reflectRay, reflectedRayData);
-
-    // hitData.color = reflectedRayData.color;
-    // hitData.hitT = currentRayDistance;
-    // return;
-
-    // if (!drawFluid)
-    // {
-    //     hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
-    //     hitData.hitT = currentRayDistance;
-    //     hitData.absorptionDistance = 0;
-    //     return;
-    // }
+    if (!drawFluid)
+    {
+        hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
+        hitData.hitT = currentRayDistance;
+        hitData.absorptionDistance = 0;
+        return;
+    }
 
     if (hitData.depth >= maxRayBounce)
     {
-        hitData.color = float4(1.f, 1.f, 0.f, 1);
-        hitData.hitT = 0;
-        hitData.absorptionDistance = 0;
+        float3 envColor = gScene.envMap.eval(WorldRayDirection(), 0);
+        hitData.color = float4(envColor, 1);
+        hitData.hitT = RayTCurrent();
+        hitData.absorptionDistance = hitData.hitT;
         return;
     }
 

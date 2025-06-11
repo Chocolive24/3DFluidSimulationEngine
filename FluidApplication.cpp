@@ -471,28 +471,11 @@ void FluidApplication::renderPhysicsSampleGui()
         ImGui::EndCombo();
     }
 
-    ImGui::Spacing();
-
-    ImGui::TextWrapped(sample_manager_.GetSampleDescription(sample_manager_.GetCurrentIndex()).c_str());
-
-    ImGui::Spacing();
-
-    sample_manager_.DrawImgui(sample_manager_.GetCurrentIndex());
-
-    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - (ImGui::GetFrameHeightWithSpacing()));
-
-    if (ImGui::ArrowButton("PreviousSample", ImGuiDir_Left))
-    {
-        sample_manager_.PreviousSample();
-    }
-
-    ImGui::SameLine();
-
     if (ImGui::Button("Regenerate"))
     {
-        //sample_manager_.RegenerateSample();
+        // sample_manager_.RegenerateSample();
 
-        //std::cout << "regen\n";
+        // std::cout << "regen\n";
 
         regenrate_particles_ = true;
         std::vector<XMVECTOR> particlePositions;
@@ -528,7 +511,23 @@ void FluidApplication::renderPhysicsSampleGui()
             }
         }
 
-        //std::cout << "End regen\n";
+        // std::cout << "End regen\n";
+    }
+
+
+    ImGui::Spacing();
+
+    ImGui::TextWrapped(sample_manager_.GetSampleDescription(sample_manager_.GetCurrentIndex()).c_str());
+
+    ImGui::Spacing();
+
+    sample_manager_.DrawImgui(sample_manager_.GetCurrentIndex());
+
+    ImGui::SetCursorPosY(ImGui::GetWindowHeight() - (ImGui::GetFrameHeightWithSpacing()));
+
+    if (ImGui::ArrowButton("PreviousSample", ImGuiDir_Left))
+    {
+        sample_manager_.PreviousSample();
     }
 
     ImGui::SameLine();

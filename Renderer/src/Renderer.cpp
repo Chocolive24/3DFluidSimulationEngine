@@ -718,6 +718,7 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
     compute_var["PerFrameCB"]["var"] = var_;
 
     compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
+    compute_var["PerFrameCB"]["normalOffset"] = normalOffset;
     compute_var["PerFrameCB"]["volumeValueOffset"] = volumeValueOffset;
     compute_var["PerFrameCB"]["scale"] = march_mesh_scale;
 
@@ -752,17 +753,24 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
 
         std::vector<float3> new_pos;
         new_pos.resize(MaxVertexCount, float3(100, 100, 100));
+        std::vector<float3> new_normals;
+        new_normals.resize(MaxVertexCount, float3(100, 100, 100));
         for (uint32_t i = 0; i < triangleCount; ++i)
         {
             new_pos[i * 3 + 0] = triangles[i].vertexA.position;
             new_pos[i * 3 + 1] = triangles[i].vertexB.position;
             new_pos[i * 3 + 2] = triangles[i].vertexC.position;
+
+            new_normals[i * 3 + 0] = triangles[i].vertexA.normal;
+            new_normals[i * 3 + 1] = triangles[i].vertexB.normal;
+            new_normals[i * 3 + 2] = triangles[i].vertexC.normal;
         }
 
         // for (uint32_t i = vertexCount; i < MaxVertexCount; ++i)
         //     new_pos[i] = float3(0, 0, 0);
 
         b_pos->setBlob(new_pos.data(), 0, MaxVertexCount * sizeof(float3));
+        b_normal->setBlob(new_normals.data(), 0, MaxVertexCount * sizeof(float3));
 
         read_back_triangle_buffer_->unmap();
     }

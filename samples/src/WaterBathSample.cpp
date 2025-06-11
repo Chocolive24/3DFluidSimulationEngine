@@ -82,9 +82,9 @@ void WaterBathSample::SampleSetUp() noexcept {
         for (size_t i = 0; i < NbParticles;)
         {
             XMVECTOR pos = XMVectorSet(
-                Random::Range(-WALLDIST, WALLDIST),
-                Random::Range(-WALLDIST, WALLDIST),
-                Random::Range(-WALLDIST, WALLDIST),
+                Random::Range(-WALLDIST / 4, WALLDIST),
+                Random::Range(-WALLDIST / 4, WALLDIST),
+                Random::Range(-WALLDIST / 4, WALLDIST),
                 0.0f
             );
 
