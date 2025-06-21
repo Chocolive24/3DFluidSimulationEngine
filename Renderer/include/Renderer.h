@@ -72,7 +72,7 @@ public:
         );
     }
 
-
+    uint32_t fluid_AABB_ID = 1;
     Transform fluid_transform;
     ref<RasterPass> raster_pass_;
 
@@ -187,7 +187,7 @@ public:
     Transform transfrom{};
     float3 translation{0.f, 0.f, 0.f};
     float3 rotation{0.f, 0.f, 0.f};
-    float3 scale{1.f, 1.f, 1.f};
+    float3 scale{Metrics::WALLDIST, Metrics::WALLDIST, Metrics::WALLDIST};
 
     float3 lightColor = float3(1, 1, 1);
     float3 lightDir = normalize(float3(1, -1, -1));

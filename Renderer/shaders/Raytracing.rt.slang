@@ -35,7 +35,6 @@ import Rendering.Materials.TexLODHelpers;
 import Rendering.Lights.LightHelpers;
 
 RWTexture2D<float4> gOutput;
-// RWTexture3D<float> gTexture3D;
 Texture3D<float> gTexture3D;
 SamplerState linearClampSampler;
 
@@ -73,6 +72,9 @@ cbuffer PerFrameCB
     int densityMapSize;
     float3 simBounds;
     float volumeValueOffset;
+
+    float4x4 worldToLocal;
+    float4x4 localToWorld;
 };
 
 
@@ -97,9 +99,19 @@ struct PrimaryRayData
     float absorptionDistance = 0.f;
 };
 
+struct CubeHitInfo
+{
+    bool didHit;
+    bool isInside;
+    float dst;
+    float3 hitPoint;
+    float3 normal;
+}
+
 struct SurfaceInfo
 {
     float3 pos;
+    float3 normal;
     float densityAlongRay;
     bool foundSurface;
 };
@@ -516,6 +528,12 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     float3 transmittance = float3(1, 1, 1);
     float3 light = float3(0, 0, 0);
 
+    float3 debugNormal = float3(0, 0, 0);
+
+    hitData.color = float4(debugNormal, 1.0);
+    hitData.hitT = RayTCurrent();
+    return;
+
     for (int i = 0; i < maxRayBounce; i++)
     //if (hitData.depth < maxRayBounce)
     {
@@ -526,14 +544,25 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         // ATTENTION: cette ligne créé des artéfcats blancs sur la surface du fluide.
         // bool searchForNextFluidEntryPoint = !IsInsideFluid(ray.origin);
 
-        SurfaceInfo hitInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, RayTCurrent());
+        CubeHitInfo cubeHit = RayBoxWithMatrix(ray.origin, ray.dir, localToWorld, worldToLocal, true);
+        SurfaceInfo surfaceInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, 
+            /*rngState, i == 0 ? 1 : 0,*/ cubeHit.dst);
+        bool useCubeHit = cubeHit.didHit && cubeHit.dst < length(surfaceInfo.pos - ray.origin);
+        if (!surfaceInfo.foundSurface) break;
 
-        transmittance *= exp(-hitInfo.densityAlongRay * scatteringCoeff);
+        //SurfaceInfo surfaceInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, RayTCurrent());
+
+        transmittance *= exp(-surfaceInfo.densityAlongRay * scatteringCoeff);
 
         // If no surface found, exit loop but still accumulate final light
-        if (!hitInfo.foundSurface) break;
+        if (!surfaceInfo.foundSurface)
+        {
+            light = float3(1, 0, 0);
+            break;
+        }
 
-        float3 normal = ComputeDensityNormal(hitInfo.pos);
+        float3 normal = ComputeDensityNormal(surfaceInfo.pos);
+        debugNormal = normal;
         if (travellingThroughFluid) normal = -normal;
 
         // Compute IoR ratio based on fluid state
@@ -550,8 +579,8 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         float3 refractDir = refract(ray.dir, normal, eta);
 
         // Compute transmittance of both paths
-        float densityRefrac =  CalculateDensityAlongRay(hitInfo.pos, refractDir, densityStepSize);
-        float densityReflect = CalculateDensityAlongRay(hitInfo.pos, reflectDir, densityStepSize);
+        float densityRefrac = CalculateDensityAlongRay(surfaceInfo.pos, refractDir, densityStepSize);
+        float densityReflect = CalculateDensityAlongRay(surfaceInfo.pos, reflectDir, densityStepSize);
 
         bool followRefrac = densityRefrac * refractionRatio > densityReflect * reflectionRatio;
 
@@ -566,8 +595,8 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         }
 
         // Advance ray
-        ray.origin = hitInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
         ray.dir = followRefrac ? refractDir : reflectDir;
+        ray.origin = surfaceInfo.pos + ray.dir * 1e-3f; // Avoid self-hit
 
         // Update transmittance
         transmittance *= followRefrac ? refractionRatio : reflectionRatio;
@@ -580,8 +609,11 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     //light += 1.f * transmittance * exp(-densityRemainder * scatteringCoeff);
     light += gScene.envMap.eval(ray.dir) * transmittance * exp(-densityRemainder * scatteringCoeff);
 
-    //hitData.color = float4(1 - light, 1.0);
+    // hitData.color = float4(1 - light, 1.0);
     hitData.color = float4(light, 1.0);
+    // debugNormal += float3(1, 1, 1);
+    // debugNormal *= 0.5f;
+    // hitData.color = float4(debugNormal, 1.0);
     hitData.hitT = RayTCurrent();
     return;
 }
@@ -752,6 +784,10 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
 float SampleDensityMap(float3 pos)
 {
+    // float3 uvw = (pos + simBounds * 0.5f) / simBounds;
+    // uvw = clamp(uvw, float3(0.001f), float3(0.999f)); // avoid hardware out-of-bounds
+    // return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+
     float3 uvw = (pos + simBounds * 0.5f) / simBounds;
 
     const float epsilon = 0.0001f;
@@ -770,6 +806,9 @@ float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
 
 float3 ComputeDensityNormal(float3 pos)
 {
+    float3 uvw = (pos + simBounds * 0.5) / simBounds;
+
+    //const float s = 0.1;
     float3 offsetX = float3(1, 0, 0) * normalOffset;
     float3 offsetY = float3(0, 1, 0) * normalOffset;
     float3 offsetZ = float3(0, 0, 1) * normalOffset;
@@ -789,6 +828,27 @@ float3 ComputeDensityNormal(float3 pos)
     faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
 
     return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
+
+
+    // float3 offsetX = float3(1, 0, 0) * normalOffset;
+    // float3 offsetY = float3(0, 1, 0) * normalOffset;
+    // float3 offsetZ = float3(0, 0, 1) * normalOffset;
+
+    // float dx = SampleDensityMap(pos - offsetX) - SampleDensityMap(pos + offsetX);
+    // float dy = SampleDensityMap(pos - offsetY) - SampleDensityMap(pos + offsetY);
+    // float dz = SampleDensityMap(pos - offsetZ) - SampleDensityMap(pos + offsetZ);
+
+    // float3 volumeNormal = normalize(float3(dx, dy, dz));
+
+    // // Smoothly flatten normals out at boundary edges
+    // float3 o = simBounds / 2 - abs(pos);
+    // float faceWeight = min(o.x, min(o.y, o.z));
+    // float3 faceNormal = CalculateClosestFaceNormal(simBounds, pos);
+    // const float smoothDst = 0.3;
+    // const float smoothPow = 5;
+    // faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
+
+    // return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
 }
 
 // Test if a ray segment <RayTMin(), RayTCurrent()> intersects an AABB.
@@ -890,6 +950,64 @@ float CalculateDensityAlongRay(float3 rayPos, float3 rayDir, float stepSize)
 
     return opticalDepth;
 }
+
+// Test intersection of ray with unit box centered at origin
+CubeHitInfo RayUnitBox(float3 pos, float3 dir, bool unitBox)
+{
+    float3 boxMin = -1;
+    float3 boxMax = 1;
+
+    // if (!unitBox)
+    // {
+    //     boxMin = -0.5f * simBounds;
+    //     boxMax = 0.5f * simBounds;
+    // }
+
+    float3 invDir = 1 / dir;
+
+    // Thanks to https://tavianator.com/2011/ray_box.html
+    float3 tMin = (boxMin - pos) * invDir;
+    float3 tMax = (boxMax - pos) * invDir;
+    float3 t1 = min(tMin, tMax);
+    float3 t2 = max(tMin, tMax);
+    float tNear = max(max(t1.x, t1.y), t1.z);
+    float tFar = min(min(t2.x, t2.y), t2.z);
+
+    // Set hit info
+    CubeHitInfo hitInfo = (CubeHitInfo)0;
+    hitInfo.dst = asfloat(0x7F800000); // +Infinity.
+    hitInfo.didHit = tFar >= tNear && tFar > 0;
+    hitInfo.isInside = tFar > tNear && tNear <= 0;
+
+    if (hitInfo.didHit)
+    {
+        float hitDst = hitInfo.isInside ? tFar : tNear;
+        float3 hitPos = pos + dir * hitDst;
+
+        hitInfo.dst = hitDst;
+        hitInfo.hitPoint = hitPos;
+
+        // Calculate normal
+        float3 o = (1 - abs(hitPos));
+        float3 absNormal = (o.x < o.y && o.x < o.z) ? float3(1, 0, 0) : (o.y < o.z) ? float3(0, 1, 0) : float3(0, 0, 1);
+        hitInfo.normal = absNormal * sign(hitPos) * (hitInfo.isInside ? -1 : 1);
+    }
+
+    return hitInfo;
+}
+
+CubeHitInfo RayBoxWithMatrix(float3 rayPos, float3 rayDir, float4x4 localToWorld, float4x4 worldToLocal, bool unitBox)
+{
+    float3 posLocal = mul(worldToLocal, float4(rayPos, 1)).xyz;
+    float3 dirLocal = normalize(mul(worldToLocal, float4(rayDir, 0)).xyz);
+    CubeHitInfo hitInfo = RayUnitBox(posLocal, dirLocal, unitBox);
+    hitInfo.normal = normalize(mul(localToWorld, float4(hitInfo.normal, 0.0)).xyz);
+    hitInfo.hitPoint = mul(localToWorld, float4(hitInfo.hitPoint, 1.0)).xyz;
+
+    if (hitInfo.didHit) hitInfo.dst = length(hitInfo.hitPoint - rayPos);
+    return hitInfo;
+}
+
 [shader("intersection")]
 void RaymarchingIntersection()
 {
@@ -897,47 +1015,61 @@ void RaymarchingIntersection()
         return;
 
     float3 rayOrigin = WorldRayOrigin();
-    float3 rayDir = normalize(WorldRayDirection());
+    float3 rayDir = WorldRayDirection();
 
-    Ray ray;
-    ray.origin = rayOrigin;
-    ray.dir = rayDir;
+    // Test against the transformed fluid container
+    CubeHitInfo cubeHitInfo = RayBoxWithMatrix(rayOrigin, rayDir, localToWorld, worldToLocal, false);
 
-    float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
-
-    float tMin = 0.f;
-    float tMax = 0.f;
-    SDF_GeometryAttributes attr = {};
-    
-    if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
+    if (cubeHitInfo.didHit)
     {
-        // Ensure tMin is in the AABB when the camera is already inside it.
-        tMin = max(tMin, RayTMin());
-        tMax = min(tMax, RayTCurrent());
-
-        float3 startPos = rayOrigin + rayDir * tMin;
-
-        // float prevDensity = SampleDensityMap(startPos);
-
-        ReportHit(tMax - tMin, 0, attr);
-        return;
+        SDF_GeometryAttributes attr = {};
+        attr.pos = cubeHitInfo.hitPoint;
+        attr.normal = cubeHitInfo.normal;
+        // Optionally encode hit.normal or hit.hitPoint into attr
+        ReportHit(cubeHitInfo.dst, 0 /*geometry index*/, attr);
     }
 
-    bool searchEntry = !IsInsideFluid(rayOrigin); // This can cause white artifacts on top of fluid surface.
-    SurfaceInfo hitInfo = FindNextSurface(rayOrigin, rayDir, searchEntry, RayTCurrent());
+    return;
 
-    if (!hitInfo.foundSurface)
-        return;
+    // Ray ray;
+    // ray.origin = rayOrigin;
+    // ray.dir = rayDir;
+
+    // float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
+
+    // float tMin = 0.f;
+    // float tMax = 0.f;
+    // SDF_GeometryAttributes attr = {};
+    
+    // if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
+    // {
+    //     // Ensure tMin is in the AABB when the camera is already inside it.
+    //     tMin = max(tMin, RayTMin());
+    //     tMax = min(tMax, RayTCurrent());
+
+    //     float3 startPos = rayOrigin + rayDir * tMin;
+
+    //     // float prevDensity = SampleDensityMap(startPos);
+
+    //     ReportHit(tMax - tMin, 0, attr);
+    //     return;
+    // }
+
+    // bool searchEntry = !IsInsideFluid(rayOrigin); // This can cause white artifacts on top of fluid surface.
+    // SurfaceInfo hitInfo = FindNextSurface(rayOrigin, rayDir, searchEntry, RayTCurrent());
+
+    // if (!hitInfo.foundSurface)
+    //     return;
 
 
-    attr.pos = hitInfo.pos;
-    attr.normal = ComputeDensityNormal(hitInfo.pos);
-    attr.densityAlongRay = hitInfo.densityAlongRay;
+    // attr.pos = hitInfo.pos;
+    // attr.normal = ComputeDensityNormal(hitInfo.pos);
+    // attr.densityAlongRay = hitInfo.densityAlongRay;
 
-    // tHit computation
-    float tHit = dot(hitInfo.pos - rayOrigin, rayDir);
+    // // tHit computation
+    // float tHit = dot(hitInfo.pos - rayOrigin, rayDir);
 
-    ReportHit(tHit, 0, attr);
+    // ReportHit(tHit, 0, attr);
 }
 
 // float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };

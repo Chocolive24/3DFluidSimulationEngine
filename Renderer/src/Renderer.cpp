@@ -168,16 +168,20 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
     if (!useMarchingCubes)
     {
-        AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
-        uint32_t fluid_AABB_ID = 1;
-        scene_builder_->addCustomPrimitive(fluid_AABB_ID, fluid_AABB);
+        const AABB fluid_AABB = AABB(float3(-1), float3(1));
+        //AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
 
-        auto fluid_node = SceneBuilder::Node();
-        fluid_node.name = "RaymarchingNode";
         fluid_transform = Transform();
         fluid_transform.setTranslation(translation);
         fluid_transform.setRotationEulerDeg(rotation);
         fluid_transform.setScaling(scale);
+
+        const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
+        scene_builder_->addCustomPrimitive(fluid_AABB_ID, transformed_aabb);
+
+        auto fluid_node = SceneBuilder::Node();
+        fluid_node.name = "RaymarchingNode";
+
         fluid_node.transform = fluid_transform.getMatrix();
         raymarching_node_id = scene_builder_->addNode(fluid_node);
     }
@@ -381,6 +385,15 @@ void Renderer::RenderFrame(
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
 
+    if (!useMarchingCubes)
+    {
+        const AABB fluid_AABB = AABB(float3(-1), float3(1));
+        //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+        const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
+
+        scene_->updateCustomPrimitive(0, transformed_aabb);
+    }
+
      const auto compute_var = compute_density_map_pass_->getRootVar();
      compute_var["bodies"] = bodies;
      compute_var["SpatialIndices"] = SpatialIndices;
@@ -420,10 +433,6 @@ void Renderer::RenderFrame(
     compute_density_map_pass_->execute(pRenderContext,
          Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
 
-    if (!useMarchingCubes)
-    {
-        scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
-    }
 
     if (draw_fluid_ && useMarchingCubes)
     {
@@ -571,15 +580,16 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     app_gui_window->checkbox("Light Scattering ?", lightScattering);
 
 
-    app_gui_window->slider("translation", translation, -50.f, 50.f);
+    app_gui_window->slider("translation", translation, -500.f, 500.f);
     app_gui_window->slider("rotation", rotation, 0.f, 360.f);
-    app_gui_window->slider("scale", scale, 0.1f, 5.f);
+    app_gui_window->slider("scale", scale, 1.f, 500.f);
 
     app_gui_window->slider("march_mesh_scale", march_mesh_scale, 0.1f, 100.f);
 
     fluid_transform.setTranslation(translation);
     fluid_transform.setRotationEulerDeg(rotation);
     fluid_transform.setScaling(scale);
+
     //scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
 
     //if (draw_fluid_)
@@ -890,6 +900,12 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["gOutput"] = rt_output_tex_;
     var["gTexture3D"] = density_3d_tex_;
     var["linearClampSampler"] = linearClampSampler_;
+
+    const float4x4 localToWorld = fluid_transform.getMatrix();
+    const float4x4 worldToLocal = inverse(localToWorld);
+
+    var["PerFrameCB"]["localToWorld"] = localToWorld;
+    var["PerFrameCB"]["worldToLocal"] = worldToLocal;
 }
 
 void Renderer::CreateRasterizationProgram() noexcept
