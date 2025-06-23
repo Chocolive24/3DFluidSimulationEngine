@@ -138,7 +138,7 @@ private:
 public:
     float DensityRayMarchMultiplier = 0.05f;
     float volumeValueOffset = 0.1f;
-    float normalOffset = 0.5f;
+    float normalOffset = 0.1f;
 
     bool useMarchingCubes = false;
     bool draw_fluid_ = false;

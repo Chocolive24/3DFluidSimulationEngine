@@ -258,11 +258,14 @@ void FluidApplication::executeParticleComputePass(
     unscaledLocalToWorld.setScaling(renderer_->scale / WALLDIST); // Or normalize the axes manually
     float4x4 unscaledWorldToLocal = inverse(unscaledLocalToWorld.getMatrix());
 
-    //const float4x4 localToWorld = renderer_->fluid_transform.getMatrix();
-    //const float4x4 worldToLocal = inverse(localToWorld);
+    const float4x4 localToWorld = renderer_->fluid_transform.getMatrix();
+    const float4x4 worldToLocal = inverse(localToWorld);
 
     compute_var["PerFrameCB"]["localToWorld"] = unscaledLocalToWorld.getMatrix();
     compute_var["PerFrameCB"]["worldToLocal"] = unscaledWorldToLocal;
+
+    //compute_var["PerFrameCB"]["localToWorld"] = localToWorld;
+    //compute_var["PerFrameCB"]["worldToLocal"] = worldToLocal;
 
     const float r = SPH::SmoothingRadius;
     const float spikyPow2 = 15.f / (2 * PI * Pow(r, 5));

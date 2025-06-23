@@ -570,7 +570,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     app_gui_window->var("densityGraphicsMultiplier",
         Metrics::densityGraphicsMultiplier);
     app_gui_window->var("volumeValueOffset", volumeValueOffset, 0.f, 100.f);
-    app_gui_window->var("DensityDepth", DensityRayMarchMultiplier, 0.f, 1.f);
+    app_gui_window->var("DensityRayMarchMultiplier", DensityRayMarchMultiplier);
     app_gui_window->var("SphereRadius", SphereRadius, 0.f, 200.f);
 
     app_gui_window->var("ISO Level", IsoLevel);
