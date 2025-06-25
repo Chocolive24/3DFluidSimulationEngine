@@ -131,6 +131,22 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     {
         auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
         sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian);
+
+        //auto cube_mesh = TriangleMesh::createCube(float3(30, 170, 30));
+        //cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertian);
+
+        //auto node = SceneBuilder::Node();
+        //const std::string name = "Cube " /* + std::to_string(i)*/;
+        //node.name = name;
+        //auto transform = Transform();
+        //transform.setTranslation(float3(0, 0, 0));
+        //transform.setRotationEuler(float3(35.f, 0.f, 0.f));
+        //transform.setScaling(float3(1, 1, 1));
+        //node.transform = transform.getMatrix();
+        //const auto node_id = scene_builder_->addNode(node);
+
+        // // Add Mesh Instances
+        //scene_builder_->addMeshInstance(node_id, cube_mesh_id);
     }
 
 

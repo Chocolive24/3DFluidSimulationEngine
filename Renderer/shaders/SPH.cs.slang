@@ -56,6 +56,9 @@ cbuffer PerFrameCB
     uint groupHeight;
     uint stepIndex;
 
+    float4x4 unscaledWorldToLocal;
+    float4x4 unscaledLocalToWorld;
+
     float4x4 worldToLocal;
     float4x4 localToWorld;
 
@@ -215,8 +218,8 @@ void ApplyForce(inout ParticleBody Particlebody, float3 force) {
 void SimulationBounds(inout ParticleBody Particlebody)
 {
     // Transform position/velocity to the local space of the bounding box (scale not included)
-    float3 posLocal = mul(worldToLocal, float4(Particlebody.Position, 1)).xyz;
-    float3 velocityLocal = mul(worldToLocal, float4(Particlebody.Velocity, 0)).xyz;
+    float3 posLocal = mul(unscaledWorldToLocal, float4(Particlebody.Position, 1)).xyz;
+    float3 velocityLocal = mul(unscaledWorldToLocal, float4(Particlebody.Velocity, 0)).xyz;
 
     // Calculate distance from box on each axis (negative values are inside box)
     const float3 halfSize = 0.5 * simBounds;
@@ -240,8 +243,8 @@ void SimulationBounds(inout ParticleBody Particlebody)
     }
 
     // Transform resolved position/velocity back to world space
-    Particlebody.Position = mul(localToWorld, float4(posLocal, 1)).xyz;
-    Particlebody.Velocity = mul(localToWorld, float4(velocityLocal, 0)).xyz;
+    Particlebody.Position = mul(unscaledLocalToWorld, float4(posLocal, 1)).xyz;
+    Particlebody.Velocity = mul(unscaledLocalToWorld, float4(velocityLocal, 0)).xyz;
 
     return;
 
@@ -625,10 +628,28 @@ void computeDensityMap(uint3 threadID: SV_DispatchThreadID)
 {
     if (any(threadID >= densityMapSize)) return;
 
-    float3 texturePos = threadID / float3(densityMapSize - 1);      // normalized [0,1]
-    float3 worldPos = (texturePos - 0.5f) * simBounds; // map to [-100,100]
+    // Step 1 — UV in [0,1]
+    float3 uvw = (float3(threadID) + 0.5f) / float3(densityMapSize); // center of voxel
 
+    // Step 2 — Local space in [-1,1] (assuming simBounds is 2x the scale of the object)
+    float3 localPos = uvw * 2.0f - 1.0f;
+
+    // Step 3 — Transform to world-space
+    float3 worldPos = mul(localToWorld, float4(localPos, 1.0f)).xyz;
+
+    // Step 4 — Evaluate density
     float density = CalculateDensityAtPosition(worldPos);
     density *= densityGraphicsMultiplier;
+
+    // Step 5 — Store into 3D texture
     gTexture3D[threadID] = density;
+
+    // if (any(threadID >= densityMapSize)) return;
+
+    // float3 texturePos = threadID / float3(densityMapSize - 1); // normalized [0,1]
+    // float3 worldPos = (texturePos - 0.5f) * simBounds;         // map to [-simBounds; simBounds]
+
+    // float density = CalculateDensityAtPosition(worldPos);
+    // density *= densityGraphicsMultiplier;
+    // gTexture3D[threadID] = density;
 }

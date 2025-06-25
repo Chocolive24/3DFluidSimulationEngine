@@ -381,9 +381,11 @@ SurfaceInfo FindNextSurface(float3 origin, float3 rayDir, bool findNextFluidEntr
     // Safety check
     if (dot(rayDir, rayDir) < 0.5) return info;
 
-    float2 boundsDstInfo = RayBoxDst(-simBounds * 0.5, simBounds * 0.5, origin, rayDir);
+    //float2 boundsDstInfo = RayBoxDst(-simBounds * 0.5, simBounds * 0.5, origin, rayDir);
+    //  Use your new matrix-aware ray-box distance function
+    float2 boundsDstInfo = RayBoxDst_Matrix(origin, rayDir, localToWorld, worldToLocal);
     float r = (RandomValue(rngState) - 0.5) * marchSize * 0.4 * 1;
-    bool hasExittedFluid = !IsInsideFluid(origin);
+    bool hasExittedFluid = !IsInsideFluid(origin, rayDir);
     origin = origin + rayDir * (boundsDstInfo.x + r);
 
     float stepSize = marchSize;
@@ -495,9 +497,26 @@ SurfaceInfo FindNextSurface(float3 origin, float3 rayDir, bool findNextFluidEntr
 //     return info;
 // }
 
-bool IsInsideFluid(float3 pos)
+// bool IsInsideFluid(float3 worldPos)
+// {
+//     // Use a fake ray pointing in any direction — here +Z (doesn't matter much)
+//     float3 worldRayDir = float3(0, 0, 1);
+
+//     // Call RayBoxWithMatrix which internally transforms to local space
+//     CubeHitInfo hit = RayBoxWithMatrix(worldPos, worldRayDir, localToWorld, worldToLocal);
+
+//     // Check if the ray starts inside the box
+//     bool insideBox = hit.didHit && hit.isInside;
+
+//     // Optional: only consider "inside" if density is nonzero
+//     return insideBox && SampleDensityMap(worldPos) > 0;
+// }
+
+bool IsInsideFluid(float3 pos, float3 rayDir)
 {
-    float2 boundsDstInfo = RayBoxDst(-simBounds * 0.5, simBounds * 0.5, pos, float3(0, 0, 1));
+    //float2 boundsDstInfo = RayBoxDst(-simBounds * 0.5, simBounds * 0.5, pos, float3(0, 0, 1));
+    float2 boundsDstInfo = RayBoxDst_Matrix(pos, rayDir, localToWorld, worldToLocal);
+
     return (boundsDstInfo.x <= 0 && boundsDstInfo.y > 0) && SampleDensityMap(pos) > 0;
 }
 
@@ -647,6 +666,9 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
     float3 normal = attribs.normal;
 
     float3 rayDir = normalize(WorldRayDirection());
+
+    // hitData.color = float4(0.1, 0.3, 0.9, 1);
+    // return;
 
     float3 transmittance = hitData.transmittance;
     float3 light = float3(0, 0, 0);
@@ -963,13 +985,25 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
 float SampleDensityMap(float3 pos)
 {
-    float3 uvw = (pos + simBounds * 0.5f) / simBounds;
+    // Transform to local space
+    float3 localPos = mul(worldToLocal, float4(pos, 1.0f)).xyz;
+
+    // Local [-1,1] → [0,1] texture UVW
+    float3 uvw = localPos * 0.5f + 0.5f;
 
     const float epsilon = 0.0001f;
     bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
     if (isEdge) return -volumeValueOffset;
 
     return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+
+    // float3 uvw = (pos + simBounds * 0.5f) / simBounds;
+
+    // const float epsilon = 0.0001f;
+    // bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
+    // if (isEdge) return -volumeValueOffset;
+
+    // return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
 }
 
 float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
@@ -981,7 +1015,7 @@ float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
 
 float3 ComputeDensityNormal(float3 pos)
 {
-    float3 uvw = (pos + simBounds * 0.5) / simBounds;
+     float3 uvw = (pos + simBounds * 0.5) / simBounds;
 
     //const float s = 0.1;
     float3 offsetX = float3(1, 0, 0) * normalOffset;
@@ -1041,6 +1075,47 @@ bool RayAABBIntersectionTest(Ray ray, float3 aabb[2], out float tmin, out float 
     return tmax > tmin && tmax >= RayTMin() && tmin <= RayTCurrent();
 }
 
+// Returns (dstToBox, dstInsideBox) in world space
+// If ray misses the transformed box, dstInsideBox == 0
+float2 RayBoxDst_Matrix(float3 worldRayOrigin, float3 worldRayDir, float4x4 localToWorld, float4x4 worldToLocal)
+{
+    //return RayBoxDst(-simBounds * 0.5, simBounds * 0.5, worldRayOrigin, worldRayDir);
+
+    // Step 1 — Transform ray to local space
+    float3 localOrigin = mul(worldToLocal, float4(worldRayOrigin, 1)).xyz;
+    float3 localDir = normalize(mul(worldToLocal, float4(worldRayDir, 0)).xyz);
+
+    // Step 2 — Classic slab intersection in local AABB space [-1, 1]
+    float3 boundsMin = float3(-1.0, -1.0, -1.0);
+    float3 boundsMax = float3(1.0, 1.0, 1.0);
+    float3 invDir = 1.0 / localDir;
+
+    float3 t0 = (boundsMin - localOrigin) * invDir;
+    float3 t1 = (boundsMax - localOrigin) * invDir;
+
+    float3 tmin = min(t0, t1);
+    float3 tmax = max(t0, t1);
+
+    float tEnter = max(max(tmin.x, tmin.y), tmin.z);
+    float tExit = min(min(tmax.x, tmax.y), tmax.z);
+
+    // Step 3 — If ray misses the box
+    if (tEnter > tExit || tExit < 0)
+        return float2(0, 0);
+
+    // Step 4 — Transform distances back to world space length (by ray direction projection)
+    float3 localEntry = localOrigin + tEnter * localDir;
+    float3 localExit = localOrigin + tExit * localDir;
+
+    float3 worldEntry = mul(localToWorld, float4(localEntry, 1)).xyz;
+    float3 worldExit = mul(localToWorld, float4(localExit, 1)).xyz;
+
+    float dstToBox = max(0, dot(worldEntry - worldRayOrigin, normalize(worldRayDir)));
+    float dstInsideBox = max(0, dot(worldExit - worldEntry, normalize(worldRayDir)));
+
+    return float2(dstToBox, dstInsideBox);
+}
+
 // Returns (dstToBox, dstInsideBox). If ray misses box, dstInsideBox will be zero
 float2 RayBoxDst(float3 boundsMin, float3 boundsMax, float3 rayOrigin, float3 rayDir)
 {
@@ -1073,7 +1148,8 @@ float CalculateDensityAlongRay(float3 rayPos, float3 rayDir, float stepSize)
     // This happens when refract direction is calculated, but ray is totally reflected
     if (dot(rayDir, rayDir) < 0.9) return 0;
 
-    float2 boundsDstInfo = RayBoxDst(-simBounds * 0.5, simBounds * 0.5, rayPos, rayDir);
+    //float2 boundsDstInfo = RayBoxDst(-simBounds * 0.5, simBounds * 0.5, rayPos, rayDir);
+    float2 boundsDstInfo = RayBoxDst_Matrix(rayPos, rayDir, localToWorld, worldToLocal);
     float dstToBounds = boundsDstInfo[0];
     float dstThroughBounds = boundsDstInfo[1];
     if (dstThroughBounds <= 0) return 0;
@@ -1164,7 +1240,16 @@ void RaymarchingIntersection()
     float3 rayOrigin = WorldRayOrigin();
     float3 rayDir = normalize(WorldRayDirection());
 
-    bool travellingThroughFluid = IsInsideFluid(rayOrigin);
+    // // Step 1: Intersect with the transformed fluid bounding box (world space)
+    // CubeHitInfo cubeHitInfo = RayBoxWithMatrix(rayOrigin, rayDir, localToWorld, worldToLocal);
+
+    // if (!cubeHitInfo.didHit) 
+    //     return;
+
+    // // Step 2: Start raymarching from the intersection point
+    // float3 marchStart = cubeHitInfo.hitPoint;
+
+    bool travellingThroughFluid = IsInsideFluid(rayOrigin, rayDir);
 
     uint dummyRNG = 0; // RNG state is not useful here unless noise affects surface detection
 
