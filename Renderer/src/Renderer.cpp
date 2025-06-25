@@ -434,6 +434,8 @@ void Renderer::RenderFrame(
      compute_var["PerFrameCB"]["localToWorld"] = localToWorld;
      compute_var["PerFrameCB"]["worldToLocal"] = worldToLocal;
 
+     //compute_var["PerFrameCB"]["ScaledSimBounds"] = fluid_transform.getScaling() * 2.f;
+
      const float r = SPH::SmoothingRadius;
      const float spikyPow2 = 15.f / (2 * PI * Pow(r, 5));
      const float spikyPow3 = 15.f / (PI * Pow(r, 6));
@@ -922,6 +924,8 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
 
     var["PerFrameCB"]["localToWorld"] = localToWorld;
     var["PerFrameCB"]["worldToLocal"] = worldToLocal;
+
+    var["PerFrameCB"]["ScaledSimBounds"] = fluid_transform.getScaling() * 2.f;
 }
 
 void Renderer::CreateRasterizationProgram() noexcept

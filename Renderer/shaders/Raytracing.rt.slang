@@ -71,6 +71,7 @@ cbuffer PerFrameCB
     float DensityRayMarchMultiplier;
     int densityMapSize;
     float3 simBounds;
+    float3 ScaledSimBounds;
     float volumeValueOffset;
 
     float4x4 worldToLocal;
@@ -694,7 +695,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
     // If light hits the floor it will be scattered in all directions (in hemisphere)
     // Not sure how to handle this in real-time, so just break out recursion here.
-    if (attribs.pos.y < -simBounds.y / 2 + 0.05)
+    if (attribs.pos.y < -ScaledSimBounds.y / 2 + 0.05)
     {
         // Final raymarch if no more bounces
         transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
@@ -1006,37 +1007,78 @@ float SampleDensityMap(float3 pos)
     // return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
 }
 
+// Returns the closest axis-aligned face normal of the local AABB box [-1, 1]^3
 float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
 {
     float3 halfSize = boxSize * 0.5;
     float3 o = (halfSize - abs(p));
-    return (o.x < o.y && o.x < o.z) ? float3(sign(p.x), 0, 0) : (o.y < o.z) ? float3(0, sign(p.y), 0) : float3(0, 0, sign(p.z));
+    return (o.x < o.y && o.x < o.z) ? 
+        float3(sign(p.x), 0, 0) : (o.y < o.z) ? float3(0, sign(p.y), 0) : float3(0, 0, sign(p.z));
 }
 
 float3 ComputeDensityNormal(float3 pos)
 {
-     float3 uvw = (pos + simBounds * 0.5) / simBounds;
+    // Transform the world position to local fluid space
+    float3 posLocal = mul(worldToLocal, float4(pos, 1.0f)).xyz;
 
-    //const float s = 0.1;
     float3 offsetX = float3(1, 0, 0) * normalOffset;
     float3 offsetY = float3(0, 1, 0) * normalOffset;
     float3 offsetZ = float3(0, 0, 1) * normalOffset;
 
-    float dx = SampleDensityMap(pos - offsetX) - SampleDensityMap(pos + offsetX);
-    float dy = SampleDensityMap(pos - offsetY) - SampleDensityMap(pos + offsetY);
-    float dz = SampleDensityMap(pos - offsetZ) - SampleDensityMap(pos + offsetZ);
+    // Compute sample positions in local space
+    float3 posX1 = posLocal - offsetX;
+    float3 posX2 = posLocal + offsetX;
+    float3 posY1 = posLocal - offsetY;
+    float3 posY2 = posLocal + offsetY;
+    float3 posZ1 = posLocal - offsetZ;
+    float3 posZ2 = posLocal + offsetZ;
+
+    // Transform to world space before sampling
+    float dx = SampleDensityMap(mul(localToWorld, float4(posX1, 1)).xyz)
+             - SampleDensityMap(mul(localToWorld, float4(posX2, 1)).xyz);
+    float dy = SampleDensityMap(mul(localToWorld, float4(posY1, 1)).xyz)
+             - SampleDensityMap(mul(localToWorld, float4(posY2, 1)).xyz);
+    float dz = SampleDensityMap(mul(localToWorld, float4(posZ1, 1)).xyz)
+             - SampleDensityMap(mul(localToWorld, float4(posZ2, 1)).xyz);
 
     float3 volumeNormal = normalize(float3(dx, dy, dz));
 
-    // Smoothly flatten normals out at boundary edges
-    float3 o = simBounds / 2 - abs(pos);
+    // Correct boundary flattening
+    float3 localHalf = ScaledSimBounds * 0.5;
+    float3 o = localHalf - abs(posLocal);
     float faceWeight = min(o.x, min(o.y, o.z));
-    float3 faceNormal = CalculateClosestFaceNormal(simBounds, pos);
+
+    float3 faceNormalLocal = CalculateClosestFaceNormal(ScaledSimBounds, posLocal);
+    float3 faceNormalWorld = normalize(mul((float3x3)localToWorld, faceNormalLocal));
+
     const float smoothDst = 0.3;
     const float smoothPow = 5;
     faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
 
-    return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
+    return normalize(volumeNormal * (1 - faceWeight) + faceNormalWorld * faceWeight);
+
+//     float3 uvw = (pos + ScaledSimBounds * 0.5) / ScaledSimBounds;
+
+//     //const float s = 0.1;
+//     float3 offsetX = float3(1, 0, 0) * normalOffset;
+//     float3 offsetY = float3(0, 1, 0) * normalOffset;
+//     float3 offsetZ = float3(0, 0, 1) * normalOffset;
+
+//     float dx = SampleDensityMap(pos - offsetX) - SampleDensityMap(pos + offsetX);
+//     float dy = SampleDensityMap(pos - offsetY) - SampleDensityMap(pos + offsetY);
+//     float dz = SampleDensityMap(pos - offsetZ) - SampleDensityMap(pos + offsetZ);
+
+//     float3 volumeNormal = normalize(float3(dx, dy, dz));
+
+//     // Smoothly flatten normals out at boundary edges
+//     float3 o = ScaledSimBounds / 2 - abs(pos);
+//     float faceWeight = min(o.x, min(o.y, o.z));
+//     float3 faceNormal = CalculateClosestFaceNormal(ScaledSimBounds, pos);
+//     const float smoothDst = 0.3;
+//     const float smoothPow = 5;
+//     faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
+
+//     return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
 }
 
 // Test if a ray segment <RayTMin(), RayTCurrent()> intersects an AABB.
