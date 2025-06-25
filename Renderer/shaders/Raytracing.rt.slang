@@ -76,6 +76,10 @@ cbuffer PerFrameCB
 
     float4x4 worldToLocal;
     float4x4 localToWorld;
+
+    bool useTransformations;
+    bool useRecursiveRaytracing;
+    bool debugNormals;
 };
 
 
@@ -92,6 +96,7 @@ struct PrimaryRayData
 {
     float4 color = float4(0, 0, 0, 0);
     float3 transmittance = float3(1, 1, 1);
+    float3 debugNormal;
     float2 uv = float2(0, 0);
     uint depth = 0;
     float hitT = -1.f;
@@ -385,7 +390,8 @@ SurfaceInfo FindNextSurface(float3 origin, float3 rayDir, bool findNextFluidEntr
     //float2 boundsDstInfo = RayBoxDst(-simBounds * 0.5, simBounds * 0.5, origin, rayDir);
     //  Use your new matrix-aware ray-box distance function
     float2 boundsDstInfo = RayBoxDst_Matrix(origin, rayDir, localToWorld, worldToLocal);
-    float r = (RandomValue(rngState) - 0.5) * marchSize * 0.4 * 1;
+    //float r = (RandomValue(rngState) - 0.5) * marchSize * 0.4 * 1;
+    float r = (1 - 0.5) * marchSize * 0.4 * 1;
     bool hasExittedFluid = !IsInsideFluid(origin, rayDir);
     origin = origin + rayDir * (boundsDstInfo.x + r);
 
@@ -663,161 +669,175 @@ float3 Transmittance(float thickness)
 [shader("closesthit")]
 void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
 {
-    float3 rayOrigin = attribs.pos;
-    float3 normal = attribs.normal;
+    float3 debugNormal;
 
-    float3 rayDir = normalize(WorldRayDirection());
-
-    // hitData.color = float4(0.1, 0.3, 0.9, 1);
-    // return;
-
-    float3 transmittance = hitData.transmittance;
-    float3 light = float3(0, 0, 0);
-
-    // Decide whether we're entering or exiting
-    bool travellingThroughFluid = attribs.isInsideFluid;
-
-    transmittance *= Transmittance(attribs.densityAlongRay);
-
-    if (dot(normal, rayDir) > 0) normal = -normal;
-
-    float iorA = travellingThroughFluid ? IoR : 1.0f;
-    float iorB = travellingThroughFluid ? 1.0f : IoR;
-
-    LightResponse lightResponse = CalculateReflectionAndRefraction(rayDir, normal, iorA, iorB);
-
-    float densityStepSize = sunLightMarchSize * (hitData.depth + 1); // increase step size with each iteration
-
-    float densityAlongRefractRay = CalculateDensityAlongRay(attribs.pos, lightResponse.refractDir, densityStepSize);
-    float densityAlongReflectRay = CalculateDensityAlongRay(attribs.pos, lightResponse.reflectDir, densityStepSize);
-
-    bool traceRefractedRay = densityAlongRefractRay * lightResponse.refractWeight > densityAlongReflectRay * lightResponse.reflectWeight;
-
-    // If light hits the floor it will be scattered in all directions (in hemisphere)
-    // Not sure how to handle this in real-time, so just break out recursion here.
-    if (attribs.pos.y < -ScaledSimBounds.y / 2 + 0.05)
+    if (useRecursiveRaytracing)
     {
-        // Final raymarch if no more bounces
+        float3 rayOrigin = attribs.pos;
+        float3 normal = attribs.normal;
+
+        float3 rayDir = normalize(WorldRayDirection());
+
+        float3 transmittance = hitData.transmittance;
+        float3 light = float3(0, 0, 0);
+
+        // Decide whether we're entering or exiting
+        bool travellingThroughFluid = attribs.isInsideFluid;
+
+        transmittance *= Transmittance(attribs.densityAlongRay);
+
+        if (dot(normal, rayDir) > 0) normal = -normal;
+
+        if (debugNormals) hitData.debugNormal = normal;
+
+        float iorA = travellingThroughFluid ? IoR : 1.0f;
+        float iorB = travellingThroughFluid ? 1.0f : IoR;
+
+        LightResponse lightResponse = CalculateReflectionAndRefraction(rayDir, normal, iorA, iorB);
+
+        float densityStepSize = sunLightMarchSize * (hitData.depth + 1); // increase step size with each iteration
+
+        float densityAlongRefractRay = CalculateDensityAlongRay(attribs.pos, lightResponse.refractDir, densityStepSize);
+        float densityAlongReflectRay = CalculateDensityAlongRay(attribs.pos, lightResponse.reflectDir, densityStepSize);
+
+        bool traceRefractedRay = densityAlongRefractRay * lightResponse.refractWeight > densityAlongReflectRay * lightResponse.reflectWeight;
+
+        // If light hits the floor it will be scattered in all directions (in hemisphere)
+        // Not sure how to handle this in real-time, so just break out recursion here.
+        if (attribs.pos.y < -ScaledSimBounds.y / 2 + 0.05)
+        {
+            // Final raymarch if no more bounces
+            transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
+
+            float densityRemainder = CalculateDensityAlongRay(rayOrigin, rayDir, sunLightMarchSize);
+            light += gScene.envMap.eval(rayDir) * transmittance * Transmittance(densityRemainder);
+
+            hitData.color = float4(light, 1.0);
+            hitData.hitT = RayTCurrent();
+            return;
+        }
+
+        // Accumulate light from the less dominant path
+        if (traceRefractedRay)
+        {
+            light += gScene.envMap.eval(lightResponse.reflectDir) * transmittance * Transmittance(densityAlongReflectRay) * lightResponse.reflectWeight;
+        }
+        else
+        {
+            light += gScene.envMap.eval(lightResponse.refractDir) * transmittance * Transmittance(densityAlongRefractRay) * lightResponse.refractWeight;
+        }
+
+        PrimaryRayData bounceResult = (PrimaryRayData)0;
+        bounceResult.depth = hitData.depth + 1;
         transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
+        bounceResult.transmittance = transmittance;
+        bounceResult.absorptionDistance = attribs.densityAlongRay;
 
-        float densityRemainder = CalculateDensityAlongRay(rayOrigin, rayDir, sunLightMarchSize);
-        light += gScene.envMap.eval(rayDir) * transmittance * Transmittance(densityRemainder);
+        float3 nextRayDir = traceRefractedRay ? lightResponse.refractDir : lightResponse.reflectDir;
 
-        hitData.color = float4(light, 1.0);
+        if (hitData.depth < maxRayBounce)
+        {
+            RayDesc bounceRay;
+            bounceRay.Origin = rayOrigin;
+            bounceRay.Direction = nextRayDir;
+            bounceRay.TMin = 0.001f;
+            bounceRay.TMax = 1e6;
+
+            TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, bounceRay, bounceResult);
+            light += bounceResult.color.rgb;
+            debugNormal = bounceResult.debugNormal;
+        }
+        else
+        {
+            // Final raymarch if no more bounces
+            float densityRemainder = CalculateDensityAlongRay(rayOrigin, nextRayDir, sunLightMarchSize);
+            light += gScene.envMap.eval(nextRayDir) * transmittance * Transmittance(densityRemainder);
+        }
+
+        debugNormal += float3(1);
+        debugNormal *= 0.5f;
+        float3 color = debugNormals ? debugNormal : light;
+        hitData.color = float4(color, 1.0);
         hitData.hitT = RayTCurrent();
         return;
     }
-
-    // Accumulate light from the less dominant path
-    if (traceRefractedRay)
+    else 
     {
-        light += gScene.envMap.eval(lightResponse.reflectDir) * transmittance * Transmittance(densityAlongReflectRay) * lightResponse.reflectWeight;
-    }
-    else
-    {
-        light += gScene.envMap.eval(lightResponse.refractDir) * transmittance * Transmittance(densityAlongRefractRay) * lightResponse.refractWeight;
-    }
+        uint rngState = (uint)(hitData.uv.x * 1243 + hitData.uv.y * 96456);
 
-    PrimaryRayData bounceResult = (PrimaryRayData)0;
-    bounceResult.depth = hitData.depth + 1;
-    transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
-    bounceResult.transmittance = transmittance;
-    bounceResult.absorptionDistance = attribs.densityAlongRay;
+        Ray ray;
+        ray.origin = WorldRayOrigin();
+        ray.dir = normalize(WorldRayDirection());
 
-    float3 nextRayDir = traceRefractedRay ? lightResponse.refractDir : lightResponse.reflectDir;
+        bool travellingThroughFluid = IsInsideFluid(ray.origin, ray.dir);
 
-    if (hitData.depth < maxRayBounce)
-    {
-        RayDesc bounceRay;
-        bounceRay.Origin = rayOrigin;
-        bounceRay.Direction = nextRayDir;
-        bounceRay.TMin = 0.001f;
-        bounceRay.TMax = 1e6;
+        float3 transmittance = float3(1, 1, 1);
+        float3 light = float3(0, 0, 0);
 
-        TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, bounceRay, bounceResult);
-        light += bounceResult.color.rgb;
-    }
-    else
-    {
+        for (int i = 0; i < maxRayBounce; i++)
+        {
+            float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
+
+            bool searchForNextFluidEntryPoint = !travellingThroughFluid;
+
+            SurfaceInfo surfaceInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, rngState, i == 0 ? 1 : 0, 1000);
+            
+            if (!surfaceInfo.foundSurface) break;
+
+            transmittance *= Transmittance(surfaceInfo.densityAlongRay);
+
+            // If light hits the floor it will be scattered in all directions (in hemisphere)
+            // Not sure how to handle this in real-time, so just break out of loop here
+            if (surfaceInfo.pos.y < -ScaledSimBounds.y / 2 + 0.05)
+            {
+                break;
+            }
+
+            float3 normal = ComputeDensityNormal(surfaceInfo.pos);
+            if (dot(normal, ray.dir) > 0) normal = -normal;
+
+            if (debugNormals) debugNormal = normal;
+
+            // Indicies of refraction
+            float iorA = travellingThroughFluid ? IoR : 1.f;
+            float iorB = travellingThroughFluid ? 1.f : IoR;
+
+            // Calculate reflection and refraction, and choose which path to follow
+            LightResponse lightResponse = CalculateReflectionAndRefraction(ray.dir, normal, iorA, iorB);
+
+            float densityAlongRefractRay = CalculateDensityAlongRay(surfaceInfo.pos, lightResponse.refractDir, densityStepSize);
+            float densityAlongReflectRay = CalculateDensityAlongRay(surfaceInfo.pos, lightResponse.reflectDir, densityStepSize);
+            
+            bool traceRefractedRay = densityAlongRefractRay * lightResponse.refractWeight > densityAlongReflectRay * lightResponse.reflectWeight;
+            travellingThroughFluid = traceRefractedRay != travellingThroughFluid;
+
+            // Accumulate light from the less dominant path
+            if (traceRefractedRay)
+            {
+                light += gScene.envMap.eval(lightResponse.reflectDir) * transmittance * Transmittance(densityAlongReflectRay) * lightResponse.reflectWeight;
+            }
+            else
+            {
+                light += gScene.envMap.eval(lightResponse.refractDir) * transmittance * Transmittance(densityAlongRefractRay) * lightResponse.refractWeight;
+            }
+
+            // Set up ray for more interesting path
+            ray.origin = surfaceInfo.pos;
+            ray.dir = traceRefractedRay ? lightResponse.refractDir : lightResponse.reflectDir;
+            transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
+        }
+
         // Final raymarch if no more bounces
-        float densityRemainder = CalculateDensityAlongRay(rayOrigin, nextRayDir, sunLightMarchSize);
-        light += gScene.envMap.eval(nextRayDir) * transmittance * Transmittance(densityRemainder);
+        float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
+        light += gScene.envMap.eval(ray.dir) * transmittance * Transmittance(densityRemainder);
+
+        debugNormal += float3(1);
+        debugNormal *= 0.5f;
+        float3 color = debugNormals ? debugNormal : light;
+        hitData.color = float4(color, 1.0);
+        hitData.hitT = RayTCurrent();
+        return;
     }
-
-    hitData.color = float4(light, 1.0);
-    hitData.hitT = RayTCurrent();
-    return;
-
-    // uint rngState = (uint)(hitData.uv.x * 1243 + hitData.uv.y * 96456);
-
-    // Ray ray;
-    // ray.origin = WorldRayOrigin();
-    // ray.dir = normalize(WorldRayDirection());
-
-    // bool travellingThroughFluid = IsInsideFluid(ray.origin);
-
-    // float3 transmittance = float3(1, 1, 1);
-    // float3 light = float3(0, 0, 0);
-
-    // for (int i = 0; i < maxRayBounce; i++)
-    // //if (hitData.depth < maxRayBounce)
-    // {
-    //     float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
-
-    //     bool searchForNextFluidEntryPoint = !travellingThroughFluid;
-
-    //     SurfaceInfo surfaceInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, rngState, i == 0 ? 1 : 0, 200);
-        
-    //     if (!surfaceInfo.foundSurface) break;
-
-    //     transmittance *= Transmittance(surfaceInfo.densityAlongRay);
-
-    //     // If light hits the floor it will be scattered in all directions (in hemisphere)
-    //     // Not sure how to handle this in real-time, so just break out of loop here
-    //     if (surfaceInfo.pos.y < -simBounds.y / 2 + 0.05)
-    //     {
-    //         break;
-    //     }
-
-    //     float3 normal = ComputeDensityNormal(surfaceInfo.pos);
-    //     if (dot(normal, ray.dir) > 0) normal = -normal;
-
-    //     // Indicies of refraction
-    //     float iorA = travellingThroughFluid ? IoR : 1.f;
-    //     float iorB = travellingThroughFluid ? 1.f : IoR;
-
-    //     // Calculate reflection and refraction, and choose which path to follow
-    //     LightResponse lightResponse = CalculateReflectionAndRefraction(ray.dir, normal, iorA, iorB);
-
-    //     float densityAlongRefractRay = CalculateDensityAlongRay(surfaceInfo.pos, lightResponse.refractDir, densityStepSize);
-    //     float densityAlongReflectRay = CalculateDensityAlongRay(surfaceInfo.pos, lightResponse.reflectDir, densityStepSize);
-        
-    //     bool traceRefractedRay = densityAlongRefractRay * lightResponse.refractWeight > densityAlongReflectRay * lightResponse.reflectWeight;
-    //     travellingThroughFluid = traceRefractedRay != travellingThroughFluid;
-
-    //     // Accumulate light from the less dominant path
-    //     if (traceRefractedRay)
-    //     {
-    //         light += gScene.envMap.eval(lightResponse.reflectDir) * transmittance * Transmittance(densityAlongReflectRay) * lightResponse.reflectWeight;
-    //     }
-    //     else
-    //     {
-    //         light += gScene.envMap.eval(lightResponse.refractDir) * transmittance * Transmittance(densityAlongRefractRay) * lightResponse.refractWeight;
-    //     }
-
-    //     // Set up ray for more interesting path
-    //     ray.origin = surfaceInfo.pos;
-    //     ray.dir = traceRefractedRay ? lightResponse.refractDir : lightResponse.reflectDir;
-    //     transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
-    // }
-
-    // // Final raymarch if no more bounces
-    // float densityRemainder = CalculateDensityAlongRay(ray.origin, ray.dir, sunLightMarchSize);
-    // light += gScene.envMap.eval(ray.dir) * transmittance * Transmittance(densityRemainder);
-
-    // hitData.color = float4(light, 1.0);
-    // hitData.hitT = RayTCurrent();
-    // return;
 }
 
 //     // float densityAlongViewRay = 0.f;
@@ -986,25 +1006,30 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
 float SampleDensityMap(float3 pos)
 {
-    // Transform to local space
-    float3 localPos = mul(worldToLocal, float4(pos, 1.0f)).xyz;
+    if (useTransformations)
+    {
+        // Transform to local space
+        float3 localPos = mul(worldToLocal, float4(pos, 1.0f)).xyz;
 
-    // Local [-1,1] → [0,1] texture UVW
-    float3 uvw = localPos * 0.5f + 0.5f;
+        // Local [-1,1] → [0,1] texture UVW
+        float3 uvw = localPos * 0.5f + 0.5f;
 
-    const float epsilon = 0.0001f;
-    bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
-    if (isEdge) return -volumeValueOffset;
+        const float epsilon = 0.0001f;
+        bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
+        if (isEdge) return -volumeValueOffset;
 
-    return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+        return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+    }
+    else
+    {
+        float3 uvw = (pos + simBounds * 0.5f) / simBounds;
 
-    // float3 uvw = (pos + simBounds * 0.5f) / simBounds;
+        const float epsilon = 0.0001f;
+        bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
+        if (isEdge) return -volumeValueOffset;
 
-    // const float epsilon = 0.0001f;
-    // bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
-    // if (isEdge) return -volumeValueOffset;
-
-    // return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+        return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+    }
 }
 
 // Returns the closest axis-aligned face normal of the local AABB box [-1, 1]^3
@@ -1018,67 +1043,73 @@ float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
 
 float3 ComputeDensityNormal(float3 pos)
 {
-    // Transform the world position to local fluid space
-    float3 posLocal = mul(worldToLocal, float4(pos, 1.0f)).xyz;
+    if (useTransformations)
+    {
+        // Transform the world position to local fluid space
+        float3 posLocal = mul(worldToLocal, float4(pos, 1.0f)).xyz;
 
-    float3 offsetX = float3(1, 0, 0) * normalOffset;
-    float3 offsetY = float3(0, 1, 0) * normalOffset;
-    float3 offsetZ = float3(0, 0, 1) * normalOffset;
+        float3 offsetX = float3(1, 0, 0) * normalOffset;
+        float3 offsetY = float3(0, 1, 0) * normalOffset;
+        float3 offsetZ = float3(0, 0, 1) * normalOffset;
 
-    // Compute sample positions in local space
-    float3 posX1 = posLocal - offsetX;
-    float3 posX2 = posLocal + offsetX;
-    float3 posY1 = posLocal - offsetY;
-    float3 posY2 = posLocal + offsetY;
-    float3 posZ1 = posLocal - offsetZ;
-    float3 posZ2 = posLocal + offsetZ;
+        // Compute sample positions in local space
+        float3 posX1 = posLocal - offsetX;
+        float3 posX2 = posLocal + offsetX;
+        float3 posY1 = posLocal - offsetY;
+        float3 posY2 = posLocal + offsetY;
+        float3 posZ1 = posLocal - offsetZ;
+        float3 posZ2 = posLocal + offsetZ;
 
-    // Transform to world space before sampling
-    float dx = SampleDensityMap(mul(localToWorld, float4(posX1, 1)).xyz)
-             - SampleDensityMap(mul(localToWorld, float4(posX2, 1)).xyz);
-    float dy = SampleDensityMap(mul(localToWorld, float4(posY1, 1)).xyz)
-             - SampleDensityMap(mul(localToWorld, float4(posY2, 1)).xyz);
-    float dz = SampleDensityMap(mul(localToWorld, float4(posZ1, 1)).xyz)
-             - SampleDensityMap(mul(localToWorld, float4(posZ2, 1)).xyz);
+        // Transform to world space before sampling
+        float dx = SampleDensityMap(mul(localToWorld, float4(posX1, 1)).xyz)
+                - SampleDensityMap(mul(localToWorld, float4(posX2, 1)).xyz);
+        float dy = SampleDensityMap(mul(localToWorld, float4(posY1, 1)).xyz)
+                - SampleDensityMap(mul(localToWorld, float4(posY2, 1)).xyz);
+        float dz = SampleDensityMap(mul(localToWorld, float4(posZ1, 1)).xyz)
+                - SampleDensityMap(mul(localToWorld, float4(posZ2, 1)).xyz);
 
-    float3 volumeNormal = normalize(float3(dx, dy, dz));
+        float3 volumeNormal = normalize(float3(dx, dy, dz));
 
-    // Correct boundary flattening
-    float3 localHalf = ScaledSimBounds * 0.5;
-    float3 o = localHalf - abs(posLocal);
-    float faceWeight = min(o.x, min(o.y, o.z));
+        // Correct boundary flattening
+        float3 localHalf = ScaledSimBounds * 0.5;
+        float3 o = localHalf - abs(posLocal);
+        float faceWeight = min(o.x, min(o.y, o.z));
 
-    float3 faceNormalLocal = CalculateClosestFaceNormal(ScaledSimBounds, posLocal);
-    float3 faceNormalWorld = normalize(mul((float3x3)localToWorld, faceNormalLocal));
+        float3 faceNormalLocal = CalculateClosestFaceNormal(ScaledSimBounds, posLocal);
+        float3 faceNormalWorld = normalize(mul((float3x3)localToWorld, faceNormalLocal));
 
-    const float smoothDst = 0.3;
-    const float smoothPow = 5;
-    faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
+        const float smoothDst = 0.3;
+        const float smoothPow = 5;
+        faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
 
-    return normalize(volumeNormal * (1 - faceWeight) + faceNormalWorld * faceWeight);
+        return normalize(volumeNormal * (1 - faceWeight) + faceNormalWorld * faceWeight);
+    }
+    else
+    {
+        float3 uvw = (pos + ScaledSimBounds * 0.5) / ScaledSimBounds;
 
-//     float3 uvw = (pos + ScaledSimBounds * 0.5) / ScaledSimBounds;
+        // const float s = 0.1;
+        float3 offsetX = float3(1, 0, 0) * normalOffset;
+        float3 offsetY = float3(0, 1, 0) * normalOffset;
+        float3 offsetZ = float3(0, 0, 1) * normalOffset;
 
-//     //const float s = 0.1;
-//     float3 offsetX = float3(1, 0, 0) * normalOffset;
-//     float3 offsetY = float3(0, 1, 0) * normalOffset;
-//     float3 offsetZ = float3(0, 0, 1) * normalOffset;
+        float dx = SampleDensityMap(pos - offsetX) - SampleDensityMap(pos + offsetX);
+        float dy = SampleDensityMap(pos - offsetY) - SampleDensityMap(pos + offsetY);
+        float dz = SampleDensityMap(pos - offsetZ) - SampleDensityMap(pos + offsetZ);
 
-//     float dx = SampleDensityMap(pos - offsetX) - SampleDensityMap(pos + offsetX);
-//     float dy = SampleDensityMap(pos - offsetY) - SampleDensityMap(pos + offsetY);
-//     float dz = SampleDensityMap(pos - offsetZ) - SampleDensityMap(pos + offsetZ);
+        float3 volumeNormal = normalize(float3(dx, dy, dz));
 
-//     float3 volumeNormal = normalize(float3(dx, dy, dz));
+        // Smoothly flatten normals out at boundary edges
+        float3 o = ScaledSimBounds / 2 - abs(pos);
+        float faceWeight = min(o.x, min(o.y, o.z));
+        float3 faceNormal = CalculateClosestFaceNormal(ScaledSimBounds, pos);
+        const float smoothDst = 0.3;
+        const float smoothPow = 5;
+        faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
 
-//     // Smoothly flatten normals out at boundary edges
-//     float3 o = ScaledSimBounds / 2 - abs(pos);
-//     float faceWeight = min(o.x, min(o.y, o.z));
-//     float3 faceNormal = CalculateClosestFaceNormal(ScaledSimBounds, pos);
-//     const float smoothDst = 0.3;
-//     const float smoothPow = 5;
-//     faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
+        return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
+    }
 
-//     return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
 }
 
 // Test if a ray segment <RayTMin(), RayTCurrent()> intersects an AABB.
@@ -1121,41 +1152,47 @@ bool RayAABBIntersectionTest(Ray ray, float3 aabb[2], out float tmin, out float 
 // If ray misses the transformed box, dstInsideBox == 0
 float2 RayBoxDst_Matrix(float3 worldRayOrigin, float3 worldRayDir, float4x4 localToWorld, float4x4 worldToLocal)
 {
-    //return RayBoxDst(-simBounds * 0.5, simBounds * 0.5, worldRayOrigin, worldRayDir);
+    if (useTransformations)
+    {
+        // Step 1 — Transform ray to local space
+        float3 localOrigin = mul(worldToLocal, float4(worldRayOrigin, 1)).xyz;
+        float3 localDir = normalize(mul(worldToLocal, float4(worldRayDir, 0)).xyz);
 
-    // Step 1 — Transform ray to local space
-    float3 localOrigin = mul(worldToLocal, float4(worldRayOrigin, 1)).xyz;
-    float3 localDir = normalize(mul(worldToLocal, float4(worldRayDir, 0)).xyz);
+        // Step 2 — Classic slab intersection in local AABB space [-1, 1]
+        float3 boundsMin = float3(-1.0, -1.0, -1.0);
+        float3 boundsMax = float3(1.0, 1.0, 1.0);
+        float3 invDir = 1.0 / localDir;
 
-    // Step 2 — Classic slab intersection in local AABB space [-1, 1]
-    float3 boundsMin = float3(-1.0, -1.0, -1.0);
-    float3 boundsMax = float3(1.0, 1.0, 1.0);
-    float3 invDir = 1.0 / localDir;
+        float3 t0 = (boundsMin - localOrigin) * invDir;
+        float3 t1 = (boundsMax - localOrigin) * invDir;
 
-    float3 t0 = (boundsMin - localOrigin) * invDir;
-    float3 t1 = (boundsMax - localOrigin) * invDir;
+        float3 tmin = min(t0, t1);
+        float3 tmax = max(t0, t1);
 
-    float3 tmin = min(t0, t1);
-    float3 tmax = max(t0, t1);
+        float tEnter = max(max(tmin.x, tmin.y), tmin.z);
+        float tExit = min(min(tmax.x, tmax.y), tmax.z);
 
-    float tEnter = max(max(tmin.x, tmin.y), tmin.z);
-    float tExit = min(min(tmax.x, tmax.y), tmax.z);
+        // Step 3 — If ray misses the box
+        if (tEnter > tExit || tExit < 0)
+            return float2(0, 0);
 
-    // Step 3 — If ray misses the box
-    if (tEnter > tExit || tExit < 0)
-        return float2(0, 0);
+        // Step 4 — Transform distances back to world space length (by ray direction projection)
+        float3 localEntry = localOrigin + tEnter * localDir;
+        float3 localExit = localOrigin + tExit * localDir;
 
-    // Step 4 — Transform distances back to world space length (by ray direction projection)
-    float3 localEntry = localOrigin + tEnter * localDir;
-    float3 localExit = localOrigin + tExit * localDir;
+        float3 worldEntry = mul(localToWorld, float4(localEntry, 1)).xyz;
+        float3 worldExit = mul(localToWorld, float4(localExit, 1)).xyz;
 
-    float3 worldEntry = mul(localToWorld, float4(localEntry, 1)).xyz;
-    float3 worldExit = mul(localToWorld, float4(localExit, 1)).xyz;
+        float dstToBox = max(0, dot(worldEntry - worldRayOrigin, normalize(worldRayDir)));
+        float dstInsideBox = max(0, dot(worldExit - worldEntry, normalize(worldRayDir)));
 
-    float dstToBox = max(0, dot(worldEntry - worldRayOrigin, normalize(worldRayDir)));
-    float dstInsideBox = max(0, dot(worldExit - worldEntry, normalize(worldRayDir)));
-
-    return float2(dstToBox, dstInsideBox);
+        return float2(dstToBox, dstInsideBox);
+    }
+    else 
+    {
+        return RayBoxDst(-simBounds * 0.5, simBounds * 0.5, worldRayOrigin, worldRayDir);
+    }
+  
 }
 
 // Returns (dstToBox, dstInsideBox). If ray misses box, dstInsideBox will be zero
@@ -1282,36 +1319,43 @@ void RaymarchingIntersection()
     float3 rayOrigin = WorldRayOrigin();
     float3 rayDir = normalize(WorldRayDirection());
 
-    // // Step 1: Intersect with the transformed fluid bounding box (world space)
-    // CubeHitInfo cubeHitInfo = RayBoxWithMatrix(rayOrigin, rayDir, localToWorld, worldToLocal);
+    // Step 1: Intersect with the transformed fluid bounding box (world space)
+    CubeHitInfo cubeHitInfo = RayBoxWithMatrix(rayOrigin, rayDir, localToWorld, worldToLocal);
 
-    // if (!cubeHitInfo.didHit) 
-    //     return;
-
-    // // Step 2: Start raymarching from the intersection point
-    // float3 marchStart = cubeHitInfo.hitPoint;
-
-    bool travellingThroughFluid = IsInsideFluid(rayOrigin, rayDir);
-
-    uint dummyRNG = 0; // RNG state is not useful here unless noise affects surface detection
-
-    // Run the raymarch to find the first fluid surface hit
-    SurfaceInfo surfaceInfo = FindNextSurface(rayOrigin, rayDir, !travellingThroughFluid, dummyRNG, 1, 200);
-
-    if (!surfaceInfo.foundSurface)
+    if (!cubeHitInfo.didHit)
         return;
 
-    SDF_GeometryAttributes attr = {};
-    attr.pos = surfaceInfo.pos;
-    attr.normal = ComputeDensityNormal(surfaceInfo.pos); // Don't flip here — let closest hit handle that
-    attr.densityAlongRay = surfaceInfo.densityAlongRay;
-    attr.isInsideFluid = travellingThroughFluid;
+    if (useRecursiveRaytracing)
+    {
+        bool travellingThroughFluid = IsInsideFluid(rayOrigin, rayDir);
 
-    // Report the intersection to continue in closest hit
-    float hitDistance = length(surfaceInfo.pos - rayOrigin); // Accurate distance from ray start
-    ReportHit(hitDistance, 0, attr);
+        uint dummyRNG = 0; // RNG state is not useful here unless noise affects surface detection
 
-    return;
+        // Run the raymarch to find the first fluid surface hit
+        SurfaceInfo surfaceInfo = FindNextSurface(rayOrigin, rayDir, !travellingThroughFluid, dummyRNG, 1, cubeHitInfo.dst);
+
+        if (!surfaceInfo.foundSurface)
+            return;
+
+        SDF_GeometryAttributes attr = {};
+        attr.pos = surfaceInfo.pos;
+        attr.normal = ComputeDensityNormal(surfaceInfo.pos); // Don't flip here — let closest hit handle that
+        attr.densityAlongRay = surfaceInfo.densityAlongRay;
+        attr.isInsideFluid = travellingThroughFluid;
+
+        // Report the intersection to continue in closest hit
+        float hitDistance = length(surfaceInfo.pos - rayOrigin); // Accurate distance from ray start
+        ReportHit(hitDistance, 0, attr);
+
+        return;
+    }
+    else
+    {
+        SDF_GeometryAttributes attr2 = {};
+        attr2.pos = cubeHitInfo.hitPoint;
+        ReportHit(1, 0, attr2);
+        return;
+    }
 
     // if (!drawFluid)
     //     return;

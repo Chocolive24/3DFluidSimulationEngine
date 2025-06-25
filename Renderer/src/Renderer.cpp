@@ -436,6 +436,8 @@ void Renderer::RenderFrame(
 
      //compute_var["PerFrameCB"]["ScaledSimBounds"] = fluid_transform.getScaling() * 2.f;
 
+     compute_var["PerFrameCB"]["useTransformations"] = useTransformations;
+
      const float r = SPH::SmoothingRadius;
      const float spikyPow2 = 15.f / (2 * PI * Pow(r, 5));
      const float spikyPow3 = 15.f / (PI * Pow(r, 6));
@@ -595,8 +597,10 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     app_gui_window->var("normalOffset", normalOffset);
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
+    app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
+    app_gui_window->checkbox("Use Debug Normals ?", debugNormals);
     app_gui_window->checkbox("Light Scattering ?", lightScattering);
-
+    app_gui_window->checkbox("Use Transformations ?", useTransformations);
 
     app_gui_window->slider("translation", translation, -500.f, 500.f);
     app_gui_window->slider("rotation", rotation, 0.f, 360.f);
@@ -926,6 +930,9 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["PerFrameCB"]["worldToLocal"] = worldToLocal;
 
     var["PerFrameCB"]["ScaledSimBounds"] = fluid_transform.getScaling() * 2.f;
+    var["PerFrameCB"]["useTransformations"] = useTransformations;
+    var["PerFrameCB"]["useRecursiveRaytracing"] = useRecursiveRaytracing;
+    var["PerFrameCB"]["debugNormals"] = debugNormals;
 }
 
 void Renderer::CreateRasterizationProgram() noexcept

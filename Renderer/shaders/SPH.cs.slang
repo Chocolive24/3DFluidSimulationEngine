@@ -66,6 +66,8 @@ cbuffer PerFrameCB
     float K_SpikyPow3;
     float K_SpikyPow2Grad;
     float K_SpikyPow3Grad;
+
+    bool useTransformations;
 }
 
 struct ParticleBody 
@@ -628,28 +630,31 @@ void computeDensityMap(uint3 threadID: SV_DispatchThreadID)
 {
     if (any(threadID >= densityMapSize)) return;
 
-    // Step 1 — UV in [0,1]
-    float3 uvw = (float3(threadID) + 0.5f) / float3(densityMapSize); // center of voxel
+    if (useTransformations)
+    {
+        // Step 1 — UV in [0,1]
+        float3 uvw = (float3(threadID) + 0.5f) / float3(densityMapSize); // center of voxel
 
-    // Step 2 — Local space in [-1,1] (assuming simBounds is 2x the scale of the object)
-    float3 localPos = uvw * 2.0f - 1.0f;
+        // Step 2 — Local space in [-1,1] (assuming simBounds is 2x the scale of the object)
+        float3 localPos = uvw * 2.0f - 1.0f;
 
-    // Step 3 — Transform to world-space
-    float3 worldPos = mul(localToWorld, float4(localPos, 1.0f)).xyz;
+        // Step 3 — Transform to world-space
+        float3 worldPos = mul(localToWorld, float4(localPos, 1.0f)).xyz;
 
-    // Step 4 — Evaluate density
-    float density = CalculateDensityAtPosition(worldPos);
-    density *= densityGraphicsMultiplier;
+        // Step 4 — Evaluate density
+        float density = CalculateDensityAtPosition(worldPos);
+        density *= densityGraphicsMultiplier;
 
-    // Step 5 — Store into 3D texture
-    gTexture3D[threadID] = density;
+        // Step 5 — Store into 3D texture
+        gTexture3D[threadID] = density;
+    }
+    else
+    {
+        float3 texturePos = threadID / float3(densityMapSize - 1); // normalized [0,1]
+        float3 worldPos = (texturePos - 0.5f) * simBounds;         // map to [-simBounds; simBounds]
 
-    // if (any(threadID >= densityMapSize)) return;
-
-    // float3 texturePos = threadID / float3(densityMapSize - 1); // normalized [0,1]
-    // float3 worldPos = (texturePos - 0.5f) * simBounds;         // map to [-simBounds; simBounds]
-
-    // float density = CalculateDensityAtPosition(worldPos);
-    // density *= densityGraphicsMultiplier;
-    // gTexture3D[threadID] = density;
+        float density = CalculateDensityAtPosition(worldPos);
+        density *= densityGraphicsMultiplier;
+        gTexture3D[threadID] = density;
+    }
 }

@@ -188,6 +188,9 @@ public:
     float3 translation{0.f, 0.f, 0.f};
     float3 rotation{0.f, 0.f, 0.f};
     float3 scale{Metrics::WALLDIST, Metrics::WALLDIST, Metrics::WALLDIST};
+    bool useTransformations = false;
+    bool useRecursiveRaytracing = true;
+    bool debugNormals = false;
 
     float3 lightColor = float3(1, 1, 1);
     float3 lightDir = normalize(float3(1, -1, -1));
