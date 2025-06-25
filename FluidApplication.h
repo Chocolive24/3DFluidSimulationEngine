@@ -63,6 +63,7 @@ public:
     void onLoad(RenderContext* pRenderContext) override;
     void onResize(uint32_t width, uint32_t height) override;
 
+    void SimulationStep(RenderContext* pRenderContext);
     void onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo) override;
   
     void onGuiRender(Gui* pGui) override;
@@ -81,6 +82,8 @@ private:
     SampleManager sample_manager_;
 
     std::vector<NodeID> sphereNodeIDs;
+
+    float deltaTime = 0.f;
 
     //int density_map_size = 64;
     //float3 sim_bounds = float3(Metrics::WALLDIST) * 2.f;

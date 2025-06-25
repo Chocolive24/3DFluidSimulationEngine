@@ -243,6 +243,7 @@ void FluidApplication::executeParticleComputePass(
     compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
     compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
     compute_var["PerFrameCB"]["wallDist"] = Metrics::WALLDIST;
+    compute_var["PerFrameCB"]["deltaTime"] = deltaTime;
     compute_var["PerFrameCB"]["fixedDeltaTime"] = kFixedDeltaTime;
     compute_var["PerFrameCB"]["nbParticles"] = Metrics::NbParticles;
     compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
@@ -300,6 +301,58 @@ uint32_t NextPowerOfTwo(int n)
     return n + 1;
 }
 
+void FluidApplication::SimulationStep(RenderContext* pRenderContext) {
+    executeParticleComputePass(compute_external_forces_pass_, pRenderContext, totalThreadsX);
+    executeParticleComputePass(update_spatial_hash_pass_, pRenderContext, totalThreadsX);
+
+    const auto compute_var = bitonic_sort_pass_->getRootVar();
+    // compute_var["gTexture3D"] = density_map_;
+    compute_var["bodies"] = bodies_buffer_;
+    compute_var["SpatialIndices"] = SpatialIndices;
+    compute_var["SpatialOffsets"] = SpatialOffsets;
+
+    compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
+    compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
+    compute_var["PerFrameCB"]["wallDist"] = Metrics::WALLDIST;
+    compute_var["PerFrameCB"]["fixedDeltaTime"] = kFixedDeltaTime;
+    compute_var["PerFrameCB"]["deltaTime"] = deltaTime;
+    compute_var["PerFrameCB"]["nbParticles"] = Metrics::NbParticles;
+    compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
+    compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
+    compute_var["PerFrameCB"]["targetDensity"] = SPH::TargetDensity;
+    compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
+    compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
+    compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = densityGraphicsMultiplier;
+
+    // Launch each step of the sorting algorithm (once the previous step is complete)
+    // Number of steps = [log2(n) * (log2(n) + 1)] / 2
+    // where n = nearest power of 2 that is greater or equal to the number of inputs
+    int numStages = log2(NextPowerOfTwo(NbParticles));
+
+    for (int stageIndex = 0; stageIndex < numStages; stageIndex++)
+    {
+        for (int stepIndex = 0; stepIndex < stageIndex + 1; stepIndex++)
+        {
+            // Calculate some pattern stuff
+            int groupWidth = 1 << (stageIndex - stepIndex);
+            int groupHeight = 2 * groupWidth - 1;
+            compute_var["PerFrameCB"]["groupWidth"] = groupWidth;
+            compute_var["PerFrameCB"]["groupHeight"] = groupHeight;
+            compute_var["PerFrameCB"]["stepIndex"] = stepIndex;
+
+            bitonic_sort_pass_->execute(pRenderContext, NextPowerOfTwo(NbParticles) / 2, 1, 1);
+        }
+    }
+
+    executeParticleComputePass(calculate_offsets_pass_, pRenderContext, totalThreadsX);
+
+    executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
+    executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);
+    executeParticleComputePass(compute_neighbors_viscosity_pass_, pRenderContext, totalThreadsX);
+
+    executeParticleComputePass(compute_bodies_positions_pass_, pRenderContext, totalThreadsX);
+}
+
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
     if (regenrate_particles_)
@@ -308,62 +361,30 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         regenrate_particles_ = false;
     }
 
+    static constexpr int iterationPerFrame = 3;
+
+    float timeDeltaTime = getGlobalClock().getDelta();
+
+    float maxDeltaTime = 1.f / 60.f;
+    float dt = std::min(timeDeltaTime, maxDeltaTime);
+
+    float subStepDeltaTime = dt / iterationPerFrame;
+
+    deltaTime = subStepDeltaTime;
+
     if (start_simul_)
     {
-        const auto delta_time = getGlobalClock().getDelta();
-        fixed_timer_ += delta_time;
-        time_since_last_fixed_update_ += delta_time;
+        /*for (int i = 0; i < iterationPerFrame; i++)
+        {
+            SimulationStep(pRenderContext);
+        }*/
+
+        fixed_timer_ += timeDeltaTime;
+        time_since_last_fixed_update_ += timeDeltaTime;
 
         while (fixed_timer_ >= kFixedDeltaTime)
         {
-            executeParticleComputePass(compute_external_forces_pass_, pRenderContext, totalThreadsX);
-            executeParticleComputePass(update_spatial_hash_pass_, pRenderContext, totalThreadsX);
-
-            const auto compute_var = bitonic_sort_pass_->getRootVar();
-            // compute_var["gTexture3D"] = density_map_;
-            compute_var["bodies"] = bodies_buffer_;
-            compute_var["SpatialIndices"] = SpatialIndices;
-            compute_var["SpatialOffsets"] = SpatialOffsets;
-
-            compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
-            compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
-            compute_var["PerFrameCB"]["wallDist"] = Metrics::WALLDIST;
-            compute_var["PerFrameCB"]["fixedDeltaTime"] = kFixedDeltaTime;
-            compute_var["PerFrameCB"]["nbParticles"] = Metrics::NbParticles;
-            compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
-            compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
-            compute_var["PerFrameCB"]["targetDensity"] = SPH::TargetDensity;
-            compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
-            compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
-            compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = densityGraphicsMultiplier;
-
-            // Launch each step of the sorting algorithm (once the previous step is complete)
-            // Number of steps = [log2(n) * (log2(n) + 1)] / 2
-            // where n = nearest power of 2 that is greater or equal to the number of inputs
-            int numStages = log2(NextPowerOfTwo(NbParticles));
-
-            for (int stageIndex = 0; stageIndex < numStages; stageIndex++)
-            {
-                for (int stepIndex = 0; stepIndex < stageIndex + 1; stepIndex++)
-                {
-                    // Calculate some pattern stuff
-                    int groupWidth = 1 << (stageIndex - stepIndex);
-                    int groupHeight = 2 * groupWidth - 1;
-                    compute_var["PerFrameCB"]["groupWidth"] = groupWidth;
-                    compute_var["PerFrameCB"]["groupHeight"] = groupHeight;
-                    compute_var["PerFrameCB"]["stepIndex"] = stepIndex;
-
-                    bitonic_sort_pass_->execute(pRenderContext, NextPowerOfTwo(NbParticles) / 2, 1, 1);
-                }
-            }
-
-            executeParticleComputePass(calculate_offsets_pass_, pRenderContext, totalThreadsX);
-
-            executeParticleComputePass(compute_neighbors_density_pass_, pRenderContext, totalThreadsX);
-            executeParticleComputePass(compute_neighbors_pressure_pass_, pRenderContext, totalThreadsX);
-            executeParticleComputePass(compute_neighbors_viscosity_pass_, pRenderContext, totalThreadsX);
-
-            executeParticleComputePass(compute_bodies_positions_pass_, pRenderContext, totalThreadsX);
+            SimulationStep(pRenderContext);
 
             fixed_timer_ -= kFixedDeltaTime;
             time_since_last_fixed_update_ = 0.f;

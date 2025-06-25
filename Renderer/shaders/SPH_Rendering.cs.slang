@@ -248,39 +248,6 @@ void SimulationBounds(inout ParticleBody Particlebody)
     // Transform resolved position/velocity back to world space
     Particlebody.Position = mul(unscaledLocalToWorld, float4(posLocal, 1)).xyz;
     Particlebody.Velocity = mul(unscaledLocalToWorld, float4(velocityLocal, 0)).xyz;
-
-    return;
-
-    // if (Particlebody.Position.x <= -wallDist)
-    // {
-    //     Particlebody.Velocity.x = abs(Particlebody.Velocity.x) * 0.9f;
-    //     Particlebody.Position.x = -wallDist;
-    // }
-    // else if (Particlebody.Position.x >= wallDist)
-    // {
-    //     Particlebody.Velocity.x = -abs(Particlebody.Velocity.x) * 0.9f;
-    //     Particlebody.Position.x = wallDist;
-    // }
-    // if (Particlebody.Position.y <= -wallDist)
-    // {
-    //     Particlebody.Velocity.y = abs(Particlebody.Velocity.y) * 0.9f;
-    //     Particlebody.Position.y = -wallDist;
-    // }
-    // else if (Particlebody.Position.y >= wallDist)
-    // {
-    //     Particlebody.Velocity.y = -abs(Particlebody.Velocity.y) * 0.9f;
-    //     Particlebody.Position.y = wallDist;
-    // }
-    // if (Particlebody.Position.z <= -wallDist)
-    // {
-    //     Particlebody.Velocity.z = abs(Particlebody.Velocity.z) * 0.9f;
-    //     Particlebody.Position.z = -wallDist;
-    // }
-    // else if (Particlebody.Position.z >= wallDist)
-    // {
-    //     Particlebody.Velocity.z = -abs(Particlebody.Velocity.z) * 0.9f;
-    //     Particlebody.Position.z = wallDist;
-    // }
 }
 
 [numthreads(64, 1, 1)]
@@ -292,16 +259,10 @@ void computeExternalForces(uint3 threadID: SV_DispatchThreadID)
 
     ParticleBody particlebody = bodies[index]; // Access the Particlebody at the calculated index
 
-    ApplyForce(particlebody, float3(0, -gravity, 0));                   // Apply gravity
-    float3 acceleration = particlebody.Force * (1 / particlebody.Mass); // Calculate acceleration
-    //float3 acceleration = float3(0, -gravity, 0);
+    float3 acceleration = float3(0, -gravity, 0);
 
-    particlebody.Velocity += acceleration * fixedDeltaTime;          // Update velocity
-    //particlebody.Position += particlebody.Velocity * fixedDeltaTime; // Update position
-    particlebody.PredictedPosition = particlebody.Position + particlebody.Velocity * fixedDeltaTime; // Update position
-
-    particlebody.Force = float3(0, 0, 0); // Reset force after applying
-    //SimulationBounds(particlebody);
+    particlebody.Velocity += acceleration * deltaTime;                                      // Update velocity
+    particlebody.PredictedPosition = particlebody.Position + particlebody.Velocity * 1.f / 120.f; // Update position
 
     bodies[index] = particlebody; // Write the updated particlebody back to the buffer
 }
@@ -315,7 +276,7 @@ void computeBodyPositions(uint3 threadID: SV_DispatchThreadID)
 
     ParticleBody particlebody = bodies[index]; // Access the Particlebody at the calculated index
 
-    particlebody.Position += particlebody.Velocity * fixedDeltaTime; // Update position
+    particlebody.Position += particlebody.Velocity * deltaTime; // Update position
 
     SimulationBounds(particlebody);
 
@@ -397,24 +358,10 @@ float CalculateDensityAtPosition(float3 position)
 
             // Calculate density and near density
             float dst = sqrt(sqrDstToNeighbour);
-            float influence = SmoothingKernel(smoothingRadius, dst);
-            //float influence = DensityKernel(dst, smoothingRadius);
+            density = DensityKernel(dst, smoothingRadius);
             // nearDensity += NearDensityKernel(dst, smoothingRadius);
-
-            // float dx = position.x - otherParticleBody.PredictedPosition.x;
-            // float dy = position.y - otherParticleBody.PredictedPosition.y;
-            // float dz = position.z - otherParticleBody.PredictedPosition.z;
-
-            // float distance = sqrt(dx * dx + dy * dy + dz * dz);
-
-            // //if (distance > smoothingRadius) continue;
-
-            //float influence = SmoothingKernel(smoothingRadius, distance);
-            density += influence;
         }
     }
-
-    // density *= densityGraphicsMultiplier;
 
     return density;
 }
@@ -518,35 +465,27 @@ void computeNeighborsPressure(uint3 threadID: SV_DispatchThreadID)
             float neighbourPressure = PressureFromDensity(densityNeighbour);
             //float neighbourPressureNear = NearPressureFromDensity(nearDensityNeighbour);
 
-            //float sharedPressure = (pressure + neighbourPressure) / 2;
-            //float sharedNearPressure = (nearPressure + neighbourPressureNear) / 2;
-
             float dstToNeighbour = sqrt(sqrDstToNeighbour);
             float3 dirToNeighbour = dstToNeighbour > 0 ? offsetToNeighbour / dstToNeighbour : float3(0, 1, 0);
             neighbourCount++;
 
-            // Update pressure force
-            //pressureForce += dirToNeighbour * DensityDerivative(dstToNeighbour, smoothingRadius) * sharedPressure / densityNeighbour;
-            //pressureForce += dirToNeighbour * NearDensityDerivative(dstToNeighbour, smoothingRadius) * sharedNearPressure / nearDensityNeighbour;
+            float sharedPressure = (pressure + neighbourPressure) / 2;
+            //float sharedNearPressure = (nearPressure + neighbourPressureNear) / 2;
 
-            // float distance = length(offset);
-            // float3 direction = distance == 0 ? float3(0.f, 1.f, 0.f) : offset / distance;
-            float slope = SmoothingKernelDerivative(smoothingRadius, dstToNeighbour);
-            // float otherDensity = otherParticleBody.Density;
-            float sharedPressure = CalculateSharedPressure(densityNeighbour, particlebody.Density);
-            pressureForce += sharedPressure * dirToNeighbour * slope * otherParticleBody.Mass / densityNeighbour;
+            // Update pressure force
+            pressureForce += dirToNeighbour * DensityDerivative(dstToNeighbour, smoothingRadius) * sharedPressure / densityNeighbour;
         }
     }
 
     //ApplyForce(particlebody, pressureForce / density);
     float3 acceleration = pressureForce / particlebody.Density;
-    particlebody.Velocity += acceleration * fixedDeltaTime;
+    particlebody.Velocity += acceleration * deltaTime;
 
     // Quick test -- apply some drag to airborne fluid particles
     if (neighbourCount < 8)
     {
-        //ApplyForce(particlebody, -velocity * 0.75f);
-        particlebody.Velocity -= particlebody.Velocity * fixedDeltaTime * 0.75;
+        // ApplyForce(particlebody, -velocity * 0.75f);
+        particlebody.Velocity -= particlebody.Velocity * deltaTime * 0.75;
     }
    
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
@@ -609,19 +548,12 @@ void computeNeighborsViscosity(uint3 threadID: SV_DispatchThreadID)
             // Calculate viscosity
             float dst = sqrt(sqrDstToNeighbour);
             float3 neighbourVelocity = otherParticleBody.Velocity;
-            //viscosityForce += (neighbourVelocity - particlebody.Velocity) * SmoothingKernelPoly6(dst, smoothingRadius);
-
-            // float distance = length(r);
-
-            // if (distance > smoothingRadius) continue;
-
-            float influence = SmoothingKernel(smoothingRadius, dst);
-            viscosityForce += (otherParticleBody.Velocity - particlebody.Velocity) * influence * particlebody.Mass;
+            viscosityForce += (neighbourVelocity - particlebody.Velocity) * SmoothingKernelPoly6(dst, smoothingRadius);
         }
     }
 
-    //ApplyForce(particlebody, viscosityForce * viscosityStrength);
-    particlebody.Velocity += viscosityForce * viscosityStrength * fixedDeltaTime;
+    // ApplyForce(particlebody, viscosityForce * viscosityStrength);
+    particlebody.Velocity += viscosityForce * viscosityStrength * deltaTime;
 
     bodies[threadID.x] = particlebody; // Write the updated Particlebody back to the buffer
 }
