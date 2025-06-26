@@ -46,6 +46,13 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     lambertian->setRoughnessMollification(1.f);
     lambertian->setIndexOfRefraction(0.f);
 
+    ref<Material> lambertianTexture = StandardMaterial::create(device_, "LambertianTexture");
+    auto texture = Texture::createFromFile(device_,
+        "data/images/CheckerTile_BaseColor.png", true, false);
+    lambertianTexture->toBasicMaterial()->setBaseColorTexture(texture);
+    lambertianTexture->setRoughnessMollification(1.f);
+    lambertianTexture->setIndexOfRefraction(0.f);
+
     if (useMarchingCubes)
     {
         // 1) Buffer allocation
@@ -132,21 +139,37 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
         sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian);
 
-        //auto cube_mesh = TriangleMesh::createCube(float3(30, 170, 30));
-        //cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertian);
+        auto cube_mesh = TriangleMesh::createCube(float3(30, 170, 30));
+        cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertian);
 
-        //auto node = SceneBuilder::Node();
-        //const std::string name = "Cube " /* + std::to_string(i)*/;
-        //node.name = name;
-        //auto transform = Transform();
-        //transform.setTranslation(float3(0, 0, 0));
-        //transform.setRotationEuler(float3(35.f, 0.f, 0.f));
-        //transform.setScaling(float3(1, 1, 1));
-        //node.transform = transform.getMatrix();
-        //const auto node_id = scene_builder_->addNode(node);
+        auto node = SceneBuilder::Node();
+        const std::string name = "Cube ";
+        node.name = name;
+        auto transform = Transform();
+        transform.setTranslation(float3(0, 0, 0));
+        transform.setRotationEuler(float3(35.f, 0.f, 0.f));
+        transform.setScaling(float3(1, 1, 1));
+        node.transform = transform.getMatrix();
+        const auto node_id = scene_builder_->addNode(node);
 
-        // // Add Mesh Instances
-        //scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+         // Add Mesh Instances
+        scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+
+        auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
+        plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
+
+        auto node_p = SceneBuilder::Node();
+        const std::string name_p = "Plane";
+        node_p.name = name;
+        auto transform_p = Transform();
+        transform_p.setTranslation(float3(0, -Metrics::WALLDIST, 0));
+        transform_p.setRotationEuler(float3(0, 0.f, 0.f));
+        transform_p.setScaling(float3(1, 1, 1));
+        node_p.transform = transform_p.getMatrix();
+        const auto node_id_p = scene_builder_->addNode(node_p);
+
+        // Add Mesh Instances
+        scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
     }
 
 

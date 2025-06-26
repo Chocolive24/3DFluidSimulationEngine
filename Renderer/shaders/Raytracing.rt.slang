@@ -243,22 +243,22 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
     float currentRayDistance = RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
 
-    if (!drawFluid)
-    {
-        hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
-        hitData.hitT = currentRayDistance;
-        hitData.absorptionDistance = 0;
-        return;
-    }
+    // if (!drawFluid)
+    // {
+    //     hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
+    //     hitData.hitT = currentRayDistance;
+    //     hitData.absorptionDistance = 0;
+    //     return;
+    // }
 
-    if (hitData.depth >= maxRayBounce)
-    {
-        float3 envColor = gScene.envMap.eval(WorldRayDirection(), 0);
-        hitData.color = float4(envColor, 1);
-        hitData.hitT = RayTCurrent();
-        hitData.absorptionDistance = hitData.hitT;
-        return;
-    }
+    // if (hitData.depth >= maxRayBounce)
+    // {
+    //     float3 envColor = gScene.envMap.eval(WorldRayDirection(), 0);
+    //     hitData.color = float4(envColor, 1);
+    //     hitData.hitT = RayTCurrent();
+    //     hitData.absorptionDistance = hitData.hitT;
+    //     return;
+    // }
 
     // Retrieve hit information
     const GeometryInstanceID instanceID = getGeometryInstanceID();
@@ -277,7 +277,20 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 
     if (gScene.materials.evalIoR(sd.materialID) < 1.f)
     {
-        hitData.color = float4(backgroundColor, 1.f);
+        // Étape 1 : Récupération des UVs
+        float2 uv = sd.uv;
+
+        BasicMaterialData matData = gScene.materials.getBasicMaterialData(materialID);
+
+      
+        TextureHandle textureHandle = matData.texBaseColor;
+        float4 baseColorFactor = matData.baseColor;
+
+        float4 baseColor = gScene.materials.sampleTexture(textureHandle, linearClampSampler, sd.uv, baseColorFactor, lod);
+
+        hitData.color = float4(baseColor.rgb, 1.0);
+        
+        hitData.color = baseColor;
         // hitData.color = float4(bsdfProperties.diffuseReflectionAlbedo, 1.f);
         hitData.hitT = RayTCurrent();
         hitData.absorptionDistance = 0;
@@ -704,18 +717,18 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
         // If light hits the floor it will be scattered in all directions (in hemisphere)
         // Not sure how to handle this in real-time, so just break out recursion here.
-        if (attribs.pos.y < -ScaledSimBounds.y / 2 + 0.05)
-        {
-            // Final raymarch if no more bounces
-            transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
+        // if (attribs.pos.y < -ScaledSimBounds.y / 2 + 0.05)
+        // {
+        //     // Final raymarch if no more bounces
+        //     transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
 
-            float densityRemainder = CalculateDensityAlongRay(rayOrigin, rayDir, sunLightMarchSize);
-            light += gScene.envMap.eval(rayDir) * transmittance * Transmittance(densityRemainder);
+        //     float densityRemainder = CalculateDensityAlongRay(rayOrigin, rayDir, sunLightMarchSize);
+        //     light += gScene.envMap.eval(rayDir) * transmittance * Transmittance(densityRemainder);
 
-            hitData.color = float4(light, 1.0);
-            hitData.hitT = RayTCurrent();
-            return;
-        }
+        //     hitData.color = float4(light, 1.0);
+        //     hitData.hitT = RayTCurrent();
+        //     return;
+        // }
 
         // Accumulate light from the less dominant path
         if (traceRefractedRay)
@@ -747,7 +760,14 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
             light += bounceResult.color.rgb;
             debugNormal = bounceResult.debugNormal;
         }
-        else
+        // else
+        // {
+        //     // Final raymarch if no more bounces
+        //     float densityRemainder = CalculateDensityAlongRay(rayOrigin, nextRayDir, sunLightMarchSize);
+        //     light += gScene.envMap.eval(nextRayDir) * transmittance * Transmittance(densityRemainder);
+        // }
+
+        if (hitData.depth == 0)
         {
             // Final raymarch if no more bounces
             float densityRemainder = CalculateDensityAlongRay(rayOrigin, nextRayDir, sunLightMarchSize);

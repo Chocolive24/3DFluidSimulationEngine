@@ -108,6 +108,7 @@ private:
 
     MeshID sphere_mesh_id;
     MeshID cube_mesh_id;
+    MeshID plane_mesh_id;
     MeshID marching_cubes_mesh_id_;
     NodeID sphere_node_id_;
     NodeID raymarching_node_id;

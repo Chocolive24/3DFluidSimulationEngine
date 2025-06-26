@@ -20,15 +20,15 @@ void WaterBathSample::DrawImgui() noexcept
     {
         NbParticles = numParticles;
     }
-    if (ImGui::SliderFloat("Smoothing radius", &SPH::SmoothingRadius, 1.0f, 100.0f))
+    if (ImGui::SliderFloat("Smoothing radius", &SPH::SmoothingRadius, 0.1f, 50.0f))
     {
         SPH::SmoothingRadius = SPH::SmoothingRadius;
     }
-    if (ImGui::SliderFloat("Target density", &SPH::TargetDensity, 0.0f, 200.0f))
+    if (ImGui::SliderFloat("Target density", &SPH::TargetDensity, 0.0f, 1000.0f))
     {
         SPH::TargetDensity = SPH::TargetDensity;
     }
-    if (ImGui::SliderFloat("Pressure multiplier", &SPH::PressureMultiplier, 0.0f, 100.0f))
+    if (ImGui::SliderFloat("Pressure multiplier", &SPH::PressureMultiplier, 0.0f, 1000.0f))
     {
         SPH::PressureMultiplier = SPH::PressureMultiplier;
     }
