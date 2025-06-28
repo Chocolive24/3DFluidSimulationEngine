@@ -36,6 +36,8 @@ RWTexture3D<float> gTexture3D;
 RWStructuredBuffer<uint3> SpatialIndices; // used for spatial hashing
 RWStructuredBuffer<uint> SpatialOffsets;  // used for spatial hashing
 
+RWStructuredBuffer<uint> cutomPrimitveMasks;
+
 cbuffer PerFrameCB
 {
     int densityMapSize;
@@ -657,5 +659,15 @@ void computeDensityMap(uint3 threadID: SV_DispatchThreadID)
         float density = CalculateDensityAtPosition(worldPos);
         density *= densityGraphicsMultiplier;
         gTexture3D[threadID] = density;
+
+        float densityThreshold = 0.001f;
+        if (density > densityThreshold)
+        {
+            uint3 cellIndex = uint3(floor(texturePos * 8));
+            cellIndex = clamp(cellIndex, uint3(0), uint3(7));
+
+            uint linearID = cellIndex.z + cellIndex.y * 8 + cellIndex.x * 8 * 8;
+            InterlockedMax(cutomPrimitveMasks[linearID], 1);
+        }
     }
 }

@@ -38,6 +38,8 @@ RWTexture2D<float4> gOutput;
 Texture3D<float> gTexture3D;
 SamplerState linearClampSampler;
 
+RWStructuredBuffer<uint> cutomPrimitveMasks;
+
 cbuffer PerFrameCB
 {
     float4x4 invView;
@@ -80,6 +82,8 @@ cbuffer PerFrameCB
     bool useTransformations;
     bool useRecursiveRaytracing;
     bool debugNormals;
+
+    bool renderSecondPrimitive;
 };
 
 
@@ -681,6 +685,10 @@ float3 Transmittance(float thickness)
 void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
 {
     float3 debugNormal;
+
+    float3 color = float3(float(gScene.getCustomPrimitiveIndex(getGeometryInstanceID())) / 512.f);
+    hitData.color = float4(color, 1);
+    return;
 
     if (useRecursiveRaytracing)
     {
@@ -1347,6 +1355,21 @@ void RaymarchingIntersection()
     if (!drawFluid)
         return;
 
+    // if (gScene.getCustomPrimitiveIndex(getGeometryInstanceID()) >= 256)
+    // {
+    //     return;
+    // }
+
+    if (cutomPrimitveMasks[gScene.getCustomPrimitiveIndex(getGeometryInstanceID())] == 0)
+    {
+        return;
+    }
+    
+
+    SDF_GeometryAttributes attr2 = {};
+    ReportHit(1, 0, attr2);
+    return;
+
     float3 rayOrigin = WorldRayOrigin();
     float3 rayDir = normalize(WorldRayDirection());
 
@@ -1363,7 +1386,7 @@ void RaymarchingIntersection()
         uint dummyRNG = 0; // RNG state is not useful here unless noise affects surface detection
 
         // Run the raymarch to find the first fluid surface hit
-        SurfaceInfo surfaceInfo = FindNextSurface(rayOrigin, rayDir, !travellingThroughFluid, dummyRNG, 1, cubeHitInfo.dst);
+        SurfaceInfo surfaceInfo = FindNextSurface(rayOrigin, rayDir, !travellingThroughFluid, dummyRNG, 1, 7.5);
 
         if (!surfaceInfo.foundSurface)
             return;

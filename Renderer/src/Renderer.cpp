@@ -139,37 +139,37 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
         sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian);
 
-        auto cube_mesh = TriangleMesh::createCube(float3(30, 170, 30));
-        cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertian);
+       /* auto cube_mesh = TriangleMesh::createCube(float3(30, 170, 30));
+        cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertian);*/
 
-        auto node = SceneBuilder::Node();
-        const std::string name = "Cube ";
-        node.name = name;
-        auto transform = Transform();
-        transform.setTranslation(float3(0, 0, 0));
-        transform.setRotationEuler(float3(35.f, 0.f, 0.f));
-        transform.setScaling(float3(1, 1, 1));
-        node.transform = transform.getMatrix();
-        const auto node_id = scene_builder_->addNode(node);
+        //auto node = SceneBuilder::Node();
+        //const std::string name = "Cube ";
+        //node.name = name;
+        //auto transform = Transform();
+        //transform.setTranslation(float3(0, 0, 0));
+        //transform.setRotationEuler(float3(35.f, 0.f, 0.f));
+        //transform.setScaling(float3(1, 1, 1));
+        //node.transform = transform.getMatrix();
+        //const auto node_id = scene_builder_->addNode(node);
 
-         // Add Mesh Instances
-        scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+        // // Add Mesh Instances
+        //scene_builder_->addMeshInstance(node_id, cube_mesh_id);
 
-        auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
-        plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
+        //auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
+        //plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
 
-        auto node_p = SceneBuilder::Node();
-        const std::string name_p = "Plane";
-        node_p.name = name;
-        auto transform_p = Transform();
-        transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
-        transform_p.setRotationEuler(float3(0, 0.f, 0.f));
-        transform_p.setScaling(float3(1, 1, 1));
-        node_p.transform = transform_p.getMatrix();
-        const auto node_id_p = scene_builder_->addNode(node_p);
+        //auto node_p = SceneBuilder::Node();
+        //const std::string name_p = "Plane";
+        //node_p.name = name;
+        //auto transform_p = Transform();
+        //transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
+        //transform_p.setRotationEuler(float3(0, 0.f, 0.f));
+        //transform_p.setScaling(float3(1, 1, 1));
+        //node_p.transform = transform_p.getMatrix();
+        //const auto node_id_p = scene_builder_->addNode(node_p);
 
-        // Add Mesh Instances
-        scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
+        //// Add Mesh Instances
+        //scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
     }
 
 
@@ -207,22 +207,77 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
     if (!useMarchingCubes)
     {
-        const AABB fluid_AABB = AABB(float3(-1), float3(1));
-        //AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+        constexpr int gridResolution = 8; // For 8³ = 512 AABBs;
+        float cellSize = Metrics::sim_bounds / gridResolution;
+        float halfSize = cellSize * 0.5f;
 
-        fluid_transform = Transform();
-        fluid_transform.setTranslation(translation);
-        fluid_transform.setRotationEulerDeg(rotation);
-        fluid_transform.setScaling(scale);
+        int primIndex = 0;
 
-        const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
-        scene_builder_->addCustomPrimitive(fluid_AABB_ID, transformed_aabb);
+        for (int x = 0; x < gridResolution; ++x)
+        {
+            for (int y = 0; y < gridResolution; ++y)
+            {
+                for (int z = 0; z < gridResolution; ++z)
+                {
+                    float3 center = float3(
+                        -Metrics::WALLDIST + (x + 0.5f) * cellSize,
+                        -Metrics::WALLDIST + (y + 0.5f) * cellSize,
+                        -Metrics::WALLDIST + (z + 0.5f) * cellSize
+                    );
 
-        auto fluid_node = SceneBuilder::Node();
-        fluid_node.name = "RaymarchingNode";
+                    float3 min = center - float3(halfSize);
+                    float3 max = center + float3(halfSize);
+                    AABB box(min, max);
 
-        fluid_node.transform = fluid_transform.getMatrix();
-        raymarching_node_id = scene_builder_->addNode(fluid_node);
+                    // Add the AABB with a unique ID (must not conflict with other primitives)
+                    scene_builder_->addCustomPrimitive(primIndex, box);
+
+                    // Step 2 — Create and add node
+                    auto node = SceneBuilder::Node();
+                    node.name = "AABB_Cell_" + std::to_string(primIndex);
+
+                    // Set transform (here: identity, since AABB is already in world space)
+                    auto transform = Transform();
+                    transform.setTranslation(center);
+                    transform.setRotationEulerDeg(float3(0));
+                    transform.setScaling(float3(1));
+
+                    node.transform = transform.getMatrix();
+
+                    // Associate the node with the primitive
+                    scene_builder_->addNode(node);
+
+                    primIndex++;
+                }
+            }
+        }
+
+        cutomPrimitveMasks = make_ref<Buffer>(
+            device_,
+            sizeof(uint32_t),
+            masks.size(),
+            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+            MemoryType::DeviceLocal,
+            masks.data(),
+            false
+        );
+
+        //const AABB fluid_AABB = AABB(float3(-1), float3(1));
+        ////AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+
+        //fluid_transform = Transform();
+        //fluid_transform.setTranslation(translation);
+        //fluid_transform.setRotationEulerDeg(rotation);
+        //fluid_transform.setScaling(scale);
+
+        //const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
+        //scene_builder_->addCustomPrimitive(fluid_AABB_ID, transformed_aabb);
+
+        //auto fluid_node = SceneBuilder::Node();
+        //fluid_node.name = "RaymarchingNode";
+
+        //fluid_node.transform = fluid_transform.getMatrix();
+        //raymarching_node_id = scene_builder_->addNode(fluid_node);
     }
 
 
@@ -424,19 +479,24 @@ void Renderer::RenderFrame(
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
 
-    if (!useMarchingCubes)
-    {
-        const AABB fluid_AABB = AABB(float3(-1), float3(1));
-        //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
-        const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
+    cutomPrimitveMasks->setBlob(masks.data(), 0, masks.size() * sizeof(uint32_t));
 
-        scene_->updateCustomPrimitive(0, transformed_aabb);
-    }
+    //std::cout << "COUNT: " << scene_->getCustomPrimitiveCount() << '\n';
+
+    //if (!useMarchingCubes)
+    //{
+    //    const AABB fluid_AABB = AABB(float3(-1), float3(1));
+    //    //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+    //    const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
+
+    //    scene_->updateCustomPrimitive(0, transformed_aabb);
+    //}
 
      const auto compute_var = compute_density_map_pass_->getRootVar();
      compute_var["bodies"] = bodies;
      compute_var["SpatialIndices"] = SpatialIndices;
      compute_var["SpatialOffsets"] = SpatialOffsets;
+     compute_var["cutomPrimitveMasks"] = cutomPrimitveMasks;
      compute_var["gTexture3D"] = density_3d_tex_;
 
      compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
@@ -619,6 +679,8 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
 
     //app_gui_window->var("ISO Level", IsoLevel);
     app_gui_window->var("normalOffset", normalOffset);
+
+    app_gui_window->checkbox("remove", renderSecondPrimitive);
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     app_gui_window->checkbox("Use Transformations ?", useTransformations);
@@ -964,6 +1026,9 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["gOutput"] = rt_output_tex_;
     var["gTexture3D"] = density_3d_tex_;
     var["linearClampSampler"] = linearClampSampler_;
+    var["cutomPrimitveMasks"] = cutomPrimitveMasks;
+
+    var["PerFrameCB"]["renderSecondPrimitive"] = renderSecondPrimitive;
 
     const float4x4 localToWorld = fluid_transform.getMatrix();
 

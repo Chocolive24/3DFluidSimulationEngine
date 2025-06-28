@@ -239,6 +239,7 @@ void FluidApplication::executeParticleComputePass(
     compute_var["bodies"] = bodies_buffer_;
     compute_var["SpatialIndices"] = SpatialIndices;
     compute_var["SpatialOffsets"] = SpatialOffsets;
+    compute_var["cutomPrimitveMasks"] = renderer_->cutomPrimitveMasks;
 
     compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
     compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);

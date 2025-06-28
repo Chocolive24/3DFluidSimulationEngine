@@ -73,6 +73,9 @@ public:
     }
 
     uint32_t fluid_AABB_ID = 1;
+    ref<Buffer> cutomPrimitveMasks = nullptr;
+    std::array<uint32_t, 512> masks{0};
+    bool renderSecondPrimitive = true;
     Transform fluid_transform;
     ref<RasterPass> raster_pass_;
 
