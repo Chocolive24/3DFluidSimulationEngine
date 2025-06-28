@@ -162,7 +162,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         const std::string name_p = "Plane";
         node_p.name = name;
         auto transform_p = Transform();
-        transform_p.setTranslation(float3(0, -Metrics::WALLDIST, 0));
+        transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
         transform_p.setRotationEuler(float3(0, 0.f, 0.f));
         transform_p.setScaling(float3(1, 1, 1));
         node_p.transform = transform_p.getMatrix();

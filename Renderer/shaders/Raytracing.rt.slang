@@ -282,7 +282,6 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 
         BasicMaterialData matData = gScene.materials.getBasicMaterialData(materialID);
 
-      
         TextureHandle textureHandle = matData.texBaseColor;
         float4 baseColorFactor = matData.baseColor;
 
@@ -291,7 +290,6 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
         hitData.color = float4(baseColor.rgb, 1.0);
         
         hitData.color = baseColor;
-        // hitData.color = float4(bsdfProperties.diffuseReflectionAlbedo, 1.f);
         hitData.hitT = RayTCurrent();
         hitData.absorptionDistance = 0;
         return;
@@ -690,14 +688,13 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         float3 normal = attribs.normal;
 
         float3 rayDir = normalize(WorldRayDirection());
-
-        float3 transmittance = hitData.transmittance;
         float3 light = float3(0, 0, 0);
 
         // Decide whether we're entering or exiting
         bool travellingThroughFluid = attribs.isInsideFluid;
 
-        transmittance *= Transmittance(attribs.densityAlongRay);
+        // Apply absorption from entry to this surface
+        hitData.transmittance *= Transmittance(attribs.densityAlongRay);
 
         if (dot(normal, rayDir) > 0) normal = -normal;
 
@@ -715,35 +712,31 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
         bool traceRefractedRay = densityAlongRefractRay * lightResponse.refractWeight > densityAlongReflectRay * lightResponse.reflectWeight;
 
-        // If light hits the floor it will be scattered in all directions (in hemisphere)
-        // Not sure how to handle this in real-time, so just break out recursion here.
-        // if (attribs.pos.y < -ScaledSimBounds.y / 2 + 0.05)
-        // {
-        //     // Final raymarch if no more bounces
-        //     transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
-
-        //     float densityRemainder = CalculateDensityAlongRay(rayOrigin, rayDir, sunLightMarchSize);
-        //     light += gScene.envMap.eval(rayDir) * transmittance * Transmittance(densityRemainder);
-
-        //     hitData.color = float4(light, 1.0);
-        //     hitData.hitT = RayTCurrent();
-        //     return;
-        // }
-
-        // Accumulate light from the less dominant path
+        // Accumulate environment lighting from less dominant path
         if (traceRefractedRay)
         {
-            light += gScene.envMap.eval(lightResponse.reflectDir) * transmittance * Transmittance(densityAlongReflectRay) * lightResponse.reflectWeight;
+            light += gScene.envMap.eval(lightResponse.reflectDir)
+              * hitData.transmittance
+              * Transmittance(densityAlongReflectRay)
+              * lightResponse.reflectWeight;
         }
         else
         {
-            light += gScene.envMap.eval(lightResponse.refractDir) * transmittance * Transmittance(densityAlongRefractRay) * lightResponse.refractWeight;
+            light += gScene.envMap.eval(lightResponse.refractDir)
+              * hitData.transmittance
+              * Transmittance(densityAlongRefractRay)
+              * lightResponse.refractWeight;
         }
 
+        // Prepare bounce ray
         PrimaryRayData bounceResult = (PrimaryRayData)0;
         bounceResult.depth = hitData.depth + 1;
-        transmittance *= (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
-        bounceResult.transmittance = transmittance;
+
+        // Update transmittance for main path (before bounce)
+        float3 pathTransmittance = hitData.transmittance
+                              * (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
+
+        bounceResult.transmittance = pathTransmittance;
         bounceResult.absorptionDistance = attribs.densityAlongRay;
 
         float3 nextRayDir = traceRefractedRay ? lightResponse.refractDir : lightResponse.reflectDir;
@@ -757,25 +750,28 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
             bounceRay.TMax = 1e6;
 
             TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, bounceRay, bounceResult);
-            light += bounceResult.color.rgb;
+
+            // Apply absorption for this segment after bounce
+            float densityThisSegment = traceRefractedRay ? densityAlongRefractRay : densityAlongReflectRay;
+
+            light += bounceResult.color.rgb
+               * Transmittance(densityThisSegment); // Apply Beer's Law for the current segment
+
             debugNormal = bounceResult.debugNormal;
+            hitData.transmittance = bounceResult.transmittance;
         }
-        // else
-        // {
-        //     // Final raymarch if no more bounces
-        //     float densityRemainder = CalculateDensityAlongRay(rayOrigin, nextRayDir, sunLightMarchSize);
-        //     light += gScene.envMap.eval(nextRayDir) * transmittance * Transmittance(densityRemainder);
-        // }
 
         if (hitData.depth == 0)
         {
-            // Final raymarch if no more bounces
             float densityRemainder = CalculateDensityAlongRay(rayOrigin, nextRayDir, sunLightMarchSize);
-            light += gScene.envMap.eval(nextRayDir) * transmittance * Transmittance(densityRemainder);
+            light += gScene.envMap.eval(nextRayDir)
+              * hitData.transmittance
+              * Transmittance(densityRemainder);
         }
 
         debugNormal += float3(1);
         debugNormal *= 0.5f;
+
         float3 color = debugNormals ? debugNormal : light;
         hitData.color = float4(color, 1.0);
         hitData.hitT = RayTCurrent();
@@ -799,6 +795,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
             float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
 
             bool searchForNextFluidEntryPoint = !travellingThroughFluid;
+            // bool searchForNextFluidEntryPoint = !IsInsideFluid(ray.origin, ray.dir);
 
             SurfaceInfo surfaceInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, rngState, i == 0 ? 1 : 0, 1000);
             
