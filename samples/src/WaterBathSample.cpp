@@ -77,41 +77,59 @@ void WaterBathSample::SampleSetUp() noexcept {
         //// Roof
         //CreateWall({0, WALLDIST + WALLSIZE, 0}, {-WALLDIST, -WALLSIZE, -WALLDIST}, {WALLDIST* 2, WALLSIZE, WALLDIST}, false);
 
-        std::vector<XMVECTOR> particlePositions;
+        float spacing = SPH::SmoothingRadius * 0.8f; // ensures neighbor support
+        int particlesPerAxis = static_cast<int>((2 * WALLDIST) / spacing);
 
-        for (size_t i = 0; i < NbParticles;)
-        {
-            /*XMVECTOR pos = XMVectorSet(
-                Random::Range(-WALLDIST / 4, WALLDIST),
-                Random::Range(-WALLDIST / 4, WALLDIST),
-                Random::Range(-WALLDIST / 4, WALLDIST),
-                0.0f
-            );*/
+        int currentNbrParticles = 0;
 
-            XMVECTOR pos = XMVectorSet(
-                Random::Range(-WALLDIST, WALLDIST),
-                Random::Range(-WALLDIST, WALLDIST),
-                Random::Range(-WALLDIST, WALLDIST),
-                0.0f
-            );
-
-            bool overlaps = false;
-            for (const auto& existing : particlePositions)
-            {
-                if (XMVectorGetX(XMVector3LengthSq(pos - existing)) < (PARTICLESIZE * PARTICLESIZE * 4))
+        for (int x = 0; x < particlesPerAxis; ++x)
+            for (int y = 0; y < particlesPerAxis; ++y)
+                for (int z = 0; z < particlesPerAxis; ++z)
                 {
-                    overlaps = true;
-                    break;
-                }
-            }
+                    if (currentNbrParticles >= NbParticles)
+                        break;
 
-            if (!overlaps)
-            {
-                particlePositions.push_back(pos);
-                CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
-                ++i;
-            }
-        }
+                    XMVECTOR pos = XMVectorSet(-WALLDIST + x * spacing, -WALLDIST + y * spacing, -WALLDIST + z * spacing, 0.0f);
+
+                    CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
+                    currentNbrParticles++;
+                }
+
+        
+
+        //for (size_t i = 0; i < NbParticles;)
+        //{
+        //    /*XMVECTOR pos = XMVectorSet(
+        //        Random::Range(-WALLDIST / 4, WALLDIST),
+        //        Random::Range(-WALLDIST / 4, WALLDIST),
+        //        Random::Range(-WALLDIST / 4, WALLDIST),
+        //        0.0f
+        //    );*/
+
+        //    XMVECTOR pos = XMVectorSet(
+        //        Random::Range(-WALLDIST, WALLDIST),
+        //        Random::Range(-WALLDIST, WALLDIST),
+        //        Random::Range(-WALLDIST, WALLDIST),
+        //        0.0f
+        //    );
+
+        //    bool overlaps = false;
+        //    for (const auto& existing : particlePositions)
+        //    {
+        //        if (XMVectorGetX(XMVector3LengthSq(pos - existing)) < (PARTICLESIZE * PARTICLESIZE * 4))
+        //        {
+        //            overlaps = true;
+        //            break;
+        //        }
+        //    }
+
+        //    if (!overlaps)
+        //    {
+        //        particlePositions.push_back(pos);
+        //        CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
+        //        ++i;
+        //    }
+        //}
 
        /* for (size_t i = 0; i < NbParticles; i++)
         {

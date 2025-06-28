@@ -1,4 +1,5 @@
 #pragma once
+#include "../../Physics/include/SPH.h"
 
 namespace Metrics // Meter in physical world != meter irl
 {
@@ -21,11 +22,12 @@ namespace Metrics // Meter in physical world != meter irl
     constexpr int Width = MetersToPixels(19.20f);
     constexpr int Height = MetersToPixels(10.80f);
 
-    inline int NbParticles = 2'000;
+    inline int NbParticles = 40'000;
     
     static constexpr float WALLSIZE = Metrics::MetersToPixels(0.25f);
-    static constexpr float WALLDIST = Metrics::MetersToPixels(0.5f);
-    static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
+    static constexpr float WALLDIST = Metrics::MetersToPixels(0.3f);
+    static float PARTICLESIZE = SPH::SmoothingRadius * 0.5f;
+    //static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
     static constexpr float PARTICLESPACING = Metrics::MetersToPixels(0.05f);
 
     inline float densityGraphicsMultiplier = 100.f;

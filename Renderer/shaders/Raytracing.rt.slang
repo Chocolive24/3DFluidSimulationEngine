@@ -1024,6 +1024,20 @@ float SampleDensityMap(float3 pos)
 {
     if (useTransformations)
     {
+        // // Apply render-scale *before* transforming to local space
+        // float3 renderVolumeCenter = float3(0, 0, 0);
+        // float3 renderScale = float3(1, 1, 1);
+        // float3 scaledPos = (pos - renderVolumeCenter) / renderScale + renderVolumeCenter;
+
+        // float3 local = mul(worldToLocal, float4(scaledPos, 1.0f)).xyz;
+        // float3 uvw = local * 0.5f + 0.5f;
+
+        // const float epsilon = 0.0001f;
+        // if (any(uvw < epsilon || uvw > 1.0f - epsilon))
+        //     return 0.0f;
+
+        // return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+
         // Step 1 — Transform to local space
         float3 localPos = mul(worldToLocal, float4(pos, 1.0f)).xyz;
 

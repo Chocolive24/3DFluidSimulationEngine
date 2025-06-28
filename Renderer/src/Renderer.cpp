@@ -966,6 +966,10 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["linearClampSampler"] = linearClampSampler_;
 
     const float4x4 localToWorld = fluid_transform.getMatrix();
+
+    //float3 renderScale = float3(0.5f); // render at half-size
+    //const float4x4 scaledLocalToWorld = math::scale(localToWorld, renderScale);
+
     const float4x4 worldToLocal = inverse(localToWorld);
 
     var["PerFrameCB"]["localToWorld"] = localToWorld;
