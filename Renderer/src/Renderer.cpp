@@ -41,7 +41,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     // cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue);
 
     // Create a lambertian material
-    ref<Material> lambertian = StandardMaterial::create(device_, "Lambertian");
+    lambertian = StandardMaterial::create(device_, "Lambertian");
     lambertian->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
     lambertian->setRoughnessMollification(1.f);
     lambertian->setIndexOfRefraction(0.f);
@@ -571,13 +571,14 @@ void Renderer::RenderFrame(
 void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* render_context) noexcept
 {
     app_gui_window->rgbColor("Background color", bg_clear_color);
+    lambertian->toBasicMaterial()->setBaseColor3(bg_clear_color);
 
      if (app_gui_window->button("Reload Scene"))
      {
          Init(render_context, true);
          auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
 
-         ref<Material> lambertian = StandardMaterial::create(device_, "Lambertian");
+         lambertian = StandardMaterial::create(device_, "Lambertian");
          lambertian->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
          lambertian->setRoughnessMollification(1.f);
          lambertian->setIndexOfRefraction(0.f);
@@ -614,16 +615,34 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
         Metrics::densityGraphicsMultiplier);
     app_gui_window->var("volumeValueOffset", volumeValueOffset, 0.f, 100.f);
     app_gui_window->var("DensityRayMarchMultiplier", DensityRayMarchMultiplier);
-    app_gui_window->var("SphereRadius", SphereRadius, 0.f, 200.f);
+    //app_gui_window->var("SphereRadius", SphereRadius, 0.f, 200.f);
 
-    app_gui_window->var("ISO Level", IsoLevel);
+    //app_gui_window->var("ISO Level", IsoLevel);
     app_gui_window->var("normalOffset", normalOffset);
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
+    app_gui_window->checkbox("Use Transformations ?", useTransformations);
     app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
     app_gui_window->checkbox("Use Debug Normals ?", debugNormals);
     app_gui_window->checkbox("Light Scattering ?", lightScattering);
-    app_gui_window->checkbox("Use Transformations ?", useTransformations);
+    
+
+    const auto oldDensityMapSize = Metrics::density_map_size;
+
+    app_gui_window->var("Density Texture Size", Metrics::density_map_size, 1, 500);
+
+    if (oldDensityMapSize != Metrics::density_map_size)
+    {
+        density_3d_tex_ = device_->createTexture3D(
+            Metrics::density_map_size,
+            Metrics::density_map_size,
+            Metrics::density_map_size,
+            ResourceFormat::R32Float,
+            1, // mips
+            nullptr,
+            ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
+        );
+    }
 
     app_gui_window->slider("translation", translation, -500.f, 500.f);
     app_gui_window->slider("rotation", rotation, 0.f, 360.f);
@@ -639,13 +658,13 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
 
     //if (draw_fluid_)
     //{
-        app_gui_window->var("Water Turbulance", water_turbulence_);
+        //app_gui_window->var("Water Turbulance", water_turbulence_);
 
         app_gui_window->var("MaxRayBounce", kMaxRayBounce);
 
-        app_gui_window->var("absorptionCoeff", absorptionCoeff);
+        //app_gui_window->var("absorptionCoeff", absorptionCoeff);
         app_gui_window->var("scatteringCoeff", scatteringCoeff);
-        app_gui_window->var("Phase G ", phaseG);
+        //app_gui_window->var("Phase G ", phaseG);
 
         app_gui_window->var("maxRaymarchingDistance", maxRayMarchingDistance);
         app_gui_window->var("MarchSize", kMarchSize);

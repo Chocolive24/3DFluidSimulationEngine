@@ -760,8 +760,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
             debugNormal = bounceResult.debugNormal;
             hitData.transmittance = bounceResult.transmittance;
         }
-
-        if (hitData.depth == 0)
+        else
         {
             float densityRemainder = CalculateDensityAlongRay(rayOrigin, nextRayDir, sunLightMarchSize);
             light += gScene.envMap.eval(nextRayDir)
@@ -1025,16 +1024,17 @@ float SampleDensityMap(float3 pos)
 {
     if (useTransformations)
     {
-        // Transform to local space
+        // Step 1 — Transform to local space
         float3 localPos = mul(worldToLocal, float4(pos, 1.0f)).xyz;
 
-        // Local [-1,1] → [0,1] texture UVW
+        // Step 2 — Convert from [-1,1] to [0,1]
         float3 uvw = localPos * 0.5f + 0.5f;
 
         const float epsilon = 0.0001f;
-        bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
-        if (isEdge) return -volumeValueOffset;
+        if (any(uvw <= epsilon || uvw >= 1.0f - epsilon))
+            return 0.0f; // or some safe value like -volumeValueOffset
 
+        // Step 3 — Sample with clamp (no need for early out if clamp is used)
         return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
     }
     else
@@ -1042,8 +1042,8 @@ float SampleDensityMap(float3 pos)
         float3 uvw = (pos + simBounds * 0.5f) / simBounds;
 
         const float epsilon = 0.0001f;
-        bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
-        if (isEdge) return -volumeValueOffset;
+        if (any(uvw <= epsilon || uvw >= 1.0f - epsilon))
+            return 0.0f; // or some safe value like -volumeValueOffset
 
         return gTexture3D.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
     }

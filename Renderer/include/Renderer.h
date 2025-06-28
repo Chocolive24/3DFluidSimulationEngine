@@ -113,6 +113,7 @@ private:
     NodeID sphere_node_id_;
     NodeID raymarching_node_id;
     ref<TriangleMesh> sphere;
+    ref<Material> lambertian;
 
     ref<Buffer> b_pos;
     ref<Buffer> b_pos_readback;
