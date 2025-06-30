@@ -71,6 +71,7 @@ cbuffer PerFrameCB
     float K_SpikyPow3Grad;
 
     bool useTransformations;
+    uint3 voxelGridResolution;
 }
 
 struct ParticleBody 
@@ -663,10 +664,13 @@ void computeDensityMap(uint3 threadID: SV_DispatchThreadID)
         float densityThreshold = 0.001f;
         if (density > densityThreshold)
         {
-            uint3 cellIndex = uint3(floor(texturePos * 8));
-            cellIndex = clamp(cellIndex, uint3(0), uint3(7));
+            uint3 cellIndex = uint3(floor(texturePos * voxelGridResolution));
+            cellIndex.x = clamp(cellIndex.x, 0, voxelGridResolution.x - 1);
+            cellIndex.y = clamp(cellIndex.y, 0, voxelGridResolution.y - 1);
+            cellIndex.z = clamp(cellIndex.z, 0, voxelGridResolution.z - 1);
 
-            uint linearID = cellIndex.z + cellIndex.y * 8 + cellIndex.x * 8 * 8;
+            uint linearID = cellIndex.z + cellIndex.y * voxelGridResolution.x + 
+                cellIndex.x * voxelGridResolution.x * voxelGridResolution.y;
             InterlockedMax(cutomPrimitveMasks[linearID], 1);
         }
     }

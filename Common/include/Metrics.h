@@ -1,4 +1,6 @@
 #pragma once
+#include <array>
+
 #include "../../Physics/include/SPH.h"
 
 namespace Metrics // Meter in physical world != meter irl
@@ -35,5 +37,8 @@ namespace Metrics // Meter in physical world != meter irl
     inline float sim_bounds = (WALLDIST) * 2.f;
     inline float voxelSize = sim_bounds / float(density_map_size);
 
+    constexpr std::array<int, 3> voxelGridResolution{8, 8, 8};
+    constexpr int voxelGridTotalResolution =
+        voxelGridResolution[0] * voxelGridResolution[1] * voxelGridResolution[2];
     //test
 }

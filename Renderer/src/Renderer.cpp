@@ -41,10 +41,15 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     // cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue);
 
     // Create a lambertian material
-    lambertian = StandardMaterial::create(device_, "Lambertian");
-    lambertian->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
-    lambertian->setRoughnessMollification(1.f);
-    lambertian->setIndexOfRefraction(0.f);
+    lambertianSphere = StandardMaterial::create(device_, "LambertianSphere");
+    lambertianSphere->toBasicMaterial()->setBaseColor3(float3(0.1f, 0.33f, 0.9f));
+    lambertianSphere->setRoughnessMollification(1.f);
+    lambertianSphere->setIndexOfRefraction(0.f);
+
+    lambertianCube = StandardMaterial::create(device_, "LambertianCube");
+    lambertianCube->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
+    lambertianCube->setRoughnessMollification(1.f);
+    lambertianCube->setIndexOfRefraction(0.f);
 
     ref<Material> lambertianTexture = StandardMaterial::create(device_, "LambertianTexture");
     auto texture = Texture::createFromFile(device_,
@@ -136,8 +141,8 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
     if (!useMarchingCubes)
     {
-        auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
-        sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian);
+        auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
+        sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);
 
        /* auto cube_mesh = TriangleMesh::createCube(float3(30, 170, 30));
         cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertian);*/
@@ -207,22 +212,22 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
     if (!useMarchingCubes)
     {
-        constexpr int gridResolution = 8; // For 8³ = 512 AABBs;
-        float cellSize = Metrics::sim_bounds / gridResolution;
-        float halfSize = cellSize * 0.5f;
+        float3 voxelGridRes{Metrics::voxelGridResolution[0], Metrics::voxelGridResolution[1], Metrics::voxelGridResolution[2]};
+        float3 cellSize = float3(Metrics::sim_bounds) / voxelGridRes;
+        float3 halfSize = cellSize * 0.5f;
 
         int primIndex = 0;
 
-        for (int x = 0; x < gridResolution; ++x)
+        for (int x = 0; x < Metrics::voxelGridResolution[0]; ++x)
         {
-            for (int y = 0; y < gridResolution; ++y)
+            for (int y = 0; y < Metrics::voxelGridResolution[1]; ++y)
             {
-                for (int z = 0; z < gridResolution; ++z)
+                for (int z = 0; z < Metrics::voxelGridResolution[2]; ++z)
                 {
                     float3 center = float3(
-                        -Metrics::WALLDIST + (x + 0.5f) * cellSize,
-                        -Metrics::WALLDIST + (y + 0.5f) * cellSize,
-                        -Metrics::WALLDIST + (z + 0.5f) * cellSize
+                        -Metrics::WALLDIST + (x + 0.5f) * cellSize.x,
+                        -Metrics::WALLDIST + (y + 0.5f) * cellSize.y,
+                        -Metrics::WALLDIST + (z + 0.5f) * cellSize.z
                     );
 
                     float3 min = center - float3(halfSize);
@@ -520,6 +525,8 @@ void Renderer::RenderFrame(
      //compute_var["PerFrameCB"]["ScaledSimBounds"] = fluid_transform.getScaling() * 2.f;
 
      compute_var["PerFrameCB"]["useTransformations"] = useTransformations;
+     uint3 voxelGridRes{Metrics::voxelGridResolution[0], Metrics::voxelGridResolution[1], Metrics::voxelGridResolution[2]};
+     compute_var["PerFrameCB"]["voxelGridResolution"] = voxelGridRes;
 
      const float r = SPH::SmoothingRadius;
      const float spikyPow2 = 15.f / (2 * PI * Pow(r, 5));
@@ -631,19 +638,19 @@ void Renderer::RenderFrame(
 void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* render_context) noexcept
 {
     app_gui_window->rgbColor("Background color", bg_clear_color);
-    lambertian->toBasicMaterial()->setBaseColor3(bg_clear_color);
+    lambertianCube->toBasicMaterial()->setBaseColor3(bg_clear_color);
 
      if (app_gui_window->button("Reload Scene"))
      {
          Init(render_context, true);
          auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
 
-         lambertian = StandardMaterial::create(device_, "Lambertian");
-         lambertian->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
-         lambertian->setRoughnessMollification(1.f);
-         lambertian->setIndexOfRefraction(0.f);
+         lambertianCube = StandardMaterial::create(device_, "Lambertian");
+         lambertianCube->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
+         lambertianCube->setRoughnessMollification(1.f);
+         lambertianCube->setIndexOfRefraction(0.f);
 
-         sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertian, true);
+         sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianCube, true);
 
          auto node = SceneBuilder::Node();
          std::string name = "Sphere " /* + std::to_string(i)*/;
@@ -680,7 +687,8 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     //app_gui_window->var("ISO Level", IsoLevel);
     app_gui_window->var("normalOffset", normalOffset);
 
-    app_gui_window->checkbox("remove", renderSecondPrimitive);
+    app_gui_window->checkbox("useVoxelOpti", useVoxelOpti);
+    app_gui_window->checkbox("debugVoxelGrid", debugVoxelGrid);
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     app_gui_window->checkbox("Use Transformations ?", useTransformations);
@@ -1028,7 +1036,9 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["linearClampSampler"] = linearClampSampler_;
     var["cutomPrimitveMasks"] = cutomPrimitveMasks;
 
-    var["PerFrameCB"]["renderSecondPrimitive"] = renderSecondPrimitive;
+    var["PerFrameCB"]["useVoxelOpti"] = useVoxelOpti;
+    var["PerFrameCB"]["debugVoxelGrid"] = debugVoxelGrid;
+    var["PerFrameCB"]["voxelGridTotalResolution"] = Metrics::voxelGridTotalResolution;
 
     const float4x4 localToWorld = fluid_transform.getMatrix();
 

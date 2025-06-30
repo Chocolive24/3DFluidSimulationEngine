@@ -74,8 +74,9 @@ public:
 
     uint32_t fluid_AABB_ID = 1;
     ref<Buffer> cutomPrimitveMasks = nullptr;
-    std::array<uint32_t, 512> masks{0};
-    bool renderSecondPrimitive = true;
+    std::array<uint32_t, Metrics::voxelGridTotalResolution> masks{0};
+    bool useVoxelOpti = true;
+    bool debugVoxelGrid = true;
     Transform fluid_transform;
     ref<RasterPass> raster_pass_;
 
@@ -116,7 +117,8 @@ private:
     NodeID sphere_node_id_;
     NodeID raymarching_node_id;
     ref<TriangleMesh> sphere;
-    ref<Material> lambertian;
+    ref<Material> lambertianCube;
+    ref<Material> lambertianSphere;
 
     ref<Buffer> b_pos;
     ref<Buffer> b_pos_readback;

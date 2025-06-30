@@ -83,7 +83,9 @@ cbuffer PerFrameCB
     bool useRecursiveRaytracing;
     bool debugNormals;
 
-    bool renderSecondPrimitive;
+    bool useVoxelOpti;
+    bool debugVoxelGrid;
+    uint voxelGridTotalResolution;
 };
 
 
@@ -686,9 +688,13 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 {
     float3 debugNormal;
 
-    float3 color = float3(float(gScene.getCustomPrimitiveIndex(getGeometryInstanceID())) / 512.f);
-    hitData.color = float4(color, 1);
-    return;
+    if (debugVoxelGrid)
+    {
+        float3 color = float3(float(
+            gScene.getCustomPrimitiveIndex(getGeometryInstanceID())) / float(voxelGridTotalResolution));
+        hitData.color = float4(color, 1);
+        return;
+    }
 
     if (useRecursiveRaytracing)
     {
@@ -1355,17 +1361,15 @@ void RaymarchingIntersection()
     if (!drawFluid)
         return;
 
-    // if (gScene.getCustomPrimitiveIndex(getGeometryInstanceID()) >= 256)
-    // {
-    //     return;
-    // }
-
-    if (cutomPrimitveMasks[gScene.getCustomPrimitiveIndex(getGeometryInstanceID())] == 0)
+    if (useVoxelOpti)
     {
-        return;
+        if (cutomPrimitveMasks[gScene.getCustomPrimitiveIndex(getGeometryInstanceID())] == 0)
+        {
+            return;
+        }
     }
-    
 
+    
     SDF_GeometryAttributes attr2 = {};
     ReportHit(1, 0, attr2);
     return;
