@@ -144,37 +144,38 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
         sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);
 
-       /* auto cube_mesh = TriangleMesh::createCube(float3(30, 170, 30));
-        cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertian);*/
+        auto cube_mesh = TriangleMesh::createCube(float3(Metrics::WALLDIST / 4.f,
+            Metrics::WALLDIST * 2.5f, Metrics::WALLDIST / 4.f));
+        cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertianCube);
 
-        //auto node = SceneBuilder::Node();
-        //const std::string name = "Cube ";
-        //node.name = name;
-        //auto transform = Transform();
-        //transform.setTranslation(float3(0, 0, 0));
-        //transform.setRotationEuler(float3(35.f, 0.f, 0.f));
-        //transform.setScaling(float3(1, 1, 1));
-        //node.transform = transform.getMatrix();
-        //const auto node_id = scene_builder_->addNode(node);
+        auto node = SceneBuilder::Node();
+        const std::string name = "Cube ";
+        node.name = name;
+        auto transform = Transform();
+        transform.setTranslation(float3(0, 0, 0));
+        transform.setRotationEuler(float3(35.f, 0.f, 0.f));
+        transform.setScaling(float3(1, 1, 1));
+        node.transform = transform.getMatrix();
+        const auto node_id = scene_builder_->addNode(node);
 
-        // // Add Mesh Instances
-        //scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+         // Add Mesh Instances
+        scene_builder_->addMeshInstance(node_id, cube_mesh_id);
 
-        //auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
-        //plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
+        auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
+        plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
 
-        //auto node_p = SceneBuilder::Node();
-        //const std::string name_p = "Plane";
-        //node_p.name = name;
-        //auto transform_p = Transform();
-        //transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
-        //transform_p.setRotationEuler(float3(0, 0.f, 0.f));
-        //transform_p.setScaling(float3(1, 1, 1));
-        //node_p.transform = transform_p.getMatrix();
-        //const auto node_id_p = scene_builder_->addNode(node_p);
+        auto node_p = SceneBuilder::Node();
+        const std::string name_p = "Plane";
+        node_p.name = name;
+        auto transform_p = Transform();
+        transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
+        transform_p.setRotationEuler(float3(0, 0.f, 0.f));
+        transform_p.setScaling(float3(1, 1, 1));
+        node_p.transform = transform_p.getMatrix();
+        const auto node_id_p = scene_builder_->addNode(node_p);
 
-        //// Add Mesh Instances
-        //scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
+        // Add Mesh Instances
+        scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
     }
 
 
@@ -218,44 +219,44 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
         int primIndex = 0;
 
-        for (int x = 0; x < Metrics::voxelGridResolution[0]; ++x)
-        {
-            for (int y = 0; y < Metrics::voxelGridResolution[1]; ++y)
-            {
-                for (int z = 0; z < Metrics::voxelGridResolution[2]; ++z)
-                {
-                    float3 center = float3(
-                        -Metrics::WALLDIST + (x + 0.5f) * cellSize.x,
-                        -Metrics::WALLDIST + (y + 0.5f) * cellSize.y,
-                        -Metrics::WALLDIST + (z + 0.5f) * cellSize.z
-                    );
+        //for (int x = 0; x < Metrics::voxelGridResolution[0]; ++x)
+        //{
+        //    for (int y = 0; y < Metrics::voxelGridResolution[1]; ++y)
+        //    {
+        //        for (int z = 0; z < Metrics::voxelGridResolution[2]; ++z)
+        //        {
+        //            float3 center = float3(
+        //                -Metrics::WALLDIST + (x + 0.5f) * cellSize.x,
+        //                -Metrics::WALLDIST + (y + 0.5f) * cellSize.y,
+        //                -Metrics::WALLDIST + (z + 0.5f) * cellSize.z
+        //            );
 
-                    float3 min = center - float3(halfSize);
-                    float3 max = center + float3(halfSize);
-                    AABB box(min, max);
+        //            float3 min = center - float3(halfSize);
+        //            float3 max = center + float3(halfSize);
+        //            AABB box(min, max);
 
-                    // Add the AABB with a unique ID (must not conflict with other primitives)
-                    scene_builder_->addCustomPrimitive(primIndex, box);
+        //            // Add the AABB with a unique ID (must not conflict with other primitives)
+        //            scene_builder_->addCustomPrimitive(primIndex, box);
 
-                    // Step 2 — Create and add node
-                    auto node = SceneBuilder::Node();
-                    node.name = "AABB_Cell_" + std::to_string(primIndex);
+        //            //// Step 2 — Create and add node
+        //            //auto node = SceneBuilder::Node();
+        //            //node.name = "AABB_Cell_" + std::to_string(primIndex);
 
-                    // Set transform (here: identity, since AABB is already in world space)
-                    auto transform = Transform();
-                    transform.setTranslation(center);
-                    transform.setRotationEulerDeg(float3(0));
-                    transform.setScaling(float3(1));
+        //            //// Set transform (here: identity, since AABB is already in world space)
+        //            //auto transform = Transform();
+        //            //transform.setTranslation(center);
+        //            //transform.setRotationEulerDeg(float3(0));
+        //            //transform.setScaling(float3(1));
 
-                    node.transform = transform.getMatrix();
+        //            //node.transform = transform.getMatrix();
 
-                    // Associate the node with the primitive
-                    scene_builder_->addNode(node);
+        //            //// Associate the node with the primitive
+        //            //scene_builder_->addNode(node);
 
-                    primIndex++;
-                }
-            }
-        }
+        //            primIndex++;
+        //        }
+        //    }
+        //}
 
         cutomPrimitveMasks = make_ref<Buffer>(
             device_,
@@ -267,22 +268,22 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
             false
         );
 
-        //const AABB fluid_AABB = AABB(float3(-1), float3(1));
-        ////AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+        const AABB fluid_AABB = AABB(float3(-1), float3(1));
+        //AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
 
-        //fluid_transform = Transform();
-        //fluid_transform.setTranslation(translation);
-        //fluid_transform.setRotationEulerDeg(rotation);
-        //fluid_transform.setScaling(scale);
+        fluid_transform = Transform();
+        fluid_transform.setTranslation(translation);
+        fluid_transform.setRotationEulerDeg(rotation);
+        fluid_transform.setScaling(scale);
 
-        //const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
-        //scene_builder_->addCustomPrimitive(fluid_AABB_ID, transformed_aabb);
+        const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
+        scene_builder_->addCustomPrimitive(fluid_AABB_ID, transformed_aabb);
 
-        //auto fluid_node = SceneBuilder::Node();
-        //fluid_node.name = "RaymarchingNode";
+        auto fluid_node = SceneBuilder::Node();
+        fluid_node.name = "RaymarchingNode";
 
-        //fluid_node.transform = fluid_transform.getMatrix();
-        //raymarching_node_id = scene_builder_->addNode(fluid_node);
+        fluid_node.transform = fluid_transform.getMatrix();
+        raymarching_node_id = scene_builder_->addNode(fluid_node);
     }
 
 
@@ -486,16 +487,14 @@ void Renderer::RenderFrame(
 
     cutomPrimitveMasks->setBlob(masks.data(), 0, masks.size() * sizeof(uint32_t));
 
-    //std::cout << "COUNT: " << scene_->getCustomPrimitiveCount() << '\n';
+    if (!useMarchingCubes)
+    {
+        const AABB fluid_AABB = AABB(float3(-1), float3(1));
+        //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+        const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
 
-    //if (!useMarchingCubes)
-    //{
-    //    const AABB fluid_AABB = AABB(float3(-1), float3(1));
-    //    //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
-    //    const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
-
-    //    scene_->updateCustomPrimitive(0, transformed_aabb);
-    //}
+        scene_->updateCustomPrimitive(0, transformed_aabb);
+    }
 
      const auto compute_var = compute_density_map_pass_->getRootVar();
      compute_var["bodies"] = bodies;
@@ -682,6 +681,12 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
         Metrics::densityGraphicsMultiplier);
     app_gui_window->var("volumeValueOffset", volumeValueOffset, 0.f, 100.f);
     app_gui_window->var("DensityRayMarchMultiplier", DensityRayMarchMultiplier);
+    app_gui_window->checkbox("Draw Shadow ?", drawShadow);
+    if (drawShadow)
+    {
+        app_gui_window->var("shadowDensityMultiplier", shadowDensityMultiplier);
+    }
+    
     //app_gui_window->var("SphereRadius", SphereRadius, 0.f, 200.f);
 
     //app_gui_window->var("ISO Level", IsoLevel);
@@ -813,19 +818,27 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     rtProgDesc.addShaderModules(shaderModules);
     rtProgDesc.addShaderLibrary("Samples/3DFluidSimulationEngine/Renderer/shaders/Raytracing.rt.slang");
     rtProgDesc.addTypeConformances(typeConformances);
-    rtProgDesc.setMaxTraceRecursionDepth(10);
+    rtProgDesc.setMaxTraceRecursionDepth(6);
     rtProgDesc.setMaxPayloadSize(72); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
                                       // should be set as small as possible for maximum performance.
 
-    const ref<RtBindingTable> sbt = RtBindingTable::create(1, 1, scene_->getGeometryCount());
+    const ref<RtBindingTable> sbt = RtBindingTable::create(2, 2, scene_->getGeometryCount());
     sbt->setRayGen(rtProgDesc.addRayGen("rayGen"));
     sbt->setMiss(0, rtProgDesc.addMiss("miss"));
+    sbt->setMiss(1, rtProgDesc.addMiss("shadowMiss"));
 
     const auto primary = rtProgDesc.addHitGroup("closestHit", "");
     sbt->setHitGroup(0, scene_->getGeometryIDs(Scene::GeometryType::TriangleMesh), primary);
 
-    const auto raymarching_hit_group = rtProgDesc.addHitGroup("RaymarchingClosestHit", "", "RaymarchingIntersection");
+    const auto shadow = rtProgDesc.addHitGroup("", "shadowAnyHit");
+    sbt->setHitGroup(1, scene_->getGeometryIDs(Scene::GeometryType::TriangleMesh), shadow);
+
+    const auto raymarching_hit_group = rtProgDesc.addHitGroup(
+        "RaymarchingClosestHit", "", "RaymarchingIntersection");
     sbt->setHitGroup(0, scene_->getGeometryIDs(Scene::GeometryType::Custom), raymarching_hit_group);
+
+    const auto shadowFluid = rtProgDesc.addHitGroup("", "shadowAnyHitFluid", "RaymarchingIntersection");
+    sbt->setHitGroup(1, scene_->getGeometryIDs(Scene::GeometryType::Custom), shadowFluid);
 
     rt_program_ = Program::create(device_, rtProgDesc, defines);
     rt_program_vars_ = RtProgramVars::create(device_, rt_program_, sbt);
@@ -998,6 +1011,8 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
 
     var["PerFrameCB"]["drawFluid"] = draw_fluid_;
     var["PerFrameCB"]["lightScattering"] = lightScattering;
+    var["PerFrameCB"]["shadowDensityMultiplier"] = shadowDensityMultiplier;
+    var["PerFrameCB"]["drawShadow"] = drawShadow;
 
     var["PerFrameCB"]["backgroundColor"] = bg_clear_color;
 

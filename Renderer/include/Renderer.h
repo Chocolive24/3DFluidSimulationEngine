@@ -143,6 +143,9 @@ private:
 
     //ref<Material> dielectric_blue;
 public:
+    float shadowDensityMultiplier = 1.f;
+    bool drawShadow = true;
+
     float DensityRayMarchMultiplier = 0.05f;
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.1f;

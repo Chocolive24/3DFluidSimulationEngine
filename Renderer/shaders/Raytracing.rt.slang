@@ -86,6 +86,9 @@ cbuffer PerFrameCB
     bool useVoxelOpti;
     bool debugVoxelGrid;
     uint voxelGridTotalResolution;
+
+    float shadowDensityMultiplier;
+    bool drawShadow;
 };
 
 
@@ -107,6 +110,12 @@ struct PrimaryRayData
     uint depth = 0;
     float hitT = -1.f;
     float absorptionDistance = 0.f;
+};
+
+struct ShadowRayData
+{
+    float3 color; 
+    bool hit;
 };
 
 struct CubeHitInfo
@@ -293,9 +302,21 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 
         float4 baseColor = gScene.materials.sampleTexture(textureHandle, linearClampSampler, sd.uv, baseColorFactor, lod);
 
-        hitData.color = float4(baseColor.rgb, 1.0);
-        
-        hitData.color = baseColor;
+        RayDesc shadowRay;
+        shadowRay.Origin = sd.posW;
+        shadowRay.Direction = -lightDir;
+        shadowRay.TMin = 0.001f;
+        shadowRay.TMax = 10000.f;
+
+        float4 finalColor = baseColor;
+
+        if (drawShadow)
+        {
+            ShadowRayData shadowRaydata = traceShadowRay(shadowRay);
+            finalColor = baseColor * float4(shadowRaydata.color, 1.f);;
+        }
+
+        hitData.color = finalColor;
         hitData.hitT = RayTCurrent();
         hitData.absorptionDistance = 0;
         return;
@@ -416,7 +437,8 @@ SurfaceInfo FindNextSurface(float3 origin, float3 rayDir, bool findNextFluidEntr
     bool hasEnteredFluid = false;
     float3 lastPosInFluid = origin;
 
-    float dstToTest = boundsDstInfo[1] - (TinyNudge) * 2;
+    float dstToTest = boundsDstInfo[1] - (TinyNudge)*2;
+    //float dstToTest = 7.5f;
 
     for (float dst = 0; dst < dstToTest; dst += stepSize)
     {
@@ -1370,9 +1392,9 @@ void RaymarchingIntersection()
     }
 
     
-    SDF_GeometryAttributes attr2 = {};
-    ReportHit(1, 0, attr2);
-    return;
+    // SDF_GeometryAttributes attr2 = {};
+    // ReportHit(1, 0, attr2);
+    // return;
 
     float3 rayOrigin = WorldRayOrigin();
     float3 rayDir = normalize(WorldRayDirection());
@@ -1594,6 +1616,41 @@ void RaymarchingIntersection()
 
 //     prevDensity = currDensity;
 // }
+
+[shader("miss")]
+void shadowMiss(inout ShadowRayData hitData)
+{
+    hitData.hit = false;
+}
+
+[shader("anyhit")]
+void shadowAnyHit(inout ShadowRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
+{
+    hitData.hit = true;
+}
+
+[shader("anyhit")]
+void shadowAnyHitFluid(inout ShadowRayData hitData, in SDF_GeometryAttributes attribs)
+{
+    // if (attribs.isInsideFluid)
+    // {
+    //     hitData.hit = false;
+    //     return;
+    // }
+
+    hitData.hit = true;
+    float density = CalculateDensityAlongRay(WorldRayOrigin(), WorldRayDirection(), sunLightMarchSize);
+    hitData.color = Transmittance(density * shadowDensityMultiplier);
+}
+
+ShadowRayData traceShadowRay(RayDesc ray)
+{
+    ShadowRayData rayData;
+    rayData.hit = false;
+    rayData.color = float3(1, 1, 1); 
+    TraceRay(gScene.rtAccel, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, 1, rayTypeCount, 1, ray, rayData);
+    return rayData;
+}
 
 // Ray generation (just a simple ray going through the scene)
 [shader("raygeneration")]
