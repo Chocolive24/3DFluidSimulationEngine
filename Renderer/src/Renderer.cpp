@@ -825,7 +825,7 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     rtProgDesc.addShaderLibrary("Samples/3DFluidSimulationEngine/Renderer/shaders/Raytracing.rt.slang");
     rtProgDesc.addTypeConformances(typeConformances);
     rtProgDesc.setMaxTraceRecursionDepth(6);
-    rtProgDesc.setMaxPayloadSize(72); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
+    rtProgDesc.setMaxPayloadSize(36); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
                                       // should be set as small as possible for maximum performance.
 
     const ref<RtBindingTable> sbt = RtBindingTable::create(2, 2, scene_->getGeometryCount());

@@ -105,11 +105,11 @@ struct PrimaryRayData
 {
     float4 color = float4(0, 0, 0, 0);
     float3 transmittance = float3(1, 1, 1);
-    float3 debugNormal;
-    float2 uv = float2(0, 0);
+    // float3 debugNormal;
+    // float2 uv = float2(0, 0);
     uint depth = 0;
     float hitT = -1.f;
-    float absorptionDistance = 0.f;
+    //float absorptionDistance = 0.f;
 };
 
 struct ShadowRayData
@@ -247,7 +247,7 @@ void miss(inout PrimaryRayData hitData)
     // hitData.color = hasHit ? float4(0.1, 0.3, 0.8, 1.0) : float4(envColor, 1.f);
     hitData.color = float4(envColor, 1.f);
     hitData.hitT = -1.f;
-    hitData.absorptionDistance = 0;
+    //hitData.absorptionDistance = 0;
 }
 
 [shader("closesthit")]
@@ -321,7 +321,7 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 
         hitData.color = finalColor;
         hitData.hitT = RayTCurrent();
-        hitData.absorptionDistance = 0;
+        //hitData.absorptionDistance = 0;
         return;
     }
 
@@ -368,11 +368,11 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
         PrimaryRayData reflectedRayData = {};
         reflectedRayData.depth = hitData.depth + 1;
         reflectedRayData.hitT = 0;
-        reflectedRayData.absorptionDistance = hitData.absorptionDistance;
+        //reflectedRayData.absorptionDistance = hitData.absorptionDistance;
         TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, reflectRay, reflectedRayData);
 
         reflectedColor = reflectedRayData.color;
-        absorptionTotalDistance = reflectedRayData.absorptionDistance;
+        //absorptionTotalDistance = reflectedRayData.absorptionDistance;
 
         // If we are in a TiR case, the next reflection ray will be inside the medium. 
         // That's why we add its distance to the total absorption distance.
@@ -395,11 +395,11 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
         PrimaryRayData refractedRayData = {};
         refractedRayData.depth = hitData.depth + 1;
         refractedRayData.hitT = 0.f;
-        refractedRayData.absorptionDistance = hitData.absorptionDistance;
+        //refractedRayData.absorptionDistance = hitData.absorptionDistance;
         TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, refractRay, refractedRayData);
 
         refractedColor = refractedRayData.color;
-        absorptionTotalDistance = refractedRayData.absorptionDistance;
+        //absorptionTotalDistance = refractedRayData.absorptionDistance;
     }
 
     // If the current ray is inside the medium, add its distance to the total absorb distance.
@@ -408,7 +408,7 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
         absorptionTotalDistance += currentRayDistance;
     }
 
-    hitData.absorptionDistance = absorptionTotalDistance;
+    //hitData.absorptionDistance = absorptionTotalDistance;
 
     // Apply Beer's Law attenuation
     float3 absorb = exp(-absorptionCoeff * absorptionTotalDistance);
@@ -737,7 +737,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
 
         if (dot(normal, rayDir) > 0) normal = -normal;
 
-        if (debugNormals) hitData.debugNormal = normal;
+        //if (debugNormals) hitData.debugNormal = normal;
 
         float iorA = travellingThroughFluid ? IoR : 1.0f;
         float iorB = travellingThroughFluid ? 1.0f : IoR;
@@ -776,7 +776,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
                               * (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
 
         bounceResult.transmittance = pathTransmittance;
-        bounceResult.absorptionDistance = attribs.densityAlongRay;
+        //bounceResult.absorptionDistance = attribs.densityAlongRay;
 
         float3 nextRayDir = traceRefractedRay ? lightResponse.refractDir : lightResponse.reflectDir;
 
@@ -796,7 +796,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
             light += bounceResult.color.rgb
                * Transmittance(densityThisSegment); // Apply Beer's Law for the current segment
 
-            debugNormal = bounceResult.debugNormal;
+            //debugNormal = bounceResult.debugNormal;
             hitData.transmittance = bounceResult.transmittance;
         }
         else
@@ -815,9 +815,10 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes 
         hitData.hitT = RayTCurrent();
         return;
     }
-    else 
+    else
     {
-        uint rngState = (uint)(hitData.uv.x * 1243 + hitData.uv.y * 96456);
+        // uint rngState = (uint)(hitData.uv.x * 1243 + hitData.uv.y * 96456);
+        uint rngState = 1;
 
         Ray ray;
         ray.origin = WorldRayOrigin();
@@ -1669,7 +1670,7 @@ void rayGen()
     PrimaryRayData hitData;
     hitData.color = float4(0.f, 0.f, 0.f, 0.f);
     hitData.depth = 0;
-    hitData.uv = uv;
+    //hitData.uv = uv;
     TraceRay(gScene.rtAccel, RAY_FLAG_NONE /*rayFlags*/, 0xFF, /*Test all Geometry*/ 0 /* ray index*/, rayTypeCount, 0, ray, hitData);
 
     gOutput[launchIndex.xy] = hitData.color;
