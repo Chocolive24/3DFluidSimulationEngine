@@ -24,23 +24,23 @@ namespace Metrics // Meter in physical world != meter irl
     constexpr int Width = MetersToPixels(19.20f);
     constexpr int Height = MetersToPixels(10.80f);
 
-    inline int NbParticles = 10'000;
-    
+    //inline int NbParticles = 1'000;
+    //
+    //static constexpr float WALLSIZE = Metrics::MetersToPixels(0.25f);
+    //static constexpr float WALLDIST = Metrics::MetersToPixels(0.3f);
+    //static float PARTICLESIZE = SPH::SmoothingRadius * 0.5f;
+    ////static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
+    //static constexpr float PARTICLESPACING = Metrics::MetersToPixels(0.05f);
+
+    constexpr inline int NbParticles = 10'000;
+
     static constexpr float WALLSIZE = Metrics::MetersToPixels(0.25f);
     static constexpr float WALLDIST = Metrics::MetersToPixels(0.3f);
     static float PARTICLESIZE = SPH::SmoothingRadius * 0.5f;
     //static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
-    static constexpr float PARTICLESPACING = Metrics::MetersToPixels(0.05f);
-
-  /*  inline int NbParticles = 40'000;
-
-    static constexpr float WALLSIZE = Metrics::MetersToPixels(0.25f);
-    static constexpr float WALLDIST = Metrics::MetersToPixels(0.3f);
-    static float PARTICLESIZE = SPH::SmoothingRadius * 0.5f;*/
-    // static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
 
 
-    inline float densityGraphicsMultiplier = 100.f;
+    inline float densityGraphicsMultiplier = 5.f;
     inline int density_map_size = 150;
     inline float sim_bounds = (WALLDIST) * 2.f;
     inline float voxelSize = sim_bounds / float(density_map_size);

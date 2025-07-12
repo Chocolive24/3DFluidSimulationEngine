@@ -54,6 +54,9 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     ref<Material> lambertianTexture = StandardMaterial::create(device_, "LambertianTexture");
     auto texture = Texture::createFromFile(device_,
         "data/images/CheckerTile_BaseColor.png", true, false);
+ /*   auto texture = Texture::createFromFile(device_,
+        "Samples/3DFluidSimulationEngine/data/images/CheckerTile_BaseColor.png",
+        true, false);*/
     lambertianTexture->toBasicMaterial()->setBaseColorTexture(texture);
     lambertianTexture->setRoughnessMollification(1.f);
     lambertianTexture->setIndexOfRefraction(0.f);
@@ -286,28 +289,14 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         raymarching_node_id = scene_builder_->addNode(fluid_node);
     }
 
-
-    //auto sdf = SDFSVS::create(device_);
-    //sdf->generateCheeseValues(64, 0);
-    //scene_builder_->addSDFGrid(sdf, lambertian);
-
-    //auto node = SceneBuilder::Node();
-    //node.name = "Cube Density Map Size";
-    //auto transform = Transform();
-    //transform.setTranslation(float3(0.f, 0.f, 0));
-    //transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    //transform.setScaling(float3(1, 1.f, 1.f));
-    //node.transform = transform.getMatrix();
-    //auto node_id = scene_builder_->addNode(node);
-
- /*   auto envMap = EnvMap::createFromFile(device_,
-        "Samples/3DFluidSimulationEngine/data/images/hallstatt4_hd.hdr");*/
+    //auto envMap = EnvMap::createFromFile(device_,
+    //    "Samples/3DFluidSimulationEngine/data/images/hallstatt4_hd.hdr");
     auto envMap = EnvMap::createFromFile(device_, "data/images/hallstatt4_hd.hdr");
     envMap->setIntensity(1.0);
     scene_builder_->setEnvMap(envMap);
 
     ref<Camera> camera = ref<Camera>(new Camera("Camera"));
-    camera->setPosition(float3(0, 0.0, -250));
+    camera->setPosition(float3(0, 0.0, -100));
     camera->setTarget(float3(0, 0.0, 0));
     camera->setUpVector(float3(0, 1, 0));
     camera->setFocalLength(35);
@@ -485,16 +474,22 @@ void Renderer::RenderFrame(
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
 
-    cutomPrimitveMasks->setBlob(masks.data(), 0, masks.size() * sizeof(uint32_t));
-
     if (!useMarchingCubes)
     {
+        FALCOR_PROFILE(pRenderContext, "Reset raymarching custom primitve masks");
+
+        cutomPrimitveMasks->setBlob(masks.data(), 0, masks.size() * sizeof(uint32_t));
+
+        FALCOR_PROFILE(pRenderContext, "Update Raymarching custom primitve transformation");
+
         const AABB fluid_AABB = AABB(float3(-1), float3(1));
         //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
         const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
 
         scene_->updateCustomPrimitive(0, transformed_aabb);
     }
+
+     FALCOR_PROFILE(pRenderContext, "Compute DensityMap Pass");
 
      const auto compute_var = compute_density_map_pass_->getRootVar();
      compute_var["bodies"] = bodies;
@@ -547,12 +542,12 @@ void Renderer::RenderFrame(
     {
         LaunchMarchingCubeComputePasses(pRenderContext);
 
-        pRenderContext->copyResource(b_pos_readback.get(), b_pos.get());
-        // pRenderContext->copyResource(b_norm_readback.get(), b_normal.get());
+        //pRenderContext->copyResource(b_pos_readback.get(), b_pos.get());
+        //pRenderContext->copyResource(b_norm_readback.get(), b_normal.get());
         // pRenderContext->copyResource(b_tang_readback.get(), b_tang.get());
         // pRenderContext->copyResource(b_uv_readback.get(), b_uv.get());
 
-        const float3* poses = static_cast<const float3*>(b_pos_readback->map());
+        //const float3* poses = static_cast<const float3*>(b_pos_readback->map());
         // const float3* normals = static_cast<const float3*>(b_norm_readback->map());
         // const float3* tangents = static_cast<const float3*>(b_tang_readback->map());
         // const float2* uvs = static_cast<const float2*>(b_uv_readback->map());
@@ -579,22 +574,31 @@ void Renderer::RenderFrame(
            b_tang->unmap();
            b_uv->unmap();*/
 
-        if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
-        {
-            std::cout << b_pos->getElementCount() << '\n';
-            std::cout << scene_->getMesh(tri_id).getVertexCount() << '\n';
-            std::cout << scene_->getMesh(sphere_mesh_id).getVertexCount() << '\n';
-            std::cout << "BUG VERTEX COUNT AND B_POS\n";
-            std::exit(666);
-        }
+        //if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
+        //{
+        //    std::cout << b_pos->getElementCount() << '\n';
+        //    std::cout << scene_->getMesh(tri_id).getVertexCount() << '\n';
+        //    std::cout << scene_->getMesh(sphere_mesh_id).getVertexCount() << '\n';
+        //    std::cout << "BUG VERTEX COUNT AND B_POS\n";
+        //    std::exit(666);
+        //}
 
         /*if (triangleCount != oldTriangleCount)
         {
             scene_->setMeshVertices(tri_id, vertices);
         }*/
 
-        scene_->setMeshVertices(tri_id, vertices);
+        /*static bool tamere = false;
+        if (tamere)
+        {
+            scene_->setMeshVertices(tri_id, vertices);
+            tamere = true;
+        }*/
+
+         scene_->setMeshVertices(tri_id, vertices);
     }
+
+    FALCOR_PROFILE(pRenderContext, "Update Scene");
 
     //std::cout << "Before scene update\n";
     IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
@@ -620,6 +624,8 @@ void Renderer::RenderFrame(
 
  /*   FALCOR_ASSERT(scene_);
     FALCOR_PROFILE(pRenderContext, "renderRT");*/
+
+    FALCOR_PROFILE(pRenderContext, "Render Raytracing Pass");
 
     setPerFrameVariables(currentTime);
 
@@ -689,7 +695,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     
     //app_gui_window->var("SphereRadius", SphereRadius, 0.f, 200.f);
 
-    //app_gui_window->var("ISO Level", IsoLevel);
+    app_gui_window->var("ISO Level", IsoLevel);
     app_gui_window->var("normalOffset", normalOffset);
 
     app_gui_window->checkbox("useVoxelOpti", useVoxelOpti);

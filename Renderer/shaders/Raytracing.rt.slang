@@ -26,7 +26,7 @@
  # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  **************************************************************************/
 //#pragma add - search - path "Samples/Raytracing" // or wherever your SDF module is
-import SDF_Functions;
+//import SDF_Functions;
 
 import Scene.Raytracing;
 import Utils.Sampling.TinyUniformSampleGenerator;
@@ -191,52 +191,52 @@ float PhaseHG(float cosTheta, float g) {
     return (1.0 - g * g) / (4.0 * 3.1415926538 * pow(denom, 1.5));
 }
 
-float3 CalculateTransmittedSunLightAtPos(float3 position)
-{
-    float3 transmittedSunLight = lightColor;
-    for (float sun_t = 0.f; sun_t < maxLighMarchingDistance; sun_t += sunLightMarchSize)
-    {
-        float3 posAlongSunRay = position + (-lightDir) * sun_t;
-        bool isInVolume = map(posAlongSunRay, waterTurbulence, time, iFrame) < 0.001f;
+// float3 CalculateTransmittedSunLightAtPos(float3 position)
+// {
+//     float3 transmittedSunLight = lightColor;
+//     for (float sun_t = 0.f; sun_t < maxLighMarchingDistance; sun_t += sunLightMarchSize)
+//     {
+//         float3 posAlongSunRay = position + (-lightDir) * sun_t;
+//         bool isInVolume = map(posAlongSunRay, waterTurbulence, time, iFrame) < 0.001f;
 
-        if (isInVolume)
-        {
-            transmittedSunLight *= exp(-absorptionCoeff * sunLightMarchSize);
-        }
-    }
+//         if (isInVolume)
+//         {
+//             transmittedSunLight *= exp(-absorptionCoeff * sunLightMarchSize);
+//         }
+//     }
 
-    return transmittedSunLight;
-}
+//     return transmittedSunLight;
+// }
 
-float3 CalculateTransmittanceRaymarching(SDF_GeometryAttributes attribs, float3 rayDir)
-{
-    float3 totalLight = float3(0.f, 0.f, 0.f);
-    float3 transmittance = float3(1.f, 1.f, 1.f);
+// float3 CalculateTransmittanceRaymarching(SDF_GeometryAttributes attribs, float3 rayDir)
+// {
+//     float3 totalLight = float3(0.f, 0.f, 0.f);
+//     float3 transmittance = float3(1.f, 1.f, 1.f);
 
-    for (float t = 0.f; t < maxRaymarchingDistance; t += marchSize)
-    {
-        float3 position = attribs.pos + rayDir * t;
-        bool isInVolume = map(position, waterTurbulence, time, iFrame) < 0.001f;
+//     for (float t = 0.f; t < maxRaymarchingDistance; t += marchSize)
+//     {
+//         float3 position = attribs.pos + rayDir * t;
+//         bool isInVolume = map(position, waterTurbulence, time, iFrame) < 0.001f;
 
-        if (isInVolume)
-        {
-            float3 transmittedSunLight = CalculateTransmittedSunLightAtPos(position);
+//         if (isInVolume)
+//         {
+//             float3 transmittedSunLight = CalculateTransmittedSunLightAtPos(position);
 
-            float cosTheta = dot(lightDir, -rayDir);
-            float phase = PhaseHG(cosTheta, phaseG);
-            float3 scattered = transmittedSunLight * phase * scatteringCoeff;
+//             float cosTheta = dot(lightDir, -rayDir);
+//             float phase = PhaseHG(cosTheta, phaseG);
+//             float3 scattered = transmittedSunLight * phase * scatteringCoeff;
 
-            totalLight += scattered * transmittance * marchSize;
+//             totalLight += scattered * transmittance * marchSize;
 
-            transmittance *= exp(-absorptionCoeff * marchSize);
+//             transmittance *= exp(-absorptionCoeff * marchSize);
 
-            if (max(transmittance.r, max(transmittance.g, transmittance.b)) < 0.01f)
-                break;
-        }
-    }
+//             if (max(transmittance.r, max(transmittance.g, transmittance.b)) < 0.01f)
+//                 break;
+//         }
+//     }
 
-    return totalLight;
-}
+//     return totalLight;
+// }
 
 // Miss shader
 [shader("miss")]
@@ -253,6 +253,9 @@ void miss(inout PrimaryRayData hitData)
 [shader("closesthit")]
 void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
 {
+    // hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
+    // return;
+
     // // Get the hit-point data.
     float3 rayDir = WorldRayDirection();
     float currentRayDistance = RayTCurrent();

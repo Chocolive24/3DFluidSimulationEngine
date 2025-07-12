@@ -353,27 +353,27 @@ cbuffer PerFrameCB
 //     DensityTexture[threadID] = mapValue;
 // }
 
-float sampleDensity(int3 position)
-{
-    // Bounds check
-    if (any(position < 0) || any(position >= textureSize))
-        return 1e6f; // Treat out-of-bounds as "far outside" the surface
-
-    int3 coord = max(0, min(position, textureSize));
-
-    return DensityTexture[coord];
-}
-
-// float SampleDensityMap(float3 pos)
+// float sampleDensity(int3 position)
 // {
-//     float3 uvw = (pos + simBounds * 0.5f) / simBounds;
+//     // Bounds check
+//     if (any(position < 0) || any(position >= textureSize))
+//         return 1e6f; // Treat out-of-bounds as "far outside" the surface
 
-//     const float epsilon = 0.0001f;
-//     bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
-//     if (isEdge) return -volumeValueOffset;
+//     int3 coord = max(0, min(position, textureSize));
 
-//     return DensityTexture.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+//     return DensityTexture[coord];
 // }
+
+float SampleDensityMap(float3 pos)
+{
+    float3 uvw = (pos + simBounds * 0.5f) / simBounds;
+
+    const float epsilon = 0.0001f;
+    bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
+    if (isEdge) return -volumeValueOffset;
+
+    return DensityTexture.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+}
 
 float SampleDensity(uint3 coord)
 {
@@ -646,4 +646,3 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
 //     //     // tri.vertexC = vertexC;
 //     //     // triangles.Append(tri);
 //     // }
-// }

@@ -356,6 +356,11 @@ void FluidApplication::SimulationStep(RenderContext* pRenderContext) {
 
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
+    if (getGlobalClock().getTime() > 7.f)
+    {
+        start_simul_ = true;
+    }
+
     if (regenrate_particles_)
     {
         pRenderContext->copyResource(bodies_buffer_.get(), regenrated_particles_.get());
@@ -390,6 +395,8 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
             fixed_timer_ -= kFixedDeltaTime;
             time_since_last_fixed_update_ = 0.f;
         }
+
+        //SimulationStep(pRenderContext);
     }
 
     if (!renderer_->useMarchingCubes)
@@ -510,40 +517,67 @@ void FluidApplication::renderPhysicsSampleGui()
         // sample_manager_.RegenerateSample();
 
         // std::cout << "regen\n";
-
         regenrate_particles_ = true;
-        std::vector<XMVECTOR> particlePositions;
+        std::vector<ParticleBody> particlePositions{NbParticles};
+        float spacing = SPH::SmoothingRadius * 0.8f; // ensures neighbor support
+        int particlesPerAxis = static_cast<int>((2 * WALLDIST) / spacing);
 
-        for (size_t i = 0; i < NbParticles;)
-        {
-            XMVECTOR pos = XMVectorSet(
-                Random::Range(-WALLDIST, WALLDIST * 0.2f),
-                Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
-                Random::Range(-WALLDIST, WALLDIST * 0.2f),
-                0.0f
-            );
+        int currentNbrParticles = 0;
 
-            bool overlaps = false;
-            for (const auto& existing : particlePositions)
-            {
-                if (XMVectorGetX(XMVector3LengthSq(pos - existing)) < (PARTICLESIZE * PARTICLESIZE * 4))
+        for (int x = 0; x < particlesPerAxis; ++x)
+            for (int y = 0; y < particlesPerAxis; ++y)
+                for (int z = 0; z < particlesPerAxis; ++z)
                 {
-                    overlaps = true;
-                    break;
-                }
-            }
+                    if (currentNbrParticles >= NbParticles)
+                        break;
 
-            if (!overlaps)
-            {
-                particlePositions.push_back(pos);
-                float x = XMVectorGetX(pos);
-                float y = XMVectorGetY(pos);
-                float z = XMVectorGetZ(pos);
-                /*particle_bodies_[i] = ParticleBody{};
-                particle_bodies_[i].Position = float3(x, y, z);*/
-                ++i;
-            }
-        }
+                    XMVECTOR pos = XMVectorSet(-WALLDIST + x * spacing, -WALLDIST + y * spacing, -WALLDIST + z * spacing, 0.0f);
+
+                    ParticleBody body{};
+
+                    float xp = XMVectorGetX(pos);
+                    float yp = XMVectorGetY(pos);
+                    float zp = XMVectorGetZ(pos);
+                    body.Position = float3(xp, yp, zp);
+                    particlePositions[currentNbrParticles] = body;
+
+                    currentNbrParticles++;
+                }
+
+        regenrated_particles_->setBlob(particlePositions.data(), 0, particlePositions.size() * sizeof(float3));
+
+        //std::vector<XMVECTOR> particlePositions;
+
+        //for (size_t i = 0; i < NbParticles;)
+        //{
+        //    XMVECTOR pos = XMVectorSet(
+        //        Random::Range(-WALLDIST, WALLDIST * 0.2f),
+        //        Random::Range(-WALLDIST * 0.8f, WALLDIST * 0.8f),
+        //        Random::Range(-WALLDIST, WALLDIST * 0.2f),
+        //        0.0f
+        //    );
+
+        //    bool overlaps = false;
+        //    for (const auto& existing : particlePositions)
+        //    {
+        //        if (XMVectorGetX(XMVector3LengthSq(pos - existing)) < (PARTICLESIZE * PARTICLESIZE * 4))
+        //        {
+        //            overlaps = true;
+        //            break;
+        //        }
+        //    }
+
+        //    if (!overlaps)
+        //    {
+        //        particlePositions.push_back(pos);
+        //        float x = XMVectorGetX(pos);
+        //        float y = XMVectorGetY(pos);
+        //        float z = XMVectorGetZ(pos);
+        //        /*particle_bodies_[i] = ParticleBody{};
+        //        particle_bodies_[i].Position = float3(x, y, z);*/
+        //        ++i;
+        //    }
+        //}
 
         // std::cout << "End regen\n";
     }

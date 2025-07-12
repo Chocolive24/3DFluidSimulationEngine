@@ -18,7 +18,7 @@ void WaterBathSample::DrawImgui() noexcept
     static int numParticles = NbParticles;
     if (ImGui::SliderInt("Number of Particles", &numParticles, 0, 10000))
     {
-        NbParticles = numParticles;
+        //NbParticles = numParticles;
     }
     if (ImGui::SliderFloat("Smoothing radius", &SPH::SmoothingRadius, 0.1f, 50.0f))
     {
@@ -77,6 +77,30 @@ void WaterBathSample::SampleSetUp() noexcept {
         //// Roof
         //CreateWall({0, WALLDIST + WALLSIZE, 0}, {-WALLDIST, -WALLSIZE, -WALLDIST}, {WALLDIST* 2, WALLSIZE, WALLDIST}, false);
 
+        //float cubeSize = 30; // Taille du cube sur chaque axe
+        //int particlesPerAxis = static_cast<int>(std::ceil(std::cbrt(NbParticles)));
+        //float spacing = cubeSize / static_cast<float>(particlesPerAxis);
+
+        //int currentNbrParticles = 0;
+
+        //for (int x = 0; x < particlesPerAxis; ++x)
+        //    for (int y = 0; y < particlesPerAxis; ++y)
+        //        for (int z = 0; z < particlesPerAxis; ++z)
+        //        {
+        //            if (currentNbrParticles >= NbParticles)
+        //                break;
+
+        //            float px = x * spacing;
+        //            float py = y * spacing;
+        //            float pz = z * spacing;
+
+        //            XMVECTOR pos = XMVectorSet(px, py, pz, 0.0f);
+        //            CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
+
+        //            currentNbrParticles++;
+        //        }
+
+
         float spacing = SPH::SmoothingRadius * 0.8f; // ensures neighbor support
         int particlesPerAxis = static_cast<int>((2 * WALLDIST) / spacing);
 
@@ -94,8 +118,6 @@ void WaterBathSample::SampleSetUp() noexcept {
                     CreateBall(pos, PARTICLESIZE, BodyType::FLUID);
                     currentNbrParticles++;
                 }
-
-        
 
         //for (size_t i = 0; i < NbParticles;)
         //{
@@ -249,6 +271,15 @@ void WaterBathSample::CreateBall(XMVECTOR position, float radius, BodyType type)
 	sphereBody.Mass = 1.f;//(type == BodyType::FLUID) ? 1 : 10;
 
 	sphereBody.Position = position;
+
+        
+        float x = Random::Range(-1, 1);
+        float y = Random::Range(-1, 1);
+        float z = Random::Range(-1, 1);
+
+        XMVECTOR vel = XMVectorSet(x, y, z, 0.0f);
+
+        sphereBody.Velocity = vel;
 
 	const auto sphereColRef = _world.CreateCollider(sphereBodyRef);
 	_colRefs.push_back(sphereColRef);

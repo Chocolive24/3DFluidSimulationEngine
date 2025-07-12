@@ -75,8 +75,8 @@ public:
     uint32_t fluid_AABB_ID = 1;
     ref<Buffer> cutomPrimitveMasks = nullptr;
     std::array<uint32_t, Metrics::voxelGridTotalResolution> masks{0};
-    bool useVoxelOpti = true;
-    bool debugVoxelGrid = true;
+    bool useVoxelOpti = false;
+    bool debugVoxelGrid = false;
     Transform fluid_transform;
     ref<RasterPass> raster_pass_;
 
@@ -151,7 +151,7 @@ public:
     float normalOffset = 0.1f;
 
     bool useMarchingCubes = false;
-    bool draw_fluid_ = false;
+    bool draw_fluid_ = true;
     bool lightScattering = false;
 
 
@@ -177,10 +177,10 @@ public:
     //float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
     int numPointsPerAxis = 64;
-    float IsoLevel = 0.f;
+    float IsoLevel = 0.1f;
     float SphereRadius = 15.f;
 
-    float3 bg_clear_color = float3(.2, 1, .1);
+    float3 bg_clear_color = float3(1, 1, 1);
 
     uint kMaxRayBounce = 3;
 

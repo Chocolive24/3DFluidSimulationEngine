@@ -2,7 +2,7 @@
 #include "Utility.h"
 namespace SPH {
 
-	inline float SmoothingRadius = 1.5;
+	inline float SmoothingRadius = 2.f;
 	inline float TargetDensity = 50;
 	inline float PressureMultiplier = 25;
 	inline float nearPressureMultiplier = 0.5;
