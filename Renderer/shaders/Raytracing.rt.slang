@@ -713,13 +713,13 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
 {
     float3 debugNormal;
 
-    if (debugVoxelGrid)
-    {
-        float3 color = float3(float(
-            gScene.getCustomPrimitiveIndex(getGeometryInstanceID())) / float(voxelGridTotalResolution));
-        hitData.color = float4(color, 1);
-        return;
-    }
+    // if (debugVoxelGrid)
+    // {
+    //     float3 color = float3(float(
+    //         gScene.getCustomPrimitiveIndex(getGeometryInstanceID())) / float(voxelGridTotalResolution));
+    //     hitData.color = float4(color, 1);
+    //     return;
+    // }
 
     if (useRecursiveRaytracing)
     {
@@ -1386,13 +1386,13 @@ void RaymarchingIntersection()
     if (!drawFluid)
         return;
 
-    if (useVoxelOpti)
-    {
-        if (cutomPrimitveMasks[gScene.getCustomPrimitiveIndex(getGeometryInstanceID())] == 0)
-        {
-            return;
-        }
-    }
+    // if (useVoxelOpti)
+    // {
+    //     if (cutomPrimitveMasks[gScene.getCustomPrimitiveIndex(getGeometryInstanceID())] == 0)
+    //     {
+    //         return;
+    //     }
+    // }
 
     
     // ImplicitGeometryAttributes attr2 = {};

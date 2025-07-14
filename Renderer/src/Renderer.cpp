@@ -837,7 +837,10 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     shaderModules.emplace_back(s_module);
     rtProgDesc.addShaderModules(shaderModules);
     rtProgDesc.addShaderLibrary("Samples/3DFluidSimulationEngine/Renderer/shaders/Raytracing.rt.slang");
-    rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo); // Ajoute le debug Slang uniquement en Debug
+    rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo | SlangCompilerFlags::DumpIntermediates); // Ajoute le debug Slang
+    std::vector<std::string> args{"-g"};
+    rtProgDesc.addCompilerArguments(args);
+
     rtProgDesc.addTypeConformances(typeConformances);
     rtProgDesc.setMaxTraceRecursionDepth(6);
     rtProgDesc.setMaxPayloadSize(36); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
