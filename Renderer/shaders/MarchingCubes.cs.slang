@@ -304,17 +304,7 @@ static const int lengths[256] = { 0,  3,  3,  6,  3,  6,  6,  9,  3,  6,  6,  9,
 
 struct Vertex {
     float3 position = float3(0.f, 0.f, 0.f);
-    //float pad0;
     float3 normal = float3(0.f, 0.f, 1.f);
-    // float pad1;
-    // float3 tangent = float3(0.f, 0.f, 1.f);
-    // float pad2;
-    // float2 texcrd = float2(0.f, 0.f);
-    // float pad3;
-    // float pad4;
-    //float pad0 = -1.f;
-    // float3 normal;
-    // int2 id;
 };
 
 struct Triangle {

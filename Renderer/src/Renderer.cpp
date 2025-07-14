@@ -99,39 +99,6 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
     //}
 
-    if (useMarchingCubes)
-    {
-        // 1) Buffer allocation
-        MaxTriangleCount =
-            static_cast<size_t>(5) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1);
-        MaxVertexCount = MaxTriangleCount * 3;
-        // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
-
-        TriangleMesh::Vertex vert{float3(10, 10, 10), float3(0, 0, 1), float2(0, 1)};
-        v.resize(MaxVertexCount, vert);
-
-        TriangleMesh::IndexList indices;
-        for (unsigned idx = 0; idx < MaxVertexCount; idx++)
-        {
-            indices.push_back(idx);
-        }
-
-        auto tri_mesh = TriangleMesh::create(v, indices);
-        tri_id = scene_builder_->addTriangleMesh(tri_mesh, dielectric_blue, true);
-
-        auto node_tri = SceneBuilder::Node();
-        auto tri_name = "Marhcing cube mesh " /* + std::to_string(i)*/;
-        node_tri.name = tri_name;
-        auto transform_tri = Transform();
-        transform_tri.setTranslation(float3(0, 0.f, 0.f));
-        transform_tri.setRotationEuler(float3(0.f, 0.f, 0.f));
-        transform_tri.setScaling(float3(1, 1, 1));
-        node_tri.transform = transform_tri.getMatrix();
-        auto tri_node_id = scene_builder_->addNode(node_tri);
-
-        scene_builder_->addMeshInstance(tri_node_id, tri_id);
-    }
-
     if (!useMarchingCubes && useRaymarching)
     {
         float3 voxelGridRes{Metrics::voxelGridResolution[0], Metrics::voxelGridResolution[1], Metrics::voxelGridResolution[2]};
@@ -245,15 +212,38 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     {
         if (useMarchingCubes)
         {
-            marching_cube_dens_tex = device_->createTexture3D(
-                Metrics::density_map_size,
-                Metrics::density_map_size,
-                Metrics::density_map_size,
-                ResourceFormat::R32Float,
-                1, // mips
-                nullptr,
-                ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource
-            );
+            if (useMarchingCubes)
+            {
+                // 1) Buffer allocation
+                MaxTriangleCount = static_cast<size_t>(5) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) *
+                                   (Metrics::density_map_size - 1);
+                MaxVertexCount = MaxTriangleCount * 3;
+                // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
+
+                TriangleMesh::Vertex vert{float3(10, 10, 10), float3(0, 0, 1), float2(0, 1)};
+                v.resize(MaxVertexCount, vert);
+
+                TriangleMesh::IndexList indices;
+                for (unsigned idx = 0; idx < MaxVertexCount; idx++)
+                {
+                    indices.push_back(idx);
+                }
+
+                auto tri_mesh = TriangleMesh::create(v, indices);
+                tri_id = scene_builder_->addTriangleMesh(tri_mesh, dielectric_blue, true);
+
+                auto node_tri = SceneBuilder::Node();
+                auto tri_name = "Marhcing cube mesh " /* + std::to_string(i)*/;
+                node_tri.name = tri_name;
+                auto transform_tri = Transform();
+                transform_tri.setTranslation(float3(0, 0.f, 0.f));
+                transform_tri.setRotationEuler(float3(0.f, 0.f, 0.f));
+                transform_tri.setScaling(float3(1, 1, 1));
+                node_tri.transform = transform_tri.getMatrix();
+                auto tri_node_id = scene_builder_->addNode(node_tri);
+
+                scene_builder_->addMeshInstance(tri_node_id, tri_id);
+            }
 
             // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
             marching_cubes_triangle_buffer_ = make_ref<Buffer>(
@@ -270,37 +260,24 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
             marching_cubes_pass_ =
                 ComputePass::create(device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ProcessCube");
 
-            /*compute_marching_cube_density_map_ = ComputePass::create(
-                device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ComputeDensityTexture"
-            );*/
-
             // A small readback buffer to fetch the append counter:
             read_back_triangle_buffer_ = make_ref<Buffer>(
                 device_, sizeof(MarchingCubesTriangle), MaxTriangleCount, ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
             );
 
-            std::vector<float3> positions;
-            std::vector<float3> normals;
-            std::vector<float3> tangents;
-            std::vector<float2> uv;
-            for (const auto& vertex : v)
-            {
-                // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
-                const auto new_Pos = vertex.position; // + float3(5, 1, 0);
-                positions.push_back(new_Pos);
-                normals.push_back(vertex.normal);
-                tangents.push_back(vertex.normal);
-                uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
-            }
-            // for (const auto& vertex : tri_mesh->getVertices())
+            std::vector<float3> positions(MaxVertexCount, float3(10, 10, 10));
+            std::vector<float3> normals(MaxVertexCount, float3(0, 0, 1));
+            std::vector<float3> tangents(MaxVertexCount, float3(0, 0, 1));
+            std::vector<float2> uv(MaxVertexCount, float2(0, 1));
+            //for (const auto& vertex : v)
             //{
-            //     // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
-            //     const auto new_Pos = vertex.position; // + float3(5, 1, 0);
-            //     positions.push_back(new_Pos);
-            //     normals.push_back(vertex.normal);
-            //     tangents.push_back(vertex.normal);
-            //     uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
-            // }
+            //    // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
+            //    const auto new_Pos = vertex.position; // + float3(5, 1, 0);
+            //    positions.push_back(new_Pos);
+            //    normals.push_back(vertex.normal);
+            //    tangents.push_back(vertex.normal);
+            //    uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
+            //}
 
             b_pos = make_ref<Buffer>(
                 device_,
