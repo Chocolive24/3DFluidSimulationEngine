@@ -109,7 +109,7 @@ struct PrimaryRayData
     // float2 uv = float2(0, 0);
     uint depth = 0;
     float hitT = -1.f;
-    //float absorptionDistance = 0.f;
+    float absorptionDistance = 0.f;
 };
 
 struct ShadowRayData
@@ -253,172 +253,135 @@ void miss(inout PrimaryRayData hitData)
 [shader("closesthit")]
 void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
 {
-    // hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
-    // return;
-
-    // // Get the hit-point data.
     float3 rayDir = WorldRayDirection();
-    float currentRayDistance = RayTCurrent();
+    float currentRayDistance = hitData.depth == 0 ? 0 : RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
 
-    // if (!drawFluid)
-    // {
-    //     hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
-    //     hitData.hitT = currentRayDistance;
-    //     hitData.absorptionDistance = 0;
-    //     return;
-    // }
+    if (!drawFluid)
+    {
+        hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
+        hitData.hitT = currentRayDistance;
+        hitData.absorptionDistance = 0;
+        return;
+    }
 
-    // if (hitData.depth >= maxRayBounce)
-    // {
-    //     float3 envColor = gScene.envMap.eval(WorldRayDirection(), 0);
-    //     hitData.color = float4(envColor, 1);
-    //     hitData.hitT = RayTCurrent();
-    //     hitData.absorptionDistance = hitData.hitT;
-    //     return;
-    // }
+    if (hitData.depth >= maxRayBounce)
+    {
+        float3 envColor = gScene.envMap.eval(rayDir, 0);
+        hitData.color = float4(envColor, 1);
+        hitData.hitT = currentRayDistance;
+        hitData.absorptionDistance = hitData.absorptionDistance + currentRayDistance;
+        return;
+    }
 
-    // Retrieve hit information
+    // --- Get intersection and shading data ---
     const GeometryInstanceID instanceID = getGeometryInstanceID();
     VertexData v = getVertexData(instanceID, triangleIndex, attribs);
-    float3 world_pos = v.posW;
-    float3 normal = v.normalW;
-
     uint materialID = gScene.getMaterialID(instanceID);
+
     ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDir);
-    float3 orientedFaceNormal = getFlippedShadingNormal(sd);
+    float3 normal = getFlippedShadingNormal(sd); // Always points against the incident ray
 
-    // Create material instance and query its properties.
-    let lod = ExplicitLodTextureSampler(0.f);
-    let mi = gScene.materials.getMaterialInstance(sd, lod);
-    let bsdfProperties = mi.getProperties(sd);
+    // hitData.color = sd.frontFacing ? float4(0, 1, 0, 1) : float4(1, 0, 0, 1);
+    // return;
 
-    if (gScene.materials.evalIoR(sd.materialID) < 1.f)
+    // Handle non-dielectric materials (fallback to base color texture with optional shadows)
+    float matIoR = gScene.materials.evalIoR(sd.materialID);
+    if (matIoR < 1.01f) // Considered non-refractive
     {
-        // Étape 1 : Récupération des UVs
-        float2 uv = sd.uv;
-
         BasicMaterialData matData = gScene.materials.getBasicMaterialData(materialID);
-
-        TextureHandle textureHandle = matData.texBaseColor;
-        float4 baseColorFactor = matData.baseColor;
-
-        float4 baseColor = gScene.materials.sampleTexture(textureHandle, linearClampSampler, sd.uv, baseColorFactor, lod);
-
-        RayDesc shadowRay;
-        shadowRay.Origin = sd.posW;
-        shadowRay.Direction = -lightDir;
-        shadowRay.TMin = 0.001f;
-        shadowRay.TMax = 10000.f;
+        float4 baseColor = gScene.materials.sampleTexture(
+            matData.texBaseColor, linearClampSampler, sd.uv, matData.baseColor, ExplicitLodTextureSampler(0) );
 
         float4 finalColor = baseColor;
 
         if (drawShadow)
         {
-            ShadowRayData shadowRaydata = traceShadowRay(shadowRay);
-            finalColor = baseColor * float4(shadowRaydata.color, 1.f);;
+            RayDesc shadowRay;
+            shadowRay.Origin = sd.posW;
+            shadowRay.Direction = -lightDir;
+            shadowRay.TMin = 0.001f;
+            shadowRay.TMax = 10000.f;
+
+            ShadowRayData shadowData = traceShadowRay(shadowRay);
+            finalColor *= float4(shadowData.color, 1.f);
         }
 
         hitData.color = finalColor;
-        hitData.hitT = RayTCurrent();
-        //hitData.absorptionDistance = 0;
+        hitData.hitT = currentRayDistance;
+        hitData.absorptionDistance = hitData.absorptionDistance + currentRayDistance;;
         return;
     }
 
-    // 1. Compute Fresnel reflectance
-    float etaI = sd.IoR; // Incident IoR (Air by default).
-    float etaT = gScene.materials.evalIoR(sd.materialID); // Tranmission IoR (the one from the medium).
+    // --- Dielectric material: reflection + refraction ---
+    float etaI = 1.0f; // air
+    float etaT = matIoR;
     float eta = sd.frontFacing ? etaI / etaT : etaT / etaI;
 
-    float F0 = pow((etaI - etaT) / (etaI + etaT), 2.0);
-    float F90 = 1.f;
-    float cosTheta = max(0.00001f, dot(getFlippedShadingNormal(sd), -rayDir));
-    float reflectionRatio = evalFresnelSchlick(F0, F90, cosTheta);
-    float refractionRatio = 1.f - reflectionRatio;
+    float cosTheta = clamp(dot(normal, -rayDir), 0.00001f, 1.0f);
+    float F0 = pow((etaI - etaT) / (etaI + etaT), 2.0f);
+    float reflectionRatio = evalFresnelSchlick(F0, 1.0f, cosTheta);
+    float refractionRatio = 1.0f - reflectionRatio;
 
-    // 2. Prepare color storage
+    float3 reflectDir = reflect(rayDir, normal);
+    float3 refractDir;
+    bool tir = !refractWithTIR(rayDir, normal, eta, refractDir);
+
     float4 reflectedColor = float4(0, 0, 0, 0);
     float4 refractedColor = float4(0, 0, 0, 0);
-    float absorptionTotalDistance = 0.f;
+    float absorptionTotalDistance = hitData.absorptionDistance;
 
-    // 3. Check for total internal reflection
-    bool tir = false;
-    float3 refractDir = rayDir; // Default if eta == 1.0
+    // --- Reflection ray ---
+    RayDesc reflectRay;
+    reflectRay.Origin = sd.computeRayOrigin(true);
+    reflectRay.Direction = reflectDir;
+    reflectRay.TMin = 0.001f;
+    reflectRay.TMax = 100000.f;
 
-    if (eta != 1.0)
+    PrimaryRayData reflectedData = {};
+    reflectedData.depth = hitData.depth + 1;
+    reflectedData.absorptionDistance = absorptionTotalDistance;
+    TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, reflectRay, reflectedData);
+    reflectedColor = reflectedData.color;
+
+    // reflectedColor = float4(1, 0, 0, 1);
+    // tir = false;
+
+    // --- Refraction ray ---
+    if (!tir)
     {
-        if (!refractWithTIR(rayDir, orientedFaceNormal, eta, refractDir))
-            tir = true;
-    }
-
-    // 4. Trace reflection ray if needed
-    if (reflectionRatio > 0.001f || tir)
-    {
-        // Handle total internal reflection
-        float3 reflectDir = reflect(rayDir, orientedFaceNormal); // Compute the reflection direction
-
-        // Define reflection ray
-        RayDesc reflectRay;
-        reflectRay.Origin = sd.computeRayOrigin(true); // Offset to avoid self-intersection
-        reflectRay.Direction = reflectDir;
-        reflectRay.TMin = 0.001f;
-        reflectRay.TMax = 100000.f;
-
-        // Trace reflection ray
-        PrimaryRayData reflectedRayData = {};
-        reflectedRayData.depth = hitData.depth + 1;
-        reflectedRayData.hitT = 0;
-        //reflectedRayData.absorptionDistance = hitData.absorptionDistance;
-        TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, reflectRay, reflectedRayData);
-
-        reflectedColor = reflectedRayData.color;
-        //absorptionTotalDistance = reflectedRayData.absorptionDistance;
-
-        // If we are in a TiR case, the next reflection ray will be inside the medium. 
-        // That's why we add its distance to the total absorption distance.
-        if (tir)
-        {
-            absorptionTotalDistance += reflectedRayData.hitT;
-        }
-    }
-
-    // 5. Trace refraction ray if not TIR
-    if (!tir && refractionRatio > 0.001f)
-    {
-        // Trace a refracted ray to get the color after the transmission.
         RayDesc refractRay;
         refractRay.Origin = sd.computeRayOrigin(false);
         refractRay.Direction = refractDir;
         refractRay.TMin = 0.001f;
         refractRay.TMax = 100000.f;
 
-        PrimaryRayData refractedRayData = {};
-        refractedRayData.depth = hitData.depth + 1;
-        refractedRayData.hitT = 0.f;
-        //refractedRayData.absorptionDistance = hitData.absorptionDistance;
-        TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, refractRay, refractedRayData);
+        PrimaryRayData refractedData = {};
+        refractedData.depth = hitData.depth + 1;
+        refractedData.absorptionDistance = absorptionTotalDistance;
+        TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, refractRay, refractedData);
+        refractedColor = refractedData.color;
 
-        refractedColor = refractedRayData.color;
-        //absorptionTotalDistance = refractedRayData.absorptionDistance;
+        // Add the travel distance inside the medium
+        absorptionTotalDistance = refractedData.absorptionDistance + currentRayDistance;
     }
-
-    // If the current ray is inside the medium, add its distance to the total absorb distance.
-    if (!sd.frontFacing)
+    else
     {
-        absorptionTotalDistance += currentRayDistance;
+        // Total internal reflection, stay in the medium
+        absorptionTotalDistance = reflectedData.absorptionDistance + currentRayDistance;
     }
 
-    //hitData.absorptionDistance = absorptionTotalDistance;
-
-    // Apply Beer's Law attenuation
+    // --- Beer's Law (absorption) ---
     float3 absorb = exp(-absorptionCoeff * absorptionTotalDistance);
-    refractedColor *= float4(absorb, 1.f);
+    refractedColor *= float4(absorb, 1.0f);
 
-    // 6. Mix results
+    // --- Final color ---
     float4 finalColor = tir ? reflectedColor :
-            reflectionRatio * reflectedColor + refractionRatio * refractedColor;
+                        reflectionRatio * reflectedColor + refractionRatio * refractedColor;
 
     hitData.color = finalColor;
+    hitData.hitT = currentRayDistance;
+    hitData.absorptionDistance = absorptionTotalDistance;
 }
 
 SurfaceInfo FindNextSurface(float3 origin, float3 rayDir, bool findNextFluidEntryPoint, 

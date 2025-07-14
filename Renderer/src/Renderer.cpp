@@ -35,7 +35,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
     dielectric_blue->setDoubleSided(true);
-    dielectric_blue->setIndexOfRefraction(1.f);
+    dielectric_blue->setIndexOfRefraction(1.33f);
     dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
 
     // cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue);
@@ -61,6 +61,44 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     lambertianTexture->setRoughnessMollification(1.f);
     lambertianTexture->setIndexOfRefraction(0.f);
 
+        /*if (!useMarchingCubes)
+{*/
+    /*  auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
+      sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);*/
+
+    auto cube_mesh = TriangleMesh::createCube(float3(Metrics::WALLDIST / 4.f, Metrics::WALLDIST * 2.5f, Metrics::WALLDIST / 4.f));
+    cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertianCube);
+
+    auto node = SceneBuilder::Node();
+    const std::string name = "Cube ";
+    node.name = name;
+    auto transform = Transform();
+    transform.setTranslation(float3(0, 0, 0));
+    transform.setRotationEuler(float3(35.f, 0.f, 0.f));
+    transform.setScaling(float3(1, 1, 1));
+    node.transform = transform.getMatrix();
+    const auto node_id = scene_builder_->addNode(node);
+
+    // Add Mesh Instances
+    scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+
+    auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
+    plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
+
+    auto node_p = SceneBuilder::Node();
+    const std::string name_p = "Plane";
+    node_p.name = name;
+    auto transform_p = Transform();
+    transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
+    transform_p.setRotationEuler(float3(0, 0.f, 0.f));
+    transform_p.setScaling(float3(1, 1, 1));
+    node_p.transform = transform_p.getMatrix();
+    const auto node_id_p = scene_builder_->addNode(node_p);
+
+    // Add Mesh Instances
+    scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
+    //}
+
     if (useMarchingCubes)
     {
         // 1) Buffer allocation
@@ -68,54 +106,6 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
             static_cast<size_t>(5) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1);
         MaxVertexCount = MaxTriangleCount * 3;
         // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
-
-        // v = {
-        //    {float3(0.0f, 1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.5f, 1.0f)},   // Top
-        //    {float3(-1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(0.0f, 0.0f)}, // Left
-        //    {float3(1.0f, -1.0f, -10), float3(0.0f, 0.0f, 1.0f), float2(1.0f, 0.0f)}   // Right
-        //};
-
-        //    v = {
-        //        //        position               normal             texcoord
-        //        {{-0.5f, -0.5f, -0.5f}, {0, 0, -1}, {0, 0}}, // 0 - Back face
-        //        {{0.5f, -0.5f, -0.5f}, {0, 0, -1}, {1, 0}},  // 1
-        //        {{0.5f, 0.5f, -0.5f}, {0, 0, -1}, {1, 1}},   // 2
-        //        {{-0.5f, 0.5f, -0.5f}, {0, 0, -1}, {0, 1}},  // 3
-        //
-        //        {{-0.5f, -0.5f, 0.5f}, {0, 0, 1}, {0, 0}}, // 4 - Front face
-        //        {{0.5f, -0.5f, 0.5f}, {0, 0, 1}, {1, 0}},  // 5
-        //        {{0.5f, 0.5f, 0.5f}, {0, 0, 1}, {1, 1}},   // 6
-        //        {{-0.5f, 0.5f, 0.5f}, {0, 0, 1}, {0, 1}},  // 7
-        //    };
-        //
-        //
-
-        //
-        //    std::vector<uint32_t> indices = {
-        //    // Back face
-        //    0, 1, 2,
-        //    0, 2, 3,
-        //
-        //    // Front face
-        //    4, 6, 5,
-        //    4, 7, 6,
-        //
-        //    // Left face
-        //    4, 5, 1,
-        //    4, 1, 0,
-        //
-        //    // Right face
-        //    3, 2, 6,
-        //    3, 6, 7,
-        //
-        //    // Bottom face
-        //    4, 0, 3,
-        //    4, 3, 7,
-        //
-        //    // Top face
-        //    1, 5, 6,
-        //    1, 6, 2,
-        //};
 
         TriangleMesh::Vertex vert{float3(10, 10, 10), float3(0, 0, 1), float2(0, 1)};
         v.resize(MaxVertexCount, vert);
@@ -142,79 +132,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         scene_builder_->addMeshInstance(tri_node_id, tri_id);
     }
 
-    if (!useMarchingCubes)
-    {
-        auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
-        sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);
-
-        auto cube_mesh = TriangleMesh::createCube(float3(Metrics::WALLDIST / 4.f,
-            Metrics::WALLDIST * 2.5f, Metrics::WALLDIST / 4.f));
-        cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertianCube);
-
-        auto node = SceneBuilder::Node();
-        const std::string name = "Cube ";
-        node.name = name;
-        auto transform = Transform();
-        transform.setTranslation(float3(0, 0, 0));
-        transform.setRotationEuler(float3(35.f, 0.f, 0.f));
-        transform.setScaling(float3(1, 1, 1));
-        node.transform = transform.getMatrix();
-        const auto node_id = scene_builder_->addNode(node);
-
-         // Add Mesh Instances
-        scene_builder_->addMeshInstance(node_id, cube_mesh_id);
-
-        auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
-        plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
-
-        auto node_p = SceneBuilder::Node();
-        const std::string name_p = "Plane";
-        node_p.name = name;
-        auto transform_p = Transform();
-        transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
-        transform_p.setRotationEuler(float3(0, 0.f, 0.f));
-        transform_p.setScaling(float3(1, 1, 1));
-        node_p.transform = transform_p.getMatrix();
-        const auto node_id_p = scene_builder_->addNode(node_p);
-
-        // Add Mesh Instances
-        scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
-    }
-
-
-    // auto cube_mesh = TriangleMesh::createCube(float3(Metrics::sim_bounds -1.f));
-
-    // sphere = TriangleMesh::createQuad(float2(5.f));
-    // sphere_mesh_id = scene_builder_->addTriangleMesh(sphere, dielectric_blue, true);
-
-    //auto node = SceneBuilder::Node();
-    //std::string name = "Sphere " /* + std::to_string(i)*/;
-    //node.name = name;
-    //auto transform = Transform();
-    //transform.setTranslation(float3(50.f, 0.f, 0.f));
-    //transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    //transform.setScaling(float3(20, 20, 20));
-    //node.transform = transform.getMatrix();
-    //sphere_node_id_ = scene_builder_->addNode(node);
-
-    //scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
-
-    //cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue, true);
-
-    //node = SceneBuilder::Node();
-    //auto name2 = "Cube " /* + std::to_string(i)*/;
-    //node.name = name;
-    //transform = Transform();
-    //transform.setTranslation(float3(0, 0.f, 0.f));
-    //transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    //transform.setScaling(float3(1, 1, 1));
-    //node.transform = transform.getMatrix();
-    //auto cube_node = scene_builder_->addNode(node);
-
-    ////// Add Mesh Instances
-    //scene_builder_->addMeshInstance(cube_node, cube_mesh_id);
-
-    if (!useMarchingCubes)
+    if (!useMarchingCubes && useRaymarching)
     {
         float3 voxelGridRes{Metrics::voxelGridResolution[0], Metrics::voxelGridResolution[1], Metrics::voxelGridResolution[2]};
         float3 cellSize = float3(Metrics::sim_bounds) / voxelGridRes;
@@ -474,7 +392,7 @@ void Renderer::RenderFrame(
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
 
-    if (!useMarchingCubes)
+    if (!useMarchingCubes && useRaymarching)
     {
         {
             FALCOR_PROFILE(pRenderContext, "Reset raymarching custom primitve masks");
@@ -548,59 +466,19 @@ void Renderer::RenderFrame(
     {
         LaunchMarchingCubeComputePasses(pRenderContext);
 
-        //pRenderContext->copyResource(b_pos_readback.get(), b_pos.get());
-        //pRenderContext->copyResource(b_norm_readback.get(), b_normal.get());
-        // pRenderContext->copyResource(b_tang_readback.get(), b_tang.get());
-        // pRenderContext->copyResource(b_uv_readback.get(), b_uv.get());
-
-        //const float3* poses = static_cast<const float3*>(b_pos_readback->map());
-        // const float3* normals = static_cast<const float3*>(b_norm_readback->map());
-        // const float3* tangents = static_cast<const float3*>(b_tang_readback->map());
-        // const float2* uvs = static_cast<const float2*>(b_uv_readback->map());
-
-        // std::cout << marching_cube_vertex_count << '\n';
-        /*  for (int i = 0; i < v.size(); i++)
-          {
-              std::cout << "POS[" << i << "] " << poses[i].x << " " << poses[i].y << " " << poses[i].z << '\n';
-              std::cout << "NORMAL[" << i << "] " << normals[i].x << " " << normals[i].y << " " << normals[i].z << '\n';
-              std::cout << "TANGENT[" << i << "] " << tangents[i].x << " " << tangents[i].y << " " << tangents[i].z << '\n';
-              std::cout << "UV[" << i << "] " << uvs[i].x << " " << uvs[i].y << '\n';
-          }*/
-
-        // std::cout << "POS 0: " << poses[0].x << " " << poses[0].y << " " << poses[0].z << '\n';
-        // std::cout << "POS " << 1 << ": " << poses[1].x << " "
-        //           << poses[1].y << " " << poses[1].z
-        //           << '\n';
-        // std::cout << "POS " << 10 << ": " << poses[10].x << " " << poses[10].y << " " << poses[10].z << '\n';
-        // std::cout << "POS " << marching_cube_vertex_count << ": " << poses[marching_cube_vertex_count].x << " "
-        //           << poses[marching_cube_vertex_count].y << " " << poses[marching_cube_vertex_count].z << '\n';
-
-        /*   b_pos_readback->unmap();
-           b_normal->unmap();
-           b_tang->unmap();
-           b_uv->unmap();*/
-
-        //if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
-        //{
-        //    std::cout << b_pos->getElementCount() << '\n';
-        //    std::cout << scene_->getMesh(tri_id).getVertexCount() << '\n';
-        //    std::cout << scene_->getMesh(sphere_mesh_id).getVertexCount() << '\n';
-        //    std::cout << "BUG VERTEX COUNT AND B_POS\n";
-        //    std::exit(666);
-        //}
+       /* if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
+        {
+            std::cout << b_pos->getElementCount() << '\n';
+            std::cout << scene_->getMesh(tri_id).getVertexCount() << '\n';
+            std::cout << scene_->getMesh(sphere_mesh_id).getVertexCount() << '\n';
+            std::cout << "BUG VERTEX COUNT AND B_POS\n";
+            std::exit(666);
+        }*/
 
         /*if (triangleCount != oldTriangleCount)
         {
             scene_->setMeshVertices(tri_id, vertices);
         }*/
-
-        /*static bool tamere = false;
-        if (tamere)
-        {
-            scene_->setMeshVertices(tri_id, vertices);
-            tamere = true;
-        }*/
-
          
         {
             FALCOR_PROFILE(pRenderContext, "Set Mesh Vertices");
@@ -757,7 +635,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
 
         app_gui_window->var("MaxRayBounce", kMaxRayBounce);
 
-        //app_gui_window->var("absorptionCoeff", absorptionCoeff);
+        app_gui_window->var("absorptionCoeff", absorptionCoeff);
         app_gui_window->var("scatteringCoeff", scatteringCoeff);
         //app_gui_window->var("Phase G ", phaseG);
 
@@ -837,13 +715,14 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     shaderModules.emplace_back(s_module);
     rtProgDesc.addShaderModules(shaderModules);
     rtProgDesc.addShaderLibrary("Samples/3DFluidSimulationEngine/Renderer/shaders/Raytracing.rt.slang");
-    rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo | SlangCompilerFlags::DumpIntermediates); // Ajoute le debug Slang
-    std::vector<std::string> args{"-g"};
-    rtProgDesc.addCompilerArguments(args);
+    rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo); // Ajoute le debug Slang
+    //rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo | SlangCompilerFlags::DumpIntermediates); // Ajoute le debug Slang
+ /*   std::vector<std::string> args{"-g"};
+    rtProgDesc.addCompilerArguments(args);*/
 
     rtProgDesc.addTypeConformances(typeConformances);
     rtProgDesc.setMaxTraceRecursionDepth(6);
-    rtProgDesc.setMaxPayloadSize(36); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
+    rtProgDesc.setMaxPayloadSize(40); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
                                       // should be set as small as possible for maximum performance.
 
     const ref<RtBindingTable> sbt = RtBindingTable::create(2, 2, scene_->getGeometryCount());
@@ -870,21 +749,6 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
 
 void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) noexcept
 {
-    /*const auto compute_var2 = compute_marching_cube_density_map_->getRootVar();
-    compute_var2["DensityTexture"] = marching_cube_dens_tex;
-    compute_var2["triangles"] = marching_cubes_triangle_buffer_;
-
-    compute_var2["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
-    compute_var2["PerFrameCB"]["isoLevel"] = IsoLevel;
-    compute_var2["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
-    compute_var2["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
-    compute_var2["PerFrameCB"]["SphereRadius"] = SphereRadius;
-    compute_var2["PerFrameCB"]["var"] = var_;
-
-    compute_marching_cube_density_map_->execute(
-        render_context, Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size
-    );*/
-
     {
         FALCOR_PROFILE(render_context, "Compute Marching Cube Pass");
 
@@ -894,12 +758,8 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
         compute_var["DensityTexture"] = density_3d_tex_;
         compute_var["triangles"] = marching_cubes_triangle_buffer_;
 
-        compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
         compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
         compute_var["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
-        compute_var["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
-        compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
-        compute_var["PerFrameCB"]["var"] = var_;
 
         compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
         compute_var["PerFrameCB"]["normalOffset"] = normalOffset;
@@ -907,8 +767,6 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
         compute_var["PerFrameCB"]["scale"] = march_mesh_scale;
 
         compute_var["linearClampSampler"] = linearClampSampler_;
-
-        render_context->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
 
         int numVoxelsPerX = Metrics::density_map_size - 1;
         int numVoxelsPerY = Metrics::density_map_size - 1;
@@ -920,13 +778,6 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
     triangleCount = marching_cubes_triangle_buffer_->getUAVCounter()->getElement<uint>(0);
    
     uint32_t vertexCount = triangleCount * 3;
-    //size_t maxVertexCount = static_cast<size_t>(MaxTriangleCount * 3);
-
-    /*render_context->copyBufferRegion(
-        read_back_triangle_buffer_.get(), 0,
-        marching_cubes_triangle_buffer_.get(), 0,
-        triangleCount * sizeof(MarchingCubesTriangle)
-    );*/
 
     //if (triangleCount != oldTriangleCount)
     {
@@ -940,13 +791,11 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
 
         {
             FALCOR_PROFILE(render_context, "Read Triangle Data on CPU");
-
+            render_context->submit(true); // attend que tout soit fini sur le GPU
             const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
 
-            std::vector<float3> new_pos;
-            new_pos.resize(MaxVertexCount, float3(100, 100, 100));
-            std::vector<float3> new_normals;
-            new_normals.resize(MaxVertexCount, float3(100, 100, 100));
+            std::vector<float3> new_pos(MaxVertexCount);
+            std::vector<float3> new_normals(MaxVertexCount);
             for (uint32_t i = 0; i < triangleCount; ++i)
             {
                 new_pos[i * 3 + 0] = triangles[i].vertexA.position;

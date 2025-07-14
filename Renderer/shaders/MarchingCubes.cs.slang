@@ -324,34 +324,19 @@ struct Triangle {
 };
 
 AppendStructuredBuffer<Triangle> triangles;
-// RWTexture3D<float> DensityTexture;
 Texture3D<float> DensityTexture;
 SamplerState linearClampSampler;
 
 cbuffer PerFrameCB
 {
-    int numPointsPerAxis;
     float isoLevel;
     int textureSize;
-    float boundSize;
-    float SphereRadius;
-    float var;
 
     float3 simBounds;
     float normalOffset;
     float volumeValueOffset;
     float3 scale;
 }
-
-// [numthreads(8, 8, 8)]
-// void ComputeDensityTexture(uint3 threadID: SV_DispatchThreadID)
-// {
-//     float3 worldPos = (threadID / (textureSize - 1.f) - 0.5f) * boundSize;
-//     float dstFromWorldCenter = length(worldPos);
-//     float mapValue = dstFromWorldCenter - SphereRadius;
-
-//     DensityTexture[threadID] = mapValue;
-// }
 
 // float sampleDensity(int3 position)
 // {
@@ -364,16 +349,16 @@ cbuffer PerFrameCB
 //     return DensityTexture[coord];
 // }
 
-float SampleDensityMap(float3 pos)
-{
-    float3 uvw = (pos + simBounds * 0.5f) / simBounds;
+// float SampleDensityMap(float3 pos)
+// {
+//     float3 uvw = (pos + simBounds * 0.5f) / simBounds;
 
-    const float epsilon = 0.0001f;
-    bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
-    if (isEdge) return -volumeValueOffset;
+//     const float epsilon = 0.0001f;
+//     bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
+//     if (isEdge) return -volumeValueOffset;
 
-    return DensityTexture.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
-}
+//     return DensityTexture.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
+// }
 
 float SampleDensity(uint3 coord)
 {
@@ -383,45 +368,21 @@ float SampleDensity(uint3 coord)
     return -DensityTexture.SampleLevel(linearClampSampler, uvw, 0);
 }
 
-float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
-{
-    float3 halfSize = boxSize * 0.5;
-    float3 o = (halfSize - abs(p));
-    return (o.x < o.y && o.x < o.z) ? float3(sign(p.x), 0, 0) : (o.y < o.z) ? float3(0, sign(p.y), 0) : float3(0, 0, sign(p.z));
-}
-
 float3 calculateNormal(int3 coord) {
-    float3 offsetX = int3(1, 0, 0) * normalOffset;
-    float3 offsetY = int3(0, 1, 0) * normalOffset;
-    float3 offsetZ = int3(0, 0, 1) * normalOffset;
+    int3 offsetX = int3(1, 0, 0);
+    int3 offsetY = int3(0, 1, 0);
+    int3 offsetZ = int3(0, 0, 1);
 
-    float dx = SampleDensity(coord + offsetX) - SampleDensity(coord - offsetX);
-    float dy = SampleDensity(coord + offsetY) - SampleDensity(coord - offsetY);
-    float dz = SampleDensity(coord + offsetZ) - SampleDensity(coord - offsetZ);
+    float dx = SampleSafeDensity(coord + offsetX) - SampleSafeDensity(coord - offsetX);
+    float dy = SampleSafeDensity(coord + offsetY) - SampleSafeDensity(coord - offsetY);
+    float dz = SampleSafeDensity(coord + offsetZ) - SampleSafeDensity(coord - offsetZ);
 
     return normalize(float3(dx, dy, dz));
+}
 
-    // float3 offsetX = float3(1, 0, 0) * normalOffset;
-    // float3 offsetY = float3(0, 1, 0) * normalOffset;
-    // float3 offsetZ = float3(0, 0, 1) * normalOffset;
-
-    // float3 fcoord = float3(coord.x, coord.y, coord.z);
-
-    // float dx = SampleDensity(fcoord - offsetX) - SampleDensity(fcoord + offsetX);
-    // float dy = SampleDensity(fcoord - offsetY) - SampleDensity(fcoord + offsetY);
-    // float dz = SampleDensity(fcoord - offsetZ) - SampleDensity(fcoord + offsetZ);
-
-    // float3 volumeNormal = normalize(float3(dx, dy, dz));
-
-    // // Smoothly flatten normals out at boundary edges
-    // float3 o = simBounds / 2 - abs(coord);
-    // float faceWeight = min(o.x, min(o.y, o.z));
-    // float3 faceNormal = CalculateClosestFaceNormal(simBounds, coord);
-    // const float smoothDst = 0.3;
-    // const float smoothPow = 5;
-    // faceWeight = (1 - smoothstep(0, smoothDst, faceWeight)) * (1 - pow(saturate(volumeNormal.y), smoothPow));
-
-    // return normalize(volumeNormal * (1 - faceWeight) + faceNormal * (faceWeight));
+float SampleSafeDensity(int3 coord) {
+    int3 clamped = clamp(coord, int3(0, 0, 0), textureSize - 1);
+    return SampleDensity(clamped);
 }
 
 float3 coordToWorld(int3 coord) {
@@ -506,9 +467,9 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         Vertex vertexC = createVertex(cornerCoords[a2], cornerCoords[b2]);
 
         Triangle tri;
-        tri.vertexA = vertexC;
+        tri.vertexA = vertexA;
         tri.vertexB = vertexB;
-        tri.vertexC = vertexA;
+        tri.vertexC = vertexC;
         triangles.Append(tri);
     }
 }

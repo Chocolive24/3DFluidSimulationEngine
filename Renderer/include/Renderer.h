@@ -150,7 +150,8 @@ public:
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.1f;
 
-    bool useMarchingCubes = false;
+    bool useRaymarching = false;
+    bool useMarchingCubes = true;
     bool draw_fluid_ = true;
     bool lightScattering = false;
 
@@ -177,14 +178,14 @@ public:
     //float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
     int numPointsPerAxis = 64;
-    float IsoLevel = 0.1f;
+    float IsoLevel = -0.1f;
     float SphereRadius = 15.f;
 
     float3 bg_clear_color = float3(1, 1, 1);
 
     uint kMaxRayBounce = 3;
 
-    float3 absorptionCoeff = float3(1.0, 0.4, 0.05);
+    float3 absorptionCoeff = float3(0.1, 0.05, 0.01);
     float3 scatteringCoeff = float3(2.19, 0.75, 0.55);
     float phaseG = 0.8f;
 

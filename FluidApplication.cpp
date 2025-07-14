@@ -356,9 +356,11 @@ void FluidApplication::SimulationStep(RenderContext* pRenderContext) {
 
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
-    if (getGlobalClock().getTime() > 7.f)
+    static bool debugLateStart = true;
+    if (getGlobalClock().getTime() > 7.f && debugLateStart)
     {
         start_simul_ = true;
+        debugLateStart = false;
     }
 
     {
