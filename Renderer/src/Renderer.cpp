@@ -476,66 +476,72 @@ void Renderer::RenderFrame(
 
     if (!useMarchingCubes)
     {
-        FALCOR_PROFILE(pRenderContext, "Reset raymarching custom primitve masks");
+        {
+            FALCOR_PROFILE(pRenderContext, "Reset raymarching custom primitve masks");
 
-        cutomPrimitveMasks->setBlob(masks.data(), 0, masks.size() * sizeof(uint32_t));
+            cutomPrimitveMasks->setBlob(masks.data(), 0, masks.size() * sizeof(uint32_t));
+        }
 
-        FALCOR_PROFILE(pRenderContext, "Update Raymarching custom primitve transformation");
+        {
+            FALCOR_PROFILE(pRenderContext, "Update Raymarching custom primitve transformation");
 
-        const AABB fluid_AABB = AABB(float3(-1), float3(1));
-        //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
-        const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
+            const AABB fluid_AABB = AABB(float3(-1), float3(1));
+            //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+            const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
 
-        scene_->updateCustomPrimitive(0, transformed_aabb);
+            scene_->updateCustomPrimitive(0, transformed_aabb);
+        }
     }
 
-     FALCOR_PROFILE(pRenderContext, "Compute DensityMap Pass");
+    {
+        FALCOR_PROFILE(pRenderContext, "Compute DensityMap Pass");
 
-     const auto compute_var = compute_density_map_pass_->getRootVar();
-     compute_var["bodies"] = bodies;
-     compute_var["SpatialIndices"] = SpatialIndices;
-     compute_var["SpatialOffsets"] = SpatialOffsets;
-     compute_var["cutomPrimitveMasks"] = cutomPrimitveMasks;
-     compute_var["gTexture3D"] = density_3d_tex_;
+        const auto compute_var = compute_density_map_pass_->getRootVar();
+        compute_var["bodies"] = bodies;
+        compute_var["SpatialIndices"] = SpatialIndices;
+        compute_var["SpatialOffsets"] = SpatialOffsets;
+        compute_var["cutomPrimitveMasks"] = cutomPrimitveMasks;
+        compute_var["gTexture3D"] = density_3d_tex_;
 
-     compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
-     compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
-     compute_var["PerFrameCB"]["wallDist"] = Metrics::WALLDIST;
-     compute_var["PerFrameCB"]["fixedDeltaTime"] = Metrics::kFixedDeltaTime;
-     compute_var["PerFrameCB"]["nbParticles"] = Metrics::NbParticles;
-     //compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
-     compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
-     compute_var["PerFrameCB"]["targetDensity"] = SPH::TargetDensity;
-     compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
-     compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
-     compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = Metrics::densityGraphicsMultiplier;
+        compute_var["PerFrameCB"]["densityMapSize"] = Metrics::density_map_size;
+        compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
+        compute_var["PerFrameCB"]["wallDist"] = Metrics::WALLDIST;
+        compute_var["PerFrameCB"]["fixedDeltaTime"] = Metrics::kFixedDeltaTime;
+        compute_var["PerFrameCB"]["nbParticles"] = Metrics::NbParticles;
+        //compute_var["PerFrameCB"]["gravity"] = world_->Gravity;
+        compute_var["PerFrameCB"]["smoothingRadius"] = SPH::SmoothingRadius;
+        compute_var["PerFrameCB"]["targetDensity"] = SPH::TargetDensity;
+        compute_var["PerFrameCB"]["pressureMultiplier"] = SPH::PressureMultiplier;
+        compute_var["PerFrameCB"]["viscosityStrength"] = SPH::ViscosityStrength;
+        compute_var["PerFrameCB"]["densityGraphicsMultiplier"] = Metrics::densityGraphicsMultiplier;
 
-     const float4x4 localToWorld = fluid_transform.getMatrix();
-     const float4x4 worldToLocal = inverse(localToWorld);
+        const float4x4 localToWorld = fluid_transform.getMatrix();
+        const float4x4 worldToLocal = inverse(localToWorld);
 
-     compute_var["PerFrameCB"]["localToWorld"] = localToWorld;
-     compute_var["PerFrameCB"]["worldToLocal"] = worldToLocal;
+        compute_var["PerFrameCB"]["localToWorld"] = localToWorld;
+        compute_var["PerFrameCB"]["worldToLocal"] = worldToLocal;
 
-     //compute_var["PerFrameCB"]["ScaledSimBounds"] = fluid_transform.getScaling() * 2.f;
+        //compute_var["PerFrameCB"]["ScaledSimBounds"] = fluid_transform.getScaling() * 2.f;
 
-     compute_var["PerFrameCB"]["useTransformations"] = useTransformations;
-     uint3 voxelGridRes{Metrics::voxelGridResolution[0], Metrics::voxelGridResolution[1], Metrics::voxelGridResolution[2]};
-     compute_var["PerFrameCB"]["voxelGridResolution"] = voxelGridRes;
+        compute_var["PerFrameCB"]["useTransformations"] = useTransformations;
+        uint3 voxelGridRes{Metrics::voxelGridResolution[0], Metrics::voxelGridResolution[1], Metrics::voxelGridResolution[2]};
+        compute_var["PerFrameCB"]["voxelGridResolution"] = voxelGridRes;
 
-     const float r = SPH::SmoothingRadius;
-     const float spikyPow2 = 15.f / (2 * PI * Pow(r, 5));
-     const float spikyPow3 = 15.f / (PI * Pow(r, 6));
-     const float spikyPow2Grad = 15.f / (PI * Pow(r, 5));
-     const float spikyPow3Grad = 45.f / (PI * Pow(r, 6));
+        const float r = SPH::SmoothingRadius;
+        const float spikyPow2 = 15.f / (2 * PI * Pow(r, 5));
+        const float spikyPow3 = 15.f / (PI * Pow(r, 6));
+        const float spikyPow2Grad = 15.f / (PI * Pow(r, 5));
+        const float spikyPow3Grad = 45.f / (PI * Pow(r, 6));
 
-     compute_var["PerFrameCB"]["K_SpikyPow2"] = spikyPow2;
-     compute_var["PerFrameCB"]["K_SpikyPow3"] = spikyPow3;
-     compute_var["PerFrameCB"]["K_SpikyPow2Grad"] = spikyPow2Grad;
-     compute_var["PerFrameCB"]["K_SpikyPow3Grad"] = spikyPow3Grad;
+        compute_var["PerFrameCB"]["K_SpikyPow2"] = spikyPow2;
+        compute_var["PerFrameCB"]["K_SpikyPow3"] = spikyPow3;
+        compute_var["PerFrameCB"]["K_SpikyPow2Grad"] = spikyPow2Grad;
+        compute_var["PerFrameCB"]["K_SpikyPow3Grad"] = spikyPow3Grad;
 
-    // const uint32_t thread_groups = (density_map_size + 7) / 8;
-    compute_density_map_pass_->execute(pRenderContext,
-         Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
+        // const uint32_t thread_groups = (density_map_size + 7) / 8;
+        compute_density_map_pass_->execute(pRenderContext,
+             Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size);
+    }
 
 
     if (draw_fluid_ && useMarchingCubes)
@@ -595,47 +601,55 @@ void Renderer::RenderFrame(
             tamere = true;
         }*/
 
-         scene_->setMeshVertices(tri_id, vertices);
+         
+        {
+            FALCOR_PROFILE(pRenderContext, "Set Mesh Vertices");
+            scene_->setMeshVertices(tri_id, vertices);
+        }
     }
 
-    FALCOR_PROFILE(pRenderContext, "Update Scene");
+    {
+        FALCOR_PROFILE(pRenderContext, "Update Scene");
 
-    //std::cout << "Before scene update\n";
-    IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
+        //std::cout << "Before scene update\n";
+        IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
 
-    //if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
-    //{
-    //    std::cout << "GeometryChanged\n";
-    //}
-    //if (is_set(updates, IScene::UpdateFlags::GeometryMoved))
-    //{
-    //    std::cout << "GeometryMoved\n";
-    //}
-    //if (is_set(updates, IScene::UpdateFlags::MeshesChanged))
-    //{
-    //    std::cout << "MeshesChanged\n";
-    //}
-    //std::cout << "After scene update\n";
+        //if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
+        //{
+        //    std::cout << "GeometryChanged\n";
+        //}
+        //if (is_set(updates, IScene::UpdateFlags::GeometryMoved))
+        //{
+        //    std::cout << "GeometryMoved\n";
+        //}
+        //if (is_set(updates, IScene::UpdateFlags::MeshesChanged))
+        //{
+        //    std::cout << "MeshesChanged\n";
+        //}
+        //std::cout << "After scene update\n";
 
-    if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
-        FALCOR_THROW("This sample does not support scene geometry changes.");
-    if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
-        FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
+        if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
+            FALCOR_THROW("This sample does not support scene geometry changes.");
+        if (is_set(updates, IScene::UpdateFlags::RecompileNeeded))
+            FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
+    }
 
  /*   FALCOR_ASSERT(scene_);
     FALCOR_PROFILE(pRenderContext, "renderRT");*/
 
-    FALCOR_PROFILE(pRenderContext, "Render Raytracing Pass");
+    {
+        //FALCOR_PROFILE(pRenderContext, "Render Raytracing Pass");
 
-    setPerFrameVariables(currentTime);
+        setPerFrameVariables(currentTime);
 
-    pRenderContext->clearUAV(rt_output_tex_->getUAV().get(), float4(bg_clear_color, 1));
+        pRenderContext->clearUAV(rt_output_tex_->getUAV().get(), float4(bg_clear_color, 1));
 
-   /* raster_pass_->getState()->setFbo(pTargetFbo);
-    scene_->rasterize(pRenderContext, raster_pass_->getState().get(), raster_pass_->getVars().get());*/
+        /* raster_pass_->getState()->setFbo(pTargetFbo);
+         scene_->rasterize(pRenderContext, raster_pass_->getState().get(), raster_pass_->getVars().get());*/
 
-    scene_->raytrace(pRenderContext, rt_program_.get(), rt_program_vars_, uint3(target_fbo_->getWidth(), target_fbo_->getHeight(), 1));
-    pRenderContext->blit(rt_output_tex_->getSRV(), target_fbo_->getRenderTargetView(0));
+        scene_->raytrace(pRenderContext, rt_program_.get(), rt_program_vars_, uint3(target_fbo_->getWidth(), target_fbo_->getHeight(), 1));
+        pRenderContext->blit(rt_output_tex_->getSRV(), target_fbo_->getRenderTargetView(0));
+    }
 
     oldTriangleCount = triangleCount;
 }
@@ -823,6 +837,7 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     shaderModules.emplace_back(s_module);
     rtProgDesc.addShaderModules(shaderModules);
     rtProgDesc.addShaderLibrary("Samples/3DFluidSimulationEngine/Renderer/shaders/Raytracing.rt.slang");
+    rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo); // Ajoute le debug Slang uniquement en Debug
     rtProgDesc.addTypeConformances(typeConformances);
     rtProgDesc.setMaxTraceRecursionDepth(6);
     rtProgDesc.setMaxPayloadSize(36); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
@@ -843,7 +858,7 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
         "RaymarchingClosestHit", "", "RaymarchingIntersection");
     sbt->setHitGroup(0, scene_->getGeometryIDs(Scene::GeometryType::Custom), raymarching_hit_group);
 
-    const auto shadowFluid = rtProgDesc.addHitGroup("", "shadowAnyHitFluid", "RaymarchingIntersection");
+    const auto shadowFluid = rtProgDesc.addHitGroup("", "shadowAnyHitFluid", "AABB_SimulationIntersection");
     sbt->setHitGroup(1, scene_->getGeometryIDs(Scene::GeometryType::Custom), shadowFluid);
 
     rt_program_ = Program::create(device_, rtProgDesc, defines);
@@ -867,32 +882,36 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
         render_context, Metrics::density_map_size, Metrics::density_map_size, Metrics::density_map_size
     );*/
 
-    render_context->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
+    {
+        FALCOR_PROFILE(render_context, "Compute Marching Cube Pass");
 
-    const auto compute_var = marching_cubes_pass_->getRootVar();
-    compute_var["DensityTexture"] = density_3d_tex_;
-    compute_var["triangles"] = marching_cubes_triangle_buffer_;
+        render_context->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
 
-    compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
-    compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
-    compute_var["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
-    compute_var["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
-    compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
-    compute_var["PerFrameCB"]["var"] = var_;
+        const auto compute_var = marching_cubes_pass_->getRootVar();
+        compute_var["DensityTexture"] = density_3d_tex_;
+        compute_var["triangles"] = marching_cubes_triangle_buffer_;
 
-    compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
-    compute_var["PerFrameCB"]["normalOffset"] = normalOffset;
-    compute_var["PerFrameCB"]["volumeValueOffset"] = volumeValueOffset;
-    compute_var["PerFrameCB"]["scale"] = march_mesh_scale;
+        compute_var["PerFrameCB"]["numPointsPerAxis"] = numPointsPerAxis;
+        compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
+        compute_var["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
+        compute_var["PerFrameCB"]["boundSize"] = Metrics::sim_bounds;
+        compute_var["PerFrameCB"]["SphereRadius"] = SphereRadius;
+        compute_var["PerFrameCB"]["var"] = var_;
 
-    compute_var["linearClampSampler"] = linearClampSampler_;
+        compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
+        compute_var["PerFrameCB"]["normalOffset"] = normalOffset;
+        compute_var["PerFrameCB"]["volumeValueOffset"] = volumeValueOffset;
+        compute_var["PerFrameCB"]["scale"] = march_mesh_scale;
 
-    render_context->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
+        compute_var["linearClampSampler"] = linearClampSampler_;
 
-    int numVoxelsPerX = Metrics::density_map_size - 1;
-    int numVoxelsPerY = Metrics::density_map_size - 1;
-    int numVoxelsPerZ = Metrics::density_map_size - 1;
-    marching_cubes_pass_->execute(render_context, numVoxelsPerX, numVoxelsPerY, numVoxelsPerZ);
+        render_context->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
+
+        int numVoxelsPerX = Metrics::density_map_size - 1;
+        int numVoxelsPerY = Metrics::density_map_size - 1;
+        int numVoxelsPerZ = Metrics::density_map_size - 1;
+        marching_cubes_pass_->execute(render_context, numVoxelsPerX, numVoxelsPerY, numVoxelsPerZ);
+    }
 
     render_context->uavBarrier(marching_cubes_triangle_buffer_.get());
     triangleCount = marching_cubes_triangle_buffer_->getUAVCounter()->getElement<uint>(0);
@@ -910,32 +929,40 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
     {
         // std::cout << "New triangle count: " << triangleCount << '\n';
 
-        render_context->copyResource(read_back_triangle_buffer_.get(), marching_cubes_triangle_buffer_.get());
-
-        const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
-
-        std::vector<float3> new_pos;
-        new_pos.resize(MaxVertexCount, float3(100, 100, 100));
-        std::vector<float3> new_normals;
-        new_normals.resize(MaxVertexCount, float3(100, 100, 100));
-        for (uint32_t i = 0; i < triangleCount; ++i)
         {
-            new_pos[i * 3 + 0] = triangles[i].vertexA.position;
-            new_pos[i * 3 + 1] = triangles[i].vertexB.position;
-            new_pos[i * 3 + 2] = triangles[i].vertexC.position;
+            FALCOR_PROFILE(render_context, "Copy Triangle Data on CPU");
 
-            new_normals[i * 3 + 0] = triangles[i].vertexA.normal;
-            new_normals[i * 3 + 1] = triangles[i].vertexB.normal;
-            new_normals[i * 3 + 2] = triangles[i].vertexC.normal;
+            render_context->copyResource(read_back_triangle_buffer_.get(), marching_cubes_triangle_buffer_.get());
         }
 
-        // for (uint32_t i = vertexCount; i < MaxVertexCount; ++i)
-        //     new_pos[i] = float3(0, 0, 0);
+        {
+            FALCOR_PROFILE(render_context, "Read Triangle Data on CPU");
 
-        b_pos->setBlob(new_pos.data(), 0, MaxVertexCount * sizeof(float3));
-        b_normal->setBlob(new_normals.data(), 0, MaxVertexCount * sizeof(float3));
+            const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
 
-        read_back_triangle_buffer_->unmap();
+            std::vector<float3> new_pos;
+            new_pos.resize(MaxVertexCount, float3(100, 100, 100));
+            std::vector<float3> new_normals;
+            new_normals.resize(MaxVertexCount, float3(100, 100, 100));
+            for (uint32_t i = 0; i < triangleCount; ++i)
+            {
+                new_pos[i * 3 + 0] = triangles[i].vertexA.position;
+                new_pos[i * 3 + 1] = triangles[i].vertexB.position;
+                new_pos[i * 3 + 2] = triangles[i].vertexC.position;
+
+                new_normals[i * 3 + 0] = triangles[i].vertexA.normal;
+                new_normals[i * 3 + 1] = triangles[i].vertexB.normal;
+                new_normals[i * 3 + 2] = triangles[i].vertexC.normal;
+            }
+
+            // for (uint32_t i = vertexCount; i < MaxVertexCount; ++i)
+            //     new_pos[i] = float3(0, 0, 0);
+
+            b_pos->setBlob(new_pos.data(), 0, MaxVertexCount * sizeof(float3));
+            b_normal->setBlob(new_normals.data(), 0, MaxVertexCount * sizeof(float3));
+
+            read_back_triangle_buffer_->unmap();
+        }
     }
 }
 

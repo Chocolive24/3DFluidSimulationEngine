@@ -65,7 +65,7 @@ void FluidApplication::onLoad(RenderContext* pRenderContext)
         };
         const float3 force{XMVectorGetX(body._force), XMVectorGetY(body._force), XMVectorGetZ(body._force)};
 
-        if (!renderer_->useMarchingCubes)
+        if (!renderer_->useMarchingCubes && !profiling)
         {
             const auto sphere_node_id = renderer_->AddSphereToScene(position, 1);
             sphereNodeIDs.push_back(sphere_node_id);
@@ -361,45 +361,49 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         start_simul_ = true;
     }
 
-    if (regenrate_particles_)
     {
-        pRenderContext->copyResource(bodies_buffer_.get(), regenrated_particles_.get());
-        regenrate_particles_ = false;
-    }
+        FALCOR_PROFILE(pRenderContext, "SPH Simulation Update");
 
-    static constexpr int iterationPerFrame = 3;
-
-    float timeDeltaTime = getGlobalClock().getDelta();
-
-    float maxDeltaTime = 1.f / 60.f;
-    float dt = std::min(timeDeltaTime, maxDeltaTime);
-
-    float subStepDeltaTime = dt / iterationPerFrame;
-
-    deltaTime = subStepDeltaTime;
-
-    if (start_simul_)
-    {
-        /*for (int i = 0; i < iterationPerFrame; i++)
+        if (regenrate_particles_)
         {
-            SimulationStep(pRenderContext);
-        }*/
-
-        fixed_timer_ += timeDeltaTime;
-        time_since_last_fixed_update_ += timeDeltaTime;
-
-        while (fixed_timer_ >= kFixedDeltaTime)
-        {
-            SimulationStep(pRenderContext);
-
-            fixed_timer_ -= kFixedDeltaTime;
-            time_since_last_fixed_update_ = 0.f;
+            pRenderContext->copyResource(bodies_buffer_.get(), regenrated_particles_.get());
+            regenrate_particles_ = false;
         }
 
-        //SimulationStep(pRenderContext);
+        static constexpr int iterationPerFrame = 3;
+
+        float timeDeltaTime = getGlobalClock().getDelta();
+
+        float maxDeltaTime = 1.f / 60.f;
+        float dt = std::min(timeDeltaTime, maxDeltaTime);
+
+        float subStepDeltaTime = dt / iterationPerFrame;
+
+        deltaTime = subStepDeltaTime;
+
+        if (start_simul_)
+        {
+            /*for (int i = 0; i < iterationPerFrame; i++)
+            {
+                SimulationStep(pRenderContext);
+            }*/
+
+            fixed_timer_ += timeDeltaTime;
+            time_since_last_fixed_update_ += timeDeltaTime;
+
+            while (fixed_timer_ >= kFixedDeltaTime)
+            {
+                SimulationStep(pRenderContext);
+
+                fixed_timer_ -= kFixedDeltaTime;
+                time_since_last_fixed_update_ = 0.f;
+            }
+
+            //SimulationStep(pRenderContext);
+        }
     }
 
-    if (!renderer_->useMarchingCubes)
+    if (!renderer_->useMarchingCubes && !profiling)
     {
         if (!renderer_->draw_fluid_)
         {
@@ -426,17 +430,20 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         }
         else
         {
-            int sphere_iterator = 0;
-            for (uint32_t i = 0; i < particle_bodies_.size(); i++)
             {
-                Transform transform;
-                transform.setTranslation(float3(0, -10'000, 0));
-                transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-                transform.setScaling(float3(1.f, 1.f, 1.f));
+                FALCOR_PROFILE(pRenderContext, "Update TLAS for particles meshes");
+                int sphere_iterator = 0;
+                for (uint32_t i = 0; i < particle_bodies_.size(); i++)
+                {
+                    Transform transform;
+                    transform.setTranslation(float3(0, -10'000, 0));
+                    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+                    transform.setScaling(float3(1.f, 1.f, 1.f));
 
-                // Update node transform
-                renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
-                sphere_iterator++;
+                    // Update node transform
+                    renderer_->UpdateSceneNodeTransform(sphereNodeIDs[sphere_iterator], transform);
+                    sphere_iterator++;
+                }
             }
         }
     }

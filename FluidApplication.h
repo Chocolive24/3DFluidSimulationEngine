@@ -81,6 +81,8 @@ private:
     std::unique_ptr<Renderer> renderer_ = nullptr;
     SampleManager sample_manager_;
 
+    bool profiling = true;
+
     std::vector<NodeID> sphereNodeIDs;
 
     float deltaTime = 0.f;

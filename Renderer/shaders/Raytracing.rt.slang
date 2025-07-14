@@ -93,7 +93,7 @@ cbuffer PerFrameCB
 
 
 
-struct SDF_GeometryAttributes
+struct ImplicitGeometryAttributes
 {
     float3 pos = float3(0, 0, 0);
     float3 normal = float3(0, 0, 0);
@@ -208,7 +208,7 @@ float PhaseHG(float cosTheta, float g) {
 //     return transmittedSunLight;
 // }
 
-// float3 CalculateTransmittanceRaymarching(SDF_GeometryAttributes attribs, float3 rayDir)
+// float3 CalculateTransmittanceRaymarching(ImplicitGeometryAttributes attribs, float3 rayDir)
 // {
 //     float3 totalLight = float3(0.f, 0.f, 0.f);
 //     float3 transmittance = float3(1.f, 1.f, 1.f);
@@ -570,7 +570,7 @@ bool IsInsideFluid(float3 pos, float3 rayDir)
 }
 
 // [shader("closesthit")]
-// void RaymarchingClosestHit(inout PrimaryRayData payload, SDF_GeometryAttributes attribs)
+// void RaymarchingClosestHit(inout PrimaryRayData payload, ImplicitGeometryAttributes attribs)
 // {
 //     Ray ray;
 //     ray.dir = WorldRayDirection();
@@ -709,7 +709,7 @@ float3 Transmittance(float thickness)
 }
 
 [shader("closesthit")]
-void RaymarchingClosestHit(inout PrimaryRayData hitData, SDF_GeometryAttributes attribs)
+void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttributes attribs)
 {
     float3 debugNormal;
 
@@ -1159,7 +1159,6 @@ float3 ComputeDensityNormal(float3 pos)
     {
         float3 uvw = (pos + ScaledSimBounds * 0.5) / ScaledSimBounds;
 
-        // const float s = 0.1;
         float3 offsetX = float3(1, 0, 0) * normalOffset;
         float3 offsetY = float3(0, 1, 0) * normalOffset;
         float3 offsetZ = float3(0, 0, 1) * normalOffset;
@@ -1396,7 +1395,7 @@ void RaymarchingIntersection()
     }
 
     
-    // SDF_GeometryAttributes attr2 = {};
+    // ImplicitGeometryAttributes attr2 = {};
     // ReportHit(1, 0, attr2);
     // return;
 
@@ -1421,7 +1420,7 @@ void RaymarchingIntersection()
         if (!surfaceInfo.foundSurface)
             return;
 
-        SDF_GeometryAttributes attr = {};
+        ImplicitGeometryAttributes attr = {};
         attr.pos = surfaceInfo.pos;
         attr.normal = ComputeDensityNormal(surfaceInfo.pos); // Don't flip here — let closest hit handle that
         attr.densityAlongRay = surfaceInfo.densityAlongRay;
@@ -1435,7 +1434,7 @@ void RaymarchingIntersection()
     }
     else
     {
-        SDF_GeometryAttributes attr2 = {};
+        ImplicitGeometryAttributes attr2 = {};
         attr2.pos = cubeHitInfo.hitPoint;
         ReportHit(1, 0, attr2);
         return;
@@ -1452,7 +1451,7 @@ void RaymarchingIntersection()
 
     // if (cubeHitInfo.didHit)
     // {
-    //     SDF_GeometryAttributes attr = {};
+    //     ImplicitGeometryAttributes attr = {};
     //     attr.pos = cubeHitInfo.hitPoint;
     //     attr.normal = cubeHitInfo.normal;
     //     // Optionally encode hit.normal or hit.hitPoint into attr
@@ -1469,7 +1468,7 @@ void RaymarchingIntersection()
 
     // float tMin = 0.f;
     // float tMax = 0.f;
-    // SDF_GeometryAttributes attr = {};
+    // ImplicitGeometryAttributes attr = {};
     
     // if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
     // {
@@ -1500,6 +1499,27 @@ void RaymarchingIntersection()
     // float tHit = dot(hitInfo.pos - rayOrigin, rayDir);
 
     // ReportHit(tHit, 0, attr);
+}
+
+[shader("intersection")]
+void AABB_SimulationIntersection()
+{
+    if (!drawFluid)
+        return;
+
+    ImplicitGeometryAttributes attr = {};
+
+    float3 rayOrigin = WorldRayOrigin();
+    float3 rayDir = normalize(WorldRayDirection());
+
+    // Step 1: Intersect with the transformed fluid bounding box (world space)
+    CubeHitInfo cubeHitInfo = RayBoxWithMatrix(rayOrigin, rayDir, localToWorld, worldToLocal);
+
+    if (!cubeHitInfo.didHit)
+        return;
+
+    attr.pos = cubeHitInfo.hitPoint;
+    ReportHit(cubeHitInfo.dst, 0, attr);
 }
 
 // float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
@@ -1634,7 +1654,7 @@ void shadowAnyHit(inout ShadowRayData hitData, BuiltInTriangleIntersectionAttrib
 }
 
 [shader("anyhit")]
-void shadowAnyHitFluid(inout ShadowRayData hitData, in SDF_GeometryAttributes attribs)
+void shadowAnyHitFluid(inout ShadowRayData hitData, in ImplicitGeometryAttributes attribs)
 {
     // if (attribs.isInsideFluid)
     // {
@@ -1696,7 +1716,7 @@ void rayGen()
 
     // if (fluidAABBHit)
     // {
-    //     SDF_GeometryAttributes attr = RaymarchWithRayQuery(rayOrigin, rayDir, tMin, tMax);
+    //     ImplicitGeometryAttributes attr = RaymarchWithRayQuery(rayOrigin, rayDir, tMin, tMax);
 
     //     if (attr.t > 0)
     //     {
