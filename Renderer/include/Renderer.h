@@ -120,6 +120,7 @@ private:
     ref<Material> lambertianCube;
     ref<Material> lambertianSphere;
 
+    ref<Buffer> vertexCounter;
     ref<Buffer> b_pos;
     ref<Buffer> b_pos_readback;
     ref<Buffer> b_norm_readback;
@@ -132,16 +133,9 @@ private:
     uint32_t oldTriangleCount = 0;
     uint32_t triangleCount = 0;
 
-    float var_ = 0.f;
-
     ref<ComputePass> compute_density_map_pass_ = nullptr;
     ref<ComputePass> marching_cubes_pass_ = nullptr;
-    ref<ComputePass> compute_marching_cube_density_map_ = nullptr;
-    ref<Buffer> marching_cubes_triangle_buffer_ = nullptr;
-    ref<Buffer> read_back_triangle_buffer_ = nullptr;
 
-
-    //ref<Material> dielectric_blue;
 public:
     float shadowDensityMultiplier = 1.f;
     bool drawShadow = true;

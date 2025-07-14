@@ -313,7 +313,10 @@ struct Triangle {
     Vertex vertexC;
 };
 
-AppendStructuredBuffer<Triangle> triangles;
+RWStructuredBuffer<float3> outPositions;
+RWStructuredBuffer<float3> outNormals;
+RWStructuredBuffer<uint> counter;
+
 Texture3D<float> DensityTexture;
 SamplerState linearClampSampler;
 
@@ -328,27 +331,9 @@ cbuffer PerFrameCB
     float3 scale;
 }
 
-// float sampleDensity(int3 position)
-// {
-//     // Bounds check
-//     if (any(position < 0) || any(position >= textureSize))
-//         return 1e6f; // Treat out-of-bounds as "far outside" the surface
-
-//     int3 coord = max(0, min(position, textureSize));
-
-//     return DensityTexture[coord];
-// }
-
-// float SampleDensityMap(float3 pos)
-// {
-//     float3 uvw = (pos + simBounds * 0.5f) / simBounds;
-
-//     const float epsilon = 0.0001f;
-//     bool isEdge = any(uvw >= 1 - epsilon || uvw <= epsilon);
-//     if (isEdge) return -volumeValueOffset;
-
-//     return DensityTexture.SampleLevel(linearClampSampler, uvw, 0).r - volumeValueOffset;
-// }
+float3 coordToWorld(int3 coord) {
+    return (coord / (textureSize - 1.0)) - 0.5f;
+}
 
 float SampleDensity(uint3 coord)
 {
@@ -356,6 +341,11 @@ float SampleDensity(uint3 coord)
     if (isEdge) return isoLevel;
     float3 uvw = coord / (float3)(textureSize - 1);
     return -DensityTexture.SampleLevel(linearClampSampler, uvw, 0);
+}
+
+float SampleSafeDensity(int3 coord) {
+    int3 clamped = clamp(coord, int3(0, 0, 0), textureSize - 1);
+    return SampleDensity(clamped);
 }
 
 float3 calculateNormal(int3 coord) {
@@ -368,15 +358,6 @@ float3 calculateNormal(int3 coord) {
     float dz = SampleSafeDensity(coord + offsetZ) - SampleSafeDensity(coord - offsetZ);
 
     return normalize(float3(dx, dy, dz));
-}
-
-float SampleSafeDensity(int3 coord) {
-    int3 clamped = clamp(coord, int3(0, 0, 0), textureSize - 1);
-    return SampleDensity(clamped);
-}
-
-float3 coordToWorld(int3 coord) {
-    return (coord / (textureSize - 1.0)) - 0.5f;
 }
 
 // Calculate the position of the vertex
@@ -456,11 +437,22 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         Vertex vertexB = createVertex(cornerCoords[a1], cornerCoords[b1]);
         Vertex vertexC = createVertex(cornerCoords[a2], cornerCoords[b2]);
 
-        Triangle tri;
-        tri.vertexA = vertexA;
-        tri.vertexB = vertexB;
-        tri.vertexC = vertexC;
-        triangles.Append(tri);
+        uint baseIndex;
+        InterlockedAdd(counter[0], 3, baseIndex);
+
+        outPositions[baseIndex + 0] = vertexA.position;
+        outPositions[baseIndex + 1] = vertexB.position;
+        outPositions[baseIndex + 2] = vertexC.position;
+
+        outNormals[baseIndex + 0] = vertexA.normal;
+        outNormals[baseIndex + 1] = vertexB.normal;
+        outNormals[baseIndex + 2] = vertexC.normal;
+
+        // Triangle tri;
+        // tri.vertexA = vertexA;
+        // tri.vertexB = vertexB;
+        // tri.vertexC = vertexC;
+        // triangles.Append(tri);
     }
 }
 

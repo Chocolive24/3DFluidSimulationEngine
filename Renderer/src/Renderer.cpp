@@ -52,16 +52,15 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     lambertianCube->setIndexOfRefraction(0.f);
 
     ref<Material> lambertianTexture = StandardMaterial::create(device_, "LambertianTexture");
-    auto texture = Texture::createFromFile(device_,
-        "data/images/CheckerTile_BaseColor.png", true, false);
- /*   auto texture = Texture::createFromFile(device_,
-        "Samples/3DFluidSimulationEngine/data/images/CheckerTile_BaseColor.png",
-        true, false);*/
+    auto texture = Texture::createFromFile(device_, "data/images/CheckerTile_BaseColor.png", true, false);
+    /*   auto texture = Texture::createFromFile(device_,
+           "Samples/3DFluidSimulationEngine/data/images/CheckerTile_BaseColor.png",
+           true, false);*/
     lambertianTexture->toBasicMaterial()->setBaseColorTexture(texture);
     lambertianTexture->setRoughnessMollification(1.f);
     lambertianTexture->setIndexOfRefraction(0.f);
 
-        /*if (!useMarchingCubes)
+    /*if (!useMarchingCubes)
 {*/
     /*  auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
       sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);*/
@@ -107,17 +106,17 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
         int primIndex = 0;
 
-        //for (int x = 0; x < Metrics::voxelGridResolution[0]; ++x)
+        // for (int x = 0; x < Metrics::voxelGridResolution[0]; ++x)
         //{
-        //    for (int y = 0; y < Metrics::voxelGridResolution[1]; ++y)
-        //    {
-        //        for (int z = 0; z < Metrics::voxelGridResolution[2]; ++z)
-        //        {
-        //            float3 center = float3(
-        //                -Metrics::WALLDIST + (x + 0.5f) * cellSize.x,
-        //                -Metrics::WALLDIST + (y + 0.5f) * cellSize.y,
-        //                -Metrics::WALLDIST + (z + 0.5f) * cellSize.z
-        //            );
+        //     for (int y = 0; y < Metrics::voxelGridResolution[1]; ++y)
+        //     {
+        //         for (int z = 0; z < Metrics::voxelGridResolution[2]; ++z)
+        //         {
+        //             float3 center = float3(
+        //                 -Metrics::WALLDIST + (x + 0.5f) * cellSize.x,
+        //                 -Metrics::WALLDIST + (y + 0.5f) * cellSize.y,
+        //                 -Metrics::WALLDIST + (z + 0.5f) * cellSize.z
+        //             );
 
         //            float3 min = center - float3(halfSize);
         //            float3 max = center + float3(halfSize);
@@ -157,7 +156,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         );
 
         const AABB fluid_AABB = AABB(float3(-1), float3(1));
-        //AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+        // AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
 
         fluid_transform = Transform();
         fluid_transform.setTranslation(translation);
@@ -174,8 +173,8 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         raymarching_node_id = scene_builder_->addNode(fluid_node);
     }
 
-    //auto envMap = EnvMap::createFromFile(device_,
-    //    "Samples/3DFluidSimulationEngine/data/images/hallstatt4_hd.hdr");
+    // auto envMap = EnvMap::createFromFile(device_,
+    //     "Samples/3DFluidSimulationEngine/data/images/hallstatt4_hd.hdr");
     auto envMap = EnvMap::createFromFile(device_, "data/images/hallstatt4_hd.hdr");
     envMap->setIntensity(1.0);
     scene_builder_->setEnvMap(envMap);
@@ -190,9 +189,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     scene_builder_->addCamera(camera);
 
     compute_density_map_pass_ =
-        ComputePass::create(device_,
-            "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang",
-            "computeDensityMap");
+        ComputePass::create(device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/SPH.cs.slang", "computeDensityMap");
 
     density_3d_tex_ = device_->createTexture3D(
         Metrics::density_map_size,
@@ -208,154 +205,107 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     sampler_desc.setAddressingMode(TextureAddressingMode::Clamp, TextureAddressingMode::Clamp, TextureAddressingMode::Clamp);
     linearClampSampler_ = make_ref<Sampler>(device_, sampler_desc);
 
-    if (!rebuildBvh)
+    if (useMarchingCubes)
     {
-        if (useMarchingCubes)
-        {
-            if (useMarchingCubes)
-            {
-                // 1) Buffer allocation
-                MaxTriangleCount = static_cast<size_t>(5) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) *
-                                   (Metrics::density_map_size - 1);
-                MaxVertexCount = MaxTriangleCount * 3;
-                // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
+        // 1) Buffer allocation
+        MaxTriangleCount =
+            static_cast<size_t>(5) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1);
+        MaxVertexCount = MaxTriangleCount * 3;
+        // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
 
-                TriangleMesh::Vertex vert{float3(10, 10, 10), float3(0, 0, 1), float2(0, 1)};
-                v.resize(MaxVertexCount, vert);
+        TriangleMesh::Vertex vert{float3(10, 10, 10), float3(0, 0, 1), float2(0, 1)};
+        v.resize(MaxVertexCount, vert);
 
-                TriangleMesh::IndexList indices;
-                for (unsigned idx = 0; idx < MaxVertexCount; idx++)
-                {
-                    indices.push_back(idx);
-                }
+        TriangleMesh::IndexList indices(MaxVertexCount);
+        std::iota(indices.begin(), indices.end(), 0);
 
-                auto tri_mesh = TriangleMesh::create(v, indices);
-                tri_id = scene_builder_->addTriangleMesh(tri_mesh, dielectric_blue, true);
+        auto tri_mesh = TriangleMesh::create(v, indices);
+        tri_id = scene_builder_->addTriangleMesh(tri_mesh, dielectric_blue, true);
 
-                auto node_tri = SceneBuilder::Node();
-                auto tri_name = "Marhcing cube mesh " /* + std::to_string(i)*/;
-                node_tri.name = tri_name;
-                auto transform_tri = Transform();
-                transform_tri.setTranslation(float3(0, 0.f, 0.f));
-                transform_tri.setRotationEuler(float3(0.f, 0.f, 0.f));
-                transform_tri.setScaling(float3(1, 1, 1));
-                node_tri.transform = transform_tri.getMatrix();
-                auto tri_node_id = scene_builder_->addNode(node_tri);
+        auto node_tri = SceneBuilder::Node();
+        auto tri_name = "Marhcing cube mesh " /* + std::to_string(i)*/;
+        node_tri.name = tri_name;
+        auto transform_tri = Transform();
+        transform_tri.setTranslation(float3(0, 0.f, 0.f));
+        transform_tri.setRotationEuler(float3(0.f, 0.f, 0.f));
+        transform_tri.setScaling(float3(1, 1, 1));
+        node_tri.transform = transform_tri.getMatrix();
+        auto tri_node_id = scene_builder_->addNode(node_tri);
 
-                scene_builder_->addMeshInstance(tri_node_id, tri_id);
-            }
+        scene_builder_->addMeshInstance(tri_node_id, tri_id);
 
-            // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
-            marching_cubes_triangle_buffer_ = make_ref<Buffer>(
-                device_,                               // Falcor device
-                sizeof(MarchingCubesTriangle),         // structSize (bytes per element)
-                MaxTriangleCount,                      // elementCount
-                ResourceBindFlags::UnorderedAccess |   // UAV for compute
-                    ResourceBindFlags::ShaderResource, // SRV for rendering or readback
-                MemoryType::DeviceLocal,               // GPU-only (faster)
-                nullptr,                               // no init data
-                true                                   // create hidden counter
-            );
+        marching_cubes_pass_ =
+            ComputePass::create(device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ProcessCube");
 
-            marching_cubes_pass_ =
-                ComputePass::create(device_, "Samples/3DFluidSimulationEngine/Renderer/shaders/MarchingCubes.cs.slang", "ProcessCube");
+        vertexCounter = make_ref<Buffer>(
+            device_,
+            sizeof(uint32_t),
+            1,
+            ResourceBindFlags::UnorderedAccess | ResourceBindFlags::ShaderResource,
+            MemoryType::DeviceLocal,
+            nullptr,
+            false
+        );
 
-            // A small readback buffer to fetch the append counter:
-            read_back_triangle_buffer_ = make_ref<Buffer>(
-                device_, sizeof(MarchingCubesTriangle), MaxTriangleCount, ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-            );
+        b_pos = make_ref<Buffer>(
+            device_,
+            sizeof(float) * 3,
+            MaxVertexCount,
+            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+            MemoryType::DeviceLocal,
+            nullptr,
+            false
+        );
 
-            std::vector<float3> positions(MaxVertexCount, float3(10, 10, 10));
-            std::vector<float3> normals(MaxVertexCount, float3(0, 0, 1));
-            std::vector<float3> tangents(MaxVertexCount, float3(0, 0, 1));
-            std::vector<float2> uv(MaxVertexCount, float2(0, 1));
-            //for (const auto& vertex : v)
-            //{
-            //    // std::cout << vertex.position.x << " " << vertex.position.y << " " << vertex.position.z << "\n";
-            //    const auto new_Pos = vertex.position; // + float3(5, 1, 0);
-            //    positions.push_back(new_Pos);
-            //    normals.push_back(vertex.normal);
-            //    tangents.push_back(vertex.normal);
-            //    uv.push_back(float2(vertex.texCoord.x, vertex.texCoord.y));
-            //}
+        b_normal = make_ref<Buffer>(
+            device_,
+            sizeof(float) * 3,
+            MaxVertexCount,
+            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+            MemoryType::DeviceLocal,
+            nullptr,
+            false
+        );
 
-            b_pos = make_ref<Buffer>(
-                device_,
-                sizeof(float) * 3,
-                positions.size(),
-                ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-                MemoryType::DeviceLocal,
-                positions.data(),
-                false
-            );
+        b_tang = make_ref<Buffer>(
+            device_,
+            sizeof(float) * 3,
+            MaxVertexCount,
+            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+            MemoryType::DeviceLocal,
+            nullptr,
+            false
+        );
 
-            b_pos_readback = make_ref<Buffer>(
-                device_, sizeof(float) * 3, positions.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-            );
+        b_uv = make_ref<Buffer>(
+            device_,
+            sizeof(float) * 2,
+            MaxVertexCount,
+            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+            MemoryType::DeviceLocal,
+            nullptr,
+            false
+        );
 
-            b_normal = make_ref<Buffer>(
-                device_,
-                sizeof(normals[0]),
-                normals.size(),
-                ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-                MemoryType::Upload,
-                normals.data(),
-                false
-            );
+        vertices = {
+            {"positions", b_pos},
+            {"normals", b_normal},
+            {"tangents", b_tang},
+            {"texcrds", b_uv},
+        };
 
-            b_norm_readback = make_ref<Buffer>(
-                device_, sizeof(normals[0]), normals.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-            );
-
-            b_tang = make_ref<Buffer>(
-                device_,
-                sizeof(tangents[0]),
-                tangents.size(),
-                ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-                MemoryType::Upload,
-                tangents.data(),
-                false
-            );
-
-            b_tang_readback = make_ref<Buffer>(
-                device_, sizeof(tangents[0]), tangents.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-            );
-
-            b_uv = make_ref<Buffer>(
-                device_,
-                sizeof(uv[0]),
-                uv.size(),
-                ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
-                MemoryType::Upload,
-                uv.data(),
-                false
-            );
-
-            b_uv_readback =
-                make_ref<Buffer>(device_, sizeof(uv[0]), uv.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false);
-
-            vertices = {
-                {"positions", b_pos},
-                {"normals", b_normal},
-                {"tangents", b_tang},
-                {"texcrds", b_uv},
-            };
-        }
-    }
-    else
-    {
-        if (useMarchingCubes)
-        {
-            scene_->setMeshVertices(
-                tri_id,
-                {
-                    {"positions", b_pos},
-                    {"normals", b_normal},
-                    {"tangents", b_tang},
-                    {"texcrds", b_uv},
-                }
-            );
-        }
+        // Debug buffers:
+        /*b_pos_readback = make_ref<Buffer>(
+            device_, sizeof(float) * 3, positions.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
+        );
+        b_norm_readback = make_ref<Buffer>(
+            device_, sizeof(normals[0]), normals.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
+        );
+        b_tang_readback = make_ref<Buffer>(
+            device_, sizeof(tangents[0]), tangents.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
+        );
+        b_uv_readback =
+            make_ref<Buffer>(device_, sizeof(uv[0]), uv.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false);*/
     }
 }
 
@@ -443,20 +393,6 @@ void Renderer::RenderFrame(
     {
         LaunchMarchingCubeComputePasses(pRenderContext);
 
-       /* if (b_pos->getElementCount() != scene_->getMesh(tri_id).getVertexCount())
-        {
-            std::cout << b_pos->getElementCount() << '\n';
-            std::cout << scene_->getMesh(tri_id).getVertexCount() << '\n';
-            std::cout << scene_->getMesh(sphere_mesh_id).getVertexCount() << '\n';
-            std::cout << "BUG VERTEX COUNT AND B_POS\n";
-            std::exit(666);
-        }*/
-
-        /*if (triangleCount != oldTriangleCount)
-        {
-            scene_->setMeshVertices(tri_id, vertices);
-        }*/
-         
         {
             FALCOR_PROFILE(pRenderContext, "Set Mesh Vertices");
             scene_->setMeshVertices(tri_id, vertices);
@@ -466,22 +402,7 @@ void Renderer::RenderFrame(
     {
         FALCOR_PROFILE(pRenderContext, "Update Scene");
 
-        //std::cout << "Before scene update\n";
         IScene::UpdateFlags updates = scene_->update(pRenderContext, currentTime);
-
-        //if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
-        //{
-        //    std::cout << "GeometryChanged\n";
-        //}
-        //if (is_set(updates, IScene::UpdateFlags::GeometryMoved))
-        //{
-        //    std::cout << "GeometryMoved\n";
-        //}
-        //if (is_set(updates, IScene::UpdateFlags::MeshesChanged))
-        //{
-        //    std::cout << "MeshesChanged\n";
-        //}
-        //std::cout << "After scene update\n";
 
         if (is_set(updates, IScene::UpdateFlags::GeometryChanged))
             FALCOR_THROW("This sample does not support scene geometry changes.");
@@ -489,18 +410,10 @@ void Renderer::RenderFrame(
             FALCOR_THROW("This sample does not support scene changes that require shader recompilation.");
     }
 
- /*   FALCOR_ASSERT(scene_);
-    FALCOR_PROFILE(pRenderContext, "renderRT");*/
-
     {
-        //FALCOR_PROFILE(pRenderContext, "Render Raytracing Pass");
-
         setPerFrameVariables(currentTime);
 
         pRenderContext->clearUAV(rt_output_tex_->getUAV().get(), float4(bg_clear_color, 1));
-
-        /* raster_pass_->getState()->setFbo(pTargetFbo);
-         scene_->rasterize(pRenderContext, raster_pass_->getState().get(), raster_pass_->getVars().get());*/
 
         scene_->raytrace(pRenderContext, rt_program_.get(), rt_program_vars_, uint3(target_fbo_->getWidth(), target_fbo_->getHeight(), 1));
         pRenderContext->blit(rt_output_tex_->getSRV(), target_fbo_->getRenderTargetView(0));
@@ -729,69 +642,29 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
     {
         FALCOR_PROFILE(render_context, "Compute Marching Cube Pass");
 
-        render_context->clearUAVCounter(marching_cubes_triangle_buffer_, 0);
+        const uint32_t zero = 0;
+        vertexCounter->setBlob(&zero, 0, sizeof(uint32_t));
+        render_context->clearUAV(b_pos->getUAV().get(), float4(0));
+        render_context->clearUAV(b_normal->getUAV().get(), float4(0));
 
         const auto compute_var = marching_cubes_pass_->getRootVar();
         compute_var["DensityTexture"] = density_3d_tex_;
-        compute_var["triangles"] = marching_cubes_triangle_buffer_;
+        compute_var["outPositions"] = b_pos;
+        compute_var["outNormals"] = b_normal;
+        compute_var["counter"] = vertexCounter;
 
         compute_var["PerFrameCB"]["isoLevel"] = IsoLevel;
         compute_var["PerFrameCB"]["textureSize"] = Metrics::density_map_size;
-
         compute_var["PerFrameCB"]["simBounds"] = float3(Metrics::sim_bounds);
         compute_var["PerFrameCB"]["normalOffset"] = normalOffset;
         compute_var["PerFrameCB"]["volumeValueOffset"] = volumeValueOffset;
         compute_var["PerFrameCB"]["scale"] = march_mesh_scale;
-
         compute_var["linearClampSampler"] = linearClampSampler_;
 
-        int numVoxelsPerX = Metrics::density_map_size - 1;
-        int numVoxelsPerY = Metrics::density_map_size - 1;
-        int numVoxelsPerZ = Metrics::density_map_size - 1;
+        const int numVoxelsPerX = Metrics::density_map_size - 1;
+        const int numVoxelsPerY = Metrics::density_map_size - 1;
+        const int numVoxelsPerZ = Metrics::density_map_size - 1;
         marching_cubes_pass_->execute(render_context, numVoxelsPerX, numVoxelsPerY, numVoxelsPerZ);
-    }
-
-    render_context->uavBarrier(marching_cubes_triangle_buffer_.get());
-    triangleCount = marching_cubes_triangle_buffer_->getUAVCounter()->getElement<uint>(0);
-   
-    uint32_t vertexCount = triangleCount * 3;
-
-    //if (triangleCount != oldTriangleCount)
-    {
-        // std::cout << "New triangle count: " << triangleCount << '\n';
-
-        {
-            FALCOR_PROFILE(render_context, "Copy Triangle Data on CPU");
-
-            render_context->copyResource(read_back_triangle_buffer_.get(), marching_cubes_triangle_buffer_.get());
-        }
-
-        {
-            FALCOR_PROFILE(render_context, "Read Triangle Data on CPU");
-            render_context->submit(true); // attend que tout soit fini sur le GPU
-            const MarchingCubesTriangle* triangles = static_cast<const MarchingCubesTriangle*>(read_back_triangle_buffer_->map());
-
-            std::vector<float3> new_pos(MaxVertexCount);
-            std::vector<float3> new_normals(MaxVertexCount);
-            for (uint32_t i = 0; i < triangleCount; ++i)
-            {
-                new_pos[i * 3 + 0] = triangles[i].vertexA.position;
-                new_pos[i * 3 + 1] = triangles[i].vertexB.position;
-                new_pos[i * 3 + 2] = triangles[i].vertexC.position;
-
-                new_normals[i * 3 + 0] = triangles[i].vertexA.normal;
-                new_normals[i * 3 + 1] = triangles[i].vertexB.normal;
-                new_normals[i * 3 + 2] = triangles[i].vertexC.normal;
-            }
-
-            // for (uint32_t i = vertexCount; i < MaxVertexCount; ++i)
-            //     new_pos[i] = float3(0, 0, 0);
-
-            b_pos->setBlob(new_pos.data(), 0, MaxVertexCount * sizeof(float3));
-            b_normal->setBlob(new_normals.data(), 0, MaxVertexCount * sizeof(float3));
-
-            read_back_triangle_buffer_->unmap();
-        }
     }
 }
 
