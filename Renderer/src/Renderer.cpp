@@ -511,7 +511,6 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
     app_gui_window->checkbox("approximateSecondaryRayBounce", approximateSecondaryRayBounce);
     app_gui_window->checkbox("Use Debug Normals ?", debugNormals);
-    app_gui_window->checkbox("Light Scattering ?", lightScattering);
     
 
     const auto oldDensityMapSize = Metrics::density_map_size;
@@ -552,11 +551,8 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
 
         app_gui_window->var("absorptionCoeff", absorptionCoeff);
         app_gui_window->var("scatteringCoeff", scatteringCoeff);
-        //app_gui_window->var("Phase G ", phaseG);
 
-        app_gui_window->var("maxRaymarchingDistance", maxRayMarchingDistance);
         app_gui_window->var("MarchSize", kMarchSize);
-        app_gui_window->var("maxLighMarchingDistance", maxLighMarchingDistance);
         app_gui_window->var("sunLightMarchSize", sunLightMarchSize);
 
         app_gui_window->rgbColor("Light color", lightColor);
@@ -729,28 +725,21 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["PerFrameCB"]["useDOF"] = mUseDOF;*/
 
     var["PerFrameCB"]["drawFluid"] = draw_fluid_;
-    var["PerFrameCB"]["lightScattering"] = lightScattering;
     var["PerFrameCB"]["shadowDensityMultiplier"] = shadowDensityMultiplier;
     var["PerFrameCB"]["drawShadow"] = drawShadow;
 
     var["PerFrameCB"]["backgroundColor"] = bg_clear_color;
 
-    var["PerFrameCB"]["waterTurbulence"] = water_turbulence_;
-
     var["PerFrameCB"]["maxRayBounce"] = kMaxRayBounce;
 
     var["PerFrameCB"]["absorptionCoeff"] = absorptionCoeff;
     var["PerFrameCB"]["scatteringCoeff"] = scatteringCoeff;
-    var["PerFrameCB"]["phaseG"] = phaseG;
 
     var["PerFrameCB"]["normalOffset"] = normalOffset;
     var["PerFrameCB"]["smoothDst"] = smoothDst;
     var["PerFrameCB"]["smoothPow"] = smoothPow;
     var["PerFrameCB"]["isoLevel"] = IsoLevel;
-    var["PerFrameCB"]["maxRaymarchingDistance"] = maxRayMarchingDistance;
     var["PerFrameCB"]["marchSize"] = kMarchSize;
-
-    var["PerFrameCB"]["maxLighMarchingDistance"] = maxLighMarchingDistance;
     var["PerFrameCB"]["sunLightMarchSize"] = sunLightMarchSize;
 
     var["PerFrameCB"]["lightColor"] = lightColor;

@@ -32,7 +32,7 @@ namespace Metrics // Meter in physical world != meter irl
     ////static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
     //static constexpr float PARTICLESPACING = Metrics::MetersToPixels(0.05f);
 
-    constexpr inline int NbParticles = 10'000;
+    constexpr inline int NbParticles = 40'000;
 
     static constexpr float WALLSIZE = Metrics::MetersToPixels(0.25f);
     static constexpr float WALLDIST = Metrics::MetersToPixels(0.3f);
@@ -40,8 +40,8 @@ namespace Metrics // Meter in physical world != meter irl
     //static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
 
 
-    inline float densityGraphicsMultiplier = 5.f;
-    inline int density_map_size = 32;
+    inline float densityGraphicsMultiplier = 1.f;
+    inline int density_map_size = 150;
     inline float sim_bounds = (WALLDIST) * 2.f;
     inline float voxelSize = sim_bounds / float(density_map_size);
 

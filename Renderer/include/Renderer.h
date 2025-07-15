@@ -139,7 +139,7 @@ private:
     ref<ComputePass> marching_cubes_pass_ = nullptr;
 
 public:
-    float shadowDensityMultiplier = 1.f;
+    float shadowDensityMultiplier = 1.75f;
     bool drawShadow = false;
 
     float DensityRayMarchMultiplier = 0.05f;
@@ -150,7 +150,6 @@ public:
     bool useMarchingCubes = false;
     bool useTestScene = true;
     bool draw_fluid_ = true;
-    bool lightScattering = false;
 
     float smoothDst = 1.f;
     float smoothPow = 5.f;
@@ -175,12 +174,8 @@ public:
     //                                  Constants.                                   
     // ===============================================================================
 
-    //int density_map_size = 64;
-    //float3 sim_bounds = float3(Metrics::MetersToPixels(1.0f)) * 2.f;
     float bounds_size = Metrics::MetersToPixels(1.0f) * 2.f;
-    int numPointsPerAxis = 64;
     float IsoLevel = -0.1f;
-    float SphereRadius = 15.f;
 
     float3 bg_clear_color = float3(1, 1, 1);
 
@@ -188,12 +183,8 @@ public:
 
     float3 absorptionCoeff = float3(0.1, 0.05, 0.01);
     float3 scatteringCoeff = float3(2.19, 0.75, 0.55);
-    float phaseG = 0.8f;
 
-    float water_turbulence_ = 2.5f;
-    float maxRayMarchingDistance = 5.f;
     float kMarchSize = 0.1f; //*Metrics::voxelSize;
-    float maxLighMarchingDistance = 3.f;
     float sunLightMarchSize = 0.5f;
 
     Transform transfrom{};

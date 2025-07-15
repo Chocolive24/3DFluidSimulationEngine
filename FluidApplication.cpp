@@ -393,12 +393,15 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
             fixed_timer_ += timeDeltaTime;
             time_since_last_fixed_update_ += timeDeltaTime;
 
-            while (fixed_timer_ >= kFixedDeltaTime)
+            int currentIt = 0;
+
+            while (fixed_timer_ >= kFixedDeltaTime && currentIt < iterationPerFrame)
             {
                 SimulationStep(pRenderContext);
 
                 fixed_timer_ -= kFixedDeltaTime;
                 time_since_last_fixed_update_ = 0.f;
+                currentIt++;
             }
 
             //SimulationStep(pRenderContext);
@@ -507,7 +510,15 @@ void FluidApplication::renderPhysicsSampleGui()
         adjustWindow = false;
     }
 
-    ImGui::Begin("Sample Manager");
+    static bool initialized = false;
+    if (!initialized)
+    {
+        ImGui::SetNextWindowCollapsed(true);
+        initialized = true;
+    }
+
+    static bool open = false;
+    ImGui::Begin("Sample Manager", &open);
 
     if (ImGui::BeginCombo("Select a Sample", sample_manager_.GetSampleName(sample_manager_.GetCurrentIndex()).c_str()))
     {
