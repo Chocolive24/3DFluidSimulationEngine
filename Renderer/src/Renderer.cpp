@@ -28,8 +28,13 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     Settings settings{};
 
     // Create the SceneBuilder
-    SceneBuilder::Flags flags = SceneBuilder::Flags::RTDontMergeStatic | SceneBuilder::Flags::RTDontMergeDynamic |
-                                SceneBuilder::Flags::RTDontMergeInstanced | SceneBuilder::Flags::DontOptimizeGraph;
+ /*   SceneBuilder::Flags flags = SceneBuilder::Flags::RTDontMergeStatic | SceneBuilder::Flags::RTDontMergeDynamic |
+                                SceneBuilder::Flags::RTDontMergeInstanced | SceneBuilder::Flags::DontOptimizeGraph;*/
+
+    SceneBuilder::Flags flags =
+        SceneBuilder::Flags::UseCompressedHitInfo | SceneBuilder::Flags::RTDontMergeStatic |
+        SceneBuilder::Flags::NonIndexedVertices;
+
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
@@ -230,7 +235,8 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     {
         // 1) Buffer allocation
         MaxTriangleCount =
-            static_cast<size_t>(5) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1);
+            static_cast<size_t>(1) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1) * (Metrics::density_map_size - 1);
+        //MaxTriangleCount = 30'000;
         MaxVertexCount = MaxTriangleCount * 3;
         // constexpr size_t triangleStructSize = sizeof(MarchingCubesTriangle);
 
@@ -239,6 +245,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
         TriangleMesh::IndexList indices(MaxVertexCount);
         std::iota(indices.begin(), indices.end(), 0);
+        
 
         auto tri_mesh = TriangleMesh::create(v, indices);
         tri_id = scene_builder_->addTriangleMesh(tri_mesh, dielectric_blue, true);
@@ -339,7 +346,7 @@ void Renderer::RenderFrame(
     pRenderContext->clearFbo(target_fbo_.get(),
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
-
+    
     if (!useMarchingCubes && useRaymarching)
     {
         {
@@ -604,6 +611,9 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     //Init(render_context);
 
     scene_ = scene_builder_->getScene();
+
+    scene_->setBlasUpdateMode(Scene::UpdateMode::Rebuild);
+
     camera_ = scene_->getCamera();
 
     // Update the controllers
@@ -665,7 +675,7 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
 
         const uint32_t zero = 0;
         vertexCounter->setBlob(&zero, 0, sizeof(uint32_t));
-        render_context->clearUAV(b_pos->getUAV().get(), float4(0, -10000, 0, 0));
+        render_context->clearUAV(b_pos->getUAV().get(), float4(0));
         render_context->clearUAV(b_normal->getUAV().get(), float4(0));
 
         const auto compute_var = marching_cubes_pass_->getRootVar();
@@ -686,6 +696,11 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
         const int numVoxelsPerY = Metrics::density_map_size - 1;
         const int numVoxelsPerZ = Metrics::density_map_size - 1;
         marching_cubes_pass_->execute(render_context, numVoxelsPerX, numVoxelsPerY, numVoxelsPerZ);
+
+    /*    auto pCounter = (uint32_t*)vertexCounter->map();
+        uint32_t counterValue = *pCounter;
+        vertexCounter->unmap();
+        std::cout << "Vertex count = " << counterValue << std::endl;*/
     }
 }
 

@@ -258,6 +258,11 @@ void miss(inout PrimaryRayData hitData)
 [shader("closesthit")]
 void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
 {
+    // hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
+    // hitData.hitT = RayTCurrent();
+    // hitData.absorptionDistance = 0;
+    // return;
+
     float3 rayDir = WorldRayDirection();
     float currentRayDistance = hitData.depth == 0 ? 0 : RayTCurrent();
     uint triangleIndex = PrimitiveIndex();

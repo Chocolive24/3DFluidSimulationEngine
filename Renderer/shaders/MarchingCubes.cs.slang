@@ -314,6 +314,7 @@ struct Triangle {
 };
 
 RWStructuredBuffer<float3> outPositions;
+//AppendStructuredBuffer<float3> appendPositions;
 RWStructuredBuffer<float3> outNormals;
 RWStructuredBuffer<uint> counter;
 
@@ -412,6 +413,11 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         }
     }
 
+    if (cubeConfiguration == 0 || cubeConfiguration == 255)
+    {
+        return; // Cellule complètement vide ou pleine → pas de surface ici
+    }
+
     // Read edges for this configuration
     int edgeIndices[16] = triangulation[cubeConfiguration];
 
@@ -444,148 +450,12 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         outPositions[baseIndex + 1] = vertexB.position;
         outPositions[baseIndex + 2] = vertexC.position;
 
+        // appendPositions.Append(vertexA.position);
+        // appendPositions.Append(vertexB.position);
+        // appendPositions.Append(vertexC.position);
+
         outNormals[baseIndex + 0] = vertexA.normal;
         outNormals[baseIndex + 1] = vertexB.normal;
         outNormals[baseIndex + 2] = vertexC.normal;
-
-        // Triangle tri;
-        // tri.vertexA = vertexA;
-        // tri.vertexB = vertexB;
-        // tri.vertexC = vertexC;
-        // triangles.Append(tri);
     }
 }
-
-// [numthreads(8, 8, 8)]
-// void ProcessCube(uint3 threadID: SV_DispatchThreadID)
-// {
-//     int3 numCubesPerAxis = textureSize - 1;
-//     if (threadID.x >= numCubesPerAxis.x || threadID.y >= numCubesPerAxis.y || threadID.z >= numCubesPerAxis.z) {
-//         return;
-//     }
-//     //if (any(threadID) >= numCubesPerAxis) return;
-
-//     int3 coord = threadID;
-
-//     int3 cornerCoords[8];
-//     cornerCoords[0] = coord + int3(0, 0, 0);
-//     cornerCoords[1] = coord + int3(1, 0, 0);
-//     cornerCoords[2] = coord + int3(1, 0, 1);
-//     cornerCoords[3] = coord + int3(0, 0, 1);
-//     cornerCoords[4] = coord + int3(0, 1, 0);
-//     cornerCoords[5] = coord + int3(1, 1, 0);
-//     cornerCoords[6] = coord + int3(1, 1, 1);
-//     cornerCoords[7] = coord + int3(0, 1, 1);
-
-//     // Calculate unique index for each cube configuration.
-//     // There are 256 possible values (cube has 8 corners, so 2^8 possibilites).
-//     // A value of 0 means cube is entirely inside the surface; 255 entirely outside.
-//     // The value is used to look up the edge table, which indicates which edges of the cube the surface passes through.
-//     int cubeConfiguration = 0;
-//     for (int i = 0; i < 8; i++) {
-//         // Think of the configuration as an 8-bit binary number (each bit represents the state of a corner point).
-//         // The state of each corner point is either 0: above the surface, or 1: below the surface.
-//         // The code below sets the corresponding bit to 1, if the point is below the surface.
-//         if (SampleDensity(cornerCoords[i]) < isoLevel) {
-//             cubeConfiguration |= (1 << i);
-//         }
-//     }
-
-//     // Get array of the edges of the cube that the surface passes through.
-//     int edgeIndices[16] = triangulation[cubeConfiguration];
-
-//     // Create triangles for current cube configuration
-//     int numIndices = lengths[cubeConfiguration];
-//     //int offset = offsets[cubeConfiguration];
-
-//     for (int index = 0; index < numIndices; index += 3) {
-//         // Get indices of corner points A and B for each of the three edges
-//         // of the cube that need to be joined to form the triangle.
-//         int v0 = edgeIndices[index];
-//         int v1 = edgeIndices[1 + index];
-//         int v2 = edgeIndices[2 + index];
-
-//         int a0 = cornerIndexAFromEdge[v0];
-//         int b0 = cornerIndexBFromEdge[v0];
-
-//         int a1 = cornerIndexAFromEdge[v1];
-//         int b1 = cornerIndexBFromEdge[v1];
-
-//         int a2 = cornerIndexAFromEdge[v2];
-//         int b2 = cornerIndexBFromEdge[v2];
-
-//         // Calculate positions of each vertex.
-//         Vertex vertexA = createVertex(cornerCoords[a0], cornerCoords[b0]);
-//         Vertex vertexB = createVertex(cornerCoords[a1], cornerCoords[b1]);
-//         Vertex vertexC = createVertex(cornerCoords[a2], cornerCoords[b2]);
-
-//         // Create triangle
-//         Triangle tri;
-//         tri.vertexA = vertexC;
-//         tri.vertexB = vertexB;
-//         tri.vertexC = vertexA;
-//         triangles.Append(tri);
-//     }
-
-//     return;
-
-//     // Create triangles for the current cube configuration
-//     // for (int i = 0; i < 16; i += 3) {
-//     //     // If edge index is -1, then no further vertices exist in this configuration
-//     //     if (edgeIndices[i] == -1) { break; }
-
-//     //     // Get indices of the two corner points defining the edge that the surface passes through.
-//     //     // (Do this for each of the three edges we're currently looking at).
-//     //     int edgeIndexA = edgeIndices[i];
-//     //     int a0 = cornerIndexAFromEdge[edgeIndexA];
-//     //     int a1 = cornerIndexBFromEdge[edgeIndexA];
-
-//     //     int edgeIndexB = edgeIndices[i + 1];
-//     //     int b0 = cornerIndexAFromEdge[edgeIndexB];
-//     //     int b1 = cornerIndexBFromEdge[edgeIndexB];
-
-//     //     int edgeIndexC = edgeIndices[i + 2];
-//     //     int c0 = cornerIndexAFromEdge[edgeIndexC];
-//     //     int c1 = cornerIndexBFromEdge[edgeIndexC];
-
-//     //     // Vertex vertexA;
-//     //     // Vertex vertexB;
-//     //     // Vertex vertexC;
-//     //     // vertexA.position = float3(0 + threadID.x, 1, -10);
-//     //     // vertexB.position = float3(-1 + threadID.x, -1, -10);
-//     //     // vertexC.position = float3(1 + threadID.x, -1, -10);
-
-//     //     // // Create triangle
-//     //     // Triangle tri;
-//     //     // tri.vertexA = vertexA;
-//     //     // tri.vertexB = vertexB;
-//     //     // tri.vertexC = vertexC;
-//     //     // triangles.Append(tri);
-
-//     //     // return;
-
-//     //     // Calculate positions of each vertex.
-//     //     Vertex vertexA = createVertex(cornerCoords[a0], cornerCoords[b0]);
-//     //     Vertex vertexB = createVertex(cornerCoords[a1], cornerCoords[b1]);
-//     //     Vertex vertexC = createVertex(cornerCoords[a2], cornerCoords[b2]);
-
-//     //     // Create triangle
-//     //     Triangle tri;
-//     //     tri.vertexA = vertexC;
-//     //     tri.vertexB = vertexB;
-//     //     tri.vertexC = vertexA;
-//     //     triangles.Append(tri);
-//     //     // Vertex vertexA;
-//     //     // Vertex vertexB;
-//     //     // Vertex vertexC;
-//     //     // vertexA.position = (cornerCoords[a0] + cornerCoords[a1]) * 0.5f;
-//     //     // vertexB.position = (cornerCoords[b0] + cornerCoords[b1]) * 0.5f;
-//     //     // vertexC.position = (cornerCoords[c0] + cornerCoords[c1]) * 0.5f;
-
-//     //     // // Create triangle
-//     //     // Triangle tri;
-//     //     // tri.vertexA = vertexA;
-//     //     // tri.vertexB = vertexB;
-//     //     // tri.vertexC = vertexC;
-//     //     // triangles.Append(tri);
-//     // }

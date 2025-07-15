@@ -10,21 +10,7 @@ using namespace Falcor;
 struct MarchingCubeVertex
 {
     float3 position = float3(0.f, 0.f, 0.f);
-    //float pad0;
     float3 normal = float3(0.f, 0.f, 1.f);
-    //float pad1;
-    //float3 tangent = float3(0.f, 0.f, 1.f);
-    //float pad2;
-    //float2 texcrd = float2(0.f, 0.f);
-    //float pad3;
-    //float pad4;
-};
-
-struct MarchingCubesTriangle
-{
-    MarchingCubeVertex vertexA;
-    MarchingCubeVertex vertexB;
-    MarchingCubeVertex vertexC;
 };
 
 class Renderer
@@ -146,8 +132,8 @@ public:
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.5f;
 
-    bool useRaymarching = true;
-    bool useMarchingCubes = false;
+    bool useRaymarching = false;
+    bool useMarchingCubes = true;
     bool useTestScene = true;
     bool draw_fluid_ = true;
 
