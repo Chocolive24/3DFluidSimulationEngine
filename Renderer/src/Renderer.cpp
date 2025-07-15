@@ -315,6 +315,22 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
             false
         );
 
+        // The structured buffer that your HLSL AppendStructuredBuffer<Triangle> will write into:
+        //appendPositionBuffer = make_ref<Buffer>(
+        //    device_,                               // Falcor device
+        //    sizeof(float) * 3,         // structSize (bytes per element)
+        //    MaxVertexCount,                      // elementCount
+        //    ResourceBindFlags::UnorderedAccess |   // UAV for compute
+        //        ResourceBindFlags::ShaderResource, // SRV for rendering or readback
+        //    MemoryType::DeviceLocal,               // GPU-only (faster)
+        //    nullptr,                               // no init data
+        //    true                                   // create hidden counter
+        //);
+
+        // Debug buffers:
+        /*b_pos_readback =
+            make_ref<Buffer>(device_, sizeof(float) * 3, MaxVertexCount, ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false);*/
+
         vertices = {
             {"positions", b_pos},
             {"normals", b_normal},
@@ -322,11 +338,8 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
             {"texcrds", b_uv},
         };
 
-        // Debug buffers:
-        /*b_pos_readback = make_ref<Buffer>(
-            device_, sizeof(float) * 3, positions.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
-        );
-        b_norm_readback = make_ref<Buffer>(
+        
+        /*b_norm_readback = make_ref<Buffer>(
             device_, sizeof(normals[0]), normals.size(), ResourceBindFlags::None, MemoryType::ReadBack, nullptr, false
         );
         b_tang_readback = make_ref<Buffer>(
@@ -677,6 +690,8 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
         vertexCounter->setBlob(&zero, 0, sizeof(uint32_t));
         render_context->clearUAV(b_pos->getUAV().get(), float4(0));
         render_context->clearUAV(b_normal->getUAV().get(), float4(0));
+   /*     render_context->clearUAVCounter(b_pos, 0);
+        render_context->clearUAVCounter(b_normal, 0);*/
 
         const auto compute_var = marching_cubes_pass_->getRootVar();
         compute_var["DensityTexture"] = density_3d_tex_;
@@ -696,6 +711,18 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
         const int numVoxelsPerY = Metrics::density_map_size - 1;
         const int numVoxelsPerZ = Metrics::density_map_size - 1;
         marching_cubes_pass_->execute(render_context, numVoxelsPerX, numVoxelsPerY, numVoxelsPerZ);
+
+        //render_context->copyResource(b_pos_readback.get(), b_pos.get());
+
+        /* b_pos = make_ref<Buffer>(
+            device_,
+            sizeof(float) * 3,
+            MaxVertexCount,
+            ResourceBindFlags::ShaderResource | ResourceBindFlags::UnorderedAccess,
+            MemoryType::DeviceLocal,
+            b_pos_readback.get(),
+            false
+        );*/
 
     /*    auto pCounter = (uint32_t*)vertexCounter->map();
         uint32_t counterValue = *pCounter;

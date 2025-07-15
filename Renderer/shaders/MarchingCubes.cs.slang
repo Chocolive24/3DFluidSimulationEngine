@@ -314,7 +314,7 @@ struct Triangle {
 };
 
 RWStructuredBuffer<float3> outPositions;
-//AppendStructuredBuffer<float3> appendPositions;
+/// AppendStructuredBuffer<float3> appendPositions;
 RWStructuredBuffer<float3> outNormals;
 RWStructuredBuffer<uint> counter;
 
@@ -457,5 +457,13 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         outNormals[baseIndex + 0] = vertexA.normal;
         outNormals[baseIndex + 1] = vertexB.normal;
         outNormals[baseIndex + 2] = vertexC.normal;
+
+        // outPositions.Append(vertexA.position);
+        // outPositions.Append(vertexB.position);
+        // outPositions.Append(vertexC.position);
+
+        // outNormals.Append(vertexA.normal);
+        // outNormals.Append(vertexB.normal);
+        // outNormals.Append(vertexC.normal);
     }
 }

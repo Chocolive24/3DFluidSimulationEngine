@@ -108,6 +108,7 @@ private:
     ref<Material> lambertianCube;
     ref<Material> lambertianSphere;
 
+    ref<Buffer> appendPositionBuffer ;
     ref<Buffer> vertexCounter;
     ref<Buffer> b_pos;
     ref<Buffer> b_pos_readback;
