@@ -60,40 +60,43 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     lambertianTexture->setRoughnessMollification(1.f);
     lambertianTexture->setIndexOfRefraction(0.f);
 
-    /*  auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
-      sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);*/
+    if (useTestScene)
+    {
+        /*  auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
+          sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);*/
 
-    auto cube_mesh = TriangleMesh::createCube(float3(Metrics::WALLDIST / 4.f, Metrics::WALLDIST * 2.5f, Metrics::WALLDIST / 4.f));
-    cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertianCube);
+        auto cube_mesh = TriangleMesh::createCube(float3(Metrics::WALLDIST / 4.f, Metrics::WALLDIST * 2.5f, Metrics::WALLDIST / 4.f));
+        cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertianCube);
 
-    auto node = SceneBuilder::Node();
-    const std::string name = "Cube ";
-    node.name = name;
-    auto transform = Transform();
-    transform.setTranslation(float3(0, 0, 0));
-    transform.setRotationEuler(float3(35.f, 0.f, 0.f));
-    transform.setScaling(float3(1, 1, 1));
-    node.transform = transform.getMatrix();
-    const auto node_id = scene_builder_->addNode(node);
+        auto node = SceneBuilder::Node();
+        const std::string name = "Cube ";
+        node.name = name;
+        auto transform = Transform();
+        transform.setTranslation(float3(0, 0, 0));
+        transform.setRotationEuler(float3(35.f, 0.f, 0.f));
+        transform.setScaling(float3(1, 1, 1));
+        node.transform = transform.getMatrix();
+        const auto node_id = scene_builder_->addNode(node);
 
-    // Add Mesh Instances
-    scene_builder_->addMeshInstance(node_id, cube_mesh_id);
+        // Add Mesh Instances
+        scene_builder_->addMeshInstance(node_id, cube_mesh_id);
 
-    auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
-    plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
+        auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
+        plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
 
-    auto node_p = SceneBuilder::Node();
-    const std::string name_p = "Plane";
-    node_p.name = name;
-    auto transform_p = Transform();
-    transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
-    transform_p.setRotationEuler(float3(0, 0.f, 0.f));
-    transform_p.setScaling(float3(1, 1, 1));
-    node_p.transform = transform_p.getMatrix();
-    const auto node_id_p = scene_builder_->addNode(node_p);
+        auto node_p = SceneBuilder::Node();
+        const std::string name_p = "Plane";
+        node_p.name = name;
+        auto transform_p = Transform();
+        transform_p.setTranslation(float3(0, -Metrics::WALLDIST + 1, 0));
+        transform_p.setRotationEuler(float3(0, 0.f, 0.f));
+        transform_p.setScaling(float3(1, 1, 1));
+        node_p.transform = transform_p.getMatrix();
+        const auto node_id_p = scene_builder_->addNode(node_p);
 
-    // Add Mesh Instances
-    scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
+        // Add Mesh Instances
+        scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
+    }
 
     if (!useMarchingCubes && !useRaymarching)
     {
@@ -497,6 +500,8 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
 
     app_gui_window->var("ISO Level", IsoLevel);
     app_gui_window->var("normalOffset", normalOffset);
+    app_gui_window->var("smoothDst", smoothDst);
+    app_gui_window->var("smoothPow", smoothPow);
 
     app_gui_window->checkbox("useVoxelOpti", useVoxelOpti);
     app_gui_window->checkbox("debugVoxelGrid", debugVoxelGrid);
@@ -504,6 +509,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     app_gui_window->checkbox("Use Transformations ?", useTransformations);
     app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
+    app_gui_window->checkbox("approximateSecondaryRayBounce", approximateSecondaryRayBounce);
     app_gui_window->checkbox("Use Debug Normals ?", debugNormals);
     app_gui_window->checkbox("Light Scattering ?", lightScattering);
     
@@ -738,6 +744,8 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["PerFrameCB"]["phaseG"] = phaseG;
 
     var["PerFrameCB"]["normalOffset"] = normalOffset;
+    var["PerFrameCB"]["smoothDst"] = smoothDst;
+    var["PerFrameCB"]["smoothPow"] = smoothPow;
     var["PerFrameCB"]["isoLevel"] = IsoLevel;
     var["PerFrameCB"]["maxRaymarchingDistance"] = maxRayMarchingDistance;
     var["PerFrameCB"]["marchSize"] = kMarchSize;
@@ -781,6 +789,7 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["PerFrameCB"]["ScaledSimBounds"] = fluid_transform.getScaling() * 2.f;
     var["PerFrameCB"]["useTransformations"] = useTransformations;
     var["PerFrameCB"]["useRecursiveRaytracing"] = useRecursiveRaytracing;
+    var["PerFrameCB"]["approximateSecondaryRayBounce"] = approximateSecondaryRayBounce;
     var["PerFrameCB"]["debugNormals"] = debugNormals;
 }
 
