@@ -60,8 +60,6 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     lambertianTexture->setRoughnessMollification(1.f);
     lambertianTexture->setIndexOfRefraction(0.f);
 
-    /*if (!useMarchingCubes)
-{*/
     /*  auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
       sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);*/
 
@@ -96,7 +94,27 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
     // Add Mesh Instances
     scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
-    //}
+
+    if (!useMarchingCubes && !useRaymarching)
+    {
+        auto m = TriangleMesh::createCube(float3(Metrics::sim_bounds));
+        auto mi = scene_builder_->addTriangleMesh(m, dielectric_blue);
+
+        auto node2 = SceneBuilder::Node();
+        const std::string name2 = "Cube ";
+        node2.name = name2;
+        auto transform2 = Transform();
+        transform2.setTranslation(float3(0, 0, 0));
+        transform2.setRotationEuler(float3(0, 0.f, 0.f));
+        transform2.setScaling(float3(1, 1, 1));
+        node2.transform = transform2.getMatrix();
+        const auto node_id2 = scene_builder_->addNode(node2);
+
+        
+        // Add Mesh Instances
+        scene_builder_->addMeshInstance(node_id2, mi);
+    }
+
 
     if (!useMarchingCubes && useRaymarching)
     {
@@ -523,7 +541,8 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     //{
         //app_gui_window->var("Water Turbulance", water_turbulence_);
 
-        app_gui_window->var("MaxRayBounce", kMaxRayBounce);
+        
+        app_gui_window->var("MaxRayBounce", kMaxRayBounce, 0u, MaxTraceRecurDepth - 1);
 
         app_gui_window->var("absorptionCoeff", absorptionCoeff);
         app_gui_window->var("scatteringCoeff", scatteringCoeff);
@@ -611,7 +630,7 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     rtProgDesc.addCompilerArguments(args);*/
 
     rtProgDesc.addTypeConformances(typeConformances);
-    rtProgDesc.setMaxTraceRecursionDepth(6);
+    rtProgDesc.setMaxTraceRecursionDepth(MaxTraceRecurDepth);
     rtProgDesc.setMaxPayloadSize(40); // The largest ray payload struct (PrimaryRayData) is 24 bytes. The payload size
                                       // should be set as small as possible for maximum performance.
 
@@ -644,7 +663,7 @@ void Renderer::LaunchMarchingCubeComputePasses(RenderContext* render_context) no
 
         const uint32_t zero = 0;
         vertexCounter->setBlob(&zero, 0, sizeof(uint32_t));
-        render_context->clearUAV(b_pos->getUAV().get(), float4(0));
+        render_context->clearUAV(b_pos->getUAV().get(), float4(0, -10000, 0, 0));
         render_context->clearUAV(b_normal->getUAV().get(), float4(0));
 
         const auto compute_var = marching_cubes_pass_->getRootVar();
@@ -686,51 +705,10 @@ NodeID Renderer::AddSphereToScene(const float3 pos, const float radius) noexcept
     return node_id;
 }
 
-NodeID Renderer::AddCubeToScene(const float3 pos) noexcept
-{
-    // ref<TriangleMesh> sphere_mesh = TriangleMesh::createSphere(radius);
-
-    // ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
-    // dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
-    // dielectric_blue->setDoubleSided(true);
-    // dielectric_blue->setIndexOfRefraction(1.f);
-    // dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
-
-    // MeshID sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, dielectric_blue);
-
-    auto node = SceneBuilder::Node();
-    const std::string name = "Cube " /* + std::to_string(i)*/;
-    node.name = name;
-    auto transform = Transform();
-    transform.setTranslation(pos);
-    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-    transform.setScaling(float3(1, 1, 1));
-    node.transform = transform.getMatrix();
-    const auto node_id = scene_builder_->addNode(node);
-
-    // sphereNodeIDs.push_back(node_id);
-
-    // Add Mesh Instances
-    scene_builder_->addMeshInstance(node_id, cube_mesh_id);
-
-    return node_id;
-}
-
 void Renderer::UpdateSceneNodeTransform(const NodeID nodeID, const Transform& transform) const noexcept
 {
     scene_->updateNodeTransform(nodeID.get(), transform.getMatrix());
 }
-
-// void Renderer::CreateDensityMap(const std::vector<float>& particle_densities) noexcept
-//{
-//
-// }
-
-// void Renderer::ResetDensityMap(const std::vector<float>& particle_densities) noexcept
-//{
-//
-//     density_3d_tex_.reset(particle_densities);
-// }
 
 void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
 {

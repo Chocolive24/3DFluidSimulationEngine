@@ -265,28 +265,18 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
         return;
     }
 
-    if (hitData.depth >= maxRayBounce)
-    {
-        float3 envColor = gScene.envMap.eval(rayDir, 0);
-        hitData.color = float4(envColor, 1);
-        hitData.hitT = currentRayDistance;
-        hitData.absorptionDistance = hitData.absorptionDistance + currentRayDistance;
-        return;
-    }
-
     // --- Get intersection and shading data ---
     const GeometryInstanceID instanceID = getGeometryInstanceID();
     VertexData v = getVertexData(instanceID, triangleIndex, attribs);
+
     uint materialID = gScene.getMaterialID(instanceID);
 
     ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDir);
     float3 normal = getFlippedShadingNormal(sd); // Always points against the incident ray
 
-    // hitData.color = sd.frontFacing ? float4(0, 1, 0, 1) : float4(1, 0, 0, 1);
-    // return;
-
     // Handle non-dielectric materials (fallback to base color texture with optional shadows)
     float matIoR = gScene.materials.evalIoR(sd.materialID);
+
     if (matIoR < 1.01f) // Considered non-refractive
     {
         BasicMaterialData matData = gScene.materials.getBasicMaterialData(materialID);
@@ -309,7 +299,16 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 
         hitData.color = finalColor;
         hitData.hitT = currentRayDistance;
-        hitData.absorptionDistance = hitData.absorptionDistance + currentRayDistance;;
+        hitData.absorptionDistance = hitData.absorptionDistance + currentRayDistance; ;
+        return;
+    }
+
+    if (hitData.depth >= maxRayBounce)
+    {
+        float3 envColor = gScene.envMap.eval(rayDir, 0);
+        hitData.color = float4(envColor, 1);
+        hitData.hitT = currentRayDistance;
+        hitData.absorptionDistance = hitData.absorptionDistance + currentRayDistance;
         return;
     }
 
@@ -366,6 +365,7 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
         absorptionTotalDistance = refractedData.absorptionDistance + currentRayDistance;
     }
     else
+
     {
         // Total internal reflection, stay in the medium
         absorptionTotalDistance = reflectedData.absorptionDistance + currentRayDistance;
@@ -404,7 +404,6 @@ SurfaceInfo FindNextSurface(float3 origin, float3 rayDir, bool findNextFluidEntr
     float3 lastPosInFluid = origin;
 
     float dstToTest = boundsDstInfo[1] - (TinyNudge)*2;
-    //float dstToTest = 7.5f;
 
     for (float dst = 0; dst < dstToTest; dst += stepSize)
     {
@@ -671,6 +670,26 @@ float3 Transmittance(float thickness)
     return exp(-thickness * scatteringCoeff);
 }
 
+float3 TraceLightRay(float3 pos, float3 dir)
+{
+    // 1. Test géométrie opaque
+    PrimaryRayData geomHit = (PrimaryRayData)0;
+    geomHit.depth = 1;
+
+    RayDesc geometryRay;
+    geometryRay.Origin = pos;
+    geometryRay.Direction = dir;
+    geometryRay.TMin = 0.001f;
+    geometryRay.TMax = 1e6f;
+
+    TraceRay(gScene.rtAccel, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, ~0u, 0, 1, 0, geometryRay, geomHit);
+
+    float distToGeom = geomHit.hitT;
+
+    // If there is some geometry, returns the closesthit color, otherwise return the miss color (the envMap).
+    return geomHit.color.rgb;
+}
+
 [shader("closesthit")]
 void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttributes attribs)
 {
@@ -686,95 +705,93 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
 
     if (useRecursiveRaytracing)
     {
+        if (hitData.depth >= maxRayBounce)
+        {
+            float3 rayDir = normalize(WorldRayDirection());
+            float3 envColor = gScene.envMap.eval(rayDir, 0);
+            hitData.color = float4(envColor, 1.0);
+            hitData.hitT = RayTCurrent();
+            return;
+        }
+
+        // Position et direction du rayon
         float3 rayOrigin = attribs.pos;
-        float3 normal = attribs.normal;
-
         float3 rayDir = normalize(WorldRayDirection());
-        float3 light = float3(0, 0, 0);
 
-        // Decide whether we're entering or exiting
-        bool travellingThroughFluid = attribs.isInsideFluid;
-
-        // Apply absorption from entry to this surface
-        hitData.transmittance *= Transmittance(attribs.densityAlongRay);
-
+        float3 normal = attribs.normal;
         if (dot(normal, rayDir) > 0) normal = -normal;
 
-        //if (debugNormals) hitData.debugNormal = normal;
+        // Appliquer l’absorption depuis l’entrée jusqu’à cette surface
+        hitData.transmittance *= Transmittance(attribs.densityAlongRay);
 
-        float iorA = travellingThroughFluid ? IoR : 1.0f;
-        float iorB = travellingThroughFluid ? 1.0f : IoR;
+        // Indices de réfraction selon sens du trajet
+        bool insideFluid = attribs.isInsideFluid;
+        float iorA = insideFluid ? IoR : 1.0f;
+        float iorB = insideFluid ? 1.0f : IoR;
 
         LightResponse lightResponse = CalculateReflectionAndRefraction(rayDir, normal, iorA, iorB);
 
-        float densityStepSize = sunLightMarchSize * (hitData.depth + 1); // increase step size with each iteration
+        float3 refractDir = lightResponse.refractDir;
+        float3 reflectDir = lightResponse.reflectDir;
+        float refractWeight = lightResponse.refractWeight;
+        float reflectWeight = lightResponse.reflectWeight;
 
-        float densityAlongRefractRay = CalculateDensityAlongRay(attribs.pos, lightResponse.refractDir, densityStepSize);
-        float densityAlongReflectRay = CalculateDensityAlongRay(attribs.pos, lightResponse.reflectDir, densityStepSize);
+        // Densités d'absorption sur chaque direction
+        float stepSize = sunLightMarchSize * (hitData.depth + 1);
+        float densityRefract = CalculateDensityAlongRay(rayOrigin, refractDir, stepSize);
+        float densityReflect = CalculateDensityAlongRay(rayOrigin, reflectDir, stepSize);
 
-        bool traceRefractedRay = densityAlongRefractRay * lightResponse.refractWeight > densityAlongReflectRay * lightResponse.reflectWeight;
+        float3 colorRefract = float3(0, 0, 0);
+        float3 colorReflect = float3(0, 0, 0);
 
-        // Accumulate environment lighting from less dominant path
-        if (traceRefractedRay)
+        // Lancer rayon réfracté (même si poids faible)
+        if (refractWeight > 0)
         {
-            light += gScene.envMap.eval(lightResponse.reflectDir)
-              * hitData.transmittance
-              * Transmittance(densityAlongReflectRay)
-              * lightResponse.reflectWeight;
-        }
-        else
-        {
-            light += gScene.envMap.eval(lightResponse.refractDir)
-              * hitData.transmittance
-              * Transmittance(densityAlongRefractRay)
-              * lightResponse.refractWeight;
-        }
+            RayDesc refrRay;
+            refrRay.Origin = rayOrigin;
+            refrRay.Direction = refractDir;
+            refrRay.TMin = 0.001f;
+            refrRay.TMax = 1e6f;
 
-        // Prepare bounce ray
-        PrimaryRayData bounceResult = (PrimaryRayData)0;
-        bounceResult.depth = hitData.depth + 1;
+            PrimaryRayData refrHit = (PrimaryRayData)0;
+            refrHit.depth = hitData.depth + 1;
+            refrHit.transmittance = hitData.transmittance * refractWeight;
 
-        // Update transmittance for main path (before bounce)
-        float3 pathTransmittance = hitData.transmittance
-                              * (traceRefractedRay ? lightResponse.refractWeight : lightResponse.reflectWeight);
-
-        bounceResult.transmittance = pathTransmittance;
-        //bounceResult.absorptionDistance = attribs.densityAlongRay;
-
-        float3 nextRayDir = traceRefractedRay ? lightResponse.refractDir : lightResponse.reflectDir;
-
-        if (hitData.depth < maxRayBounce)
-        {
-            RayDesc bounceRay;
-            bounceRay.Origin = rayOrigin;
-            bounceRay.Direction = nextRayDir;
-            bounceRay.TMin = 0.001f;
-            bounceRay.TMax = 1e6;
-
-            TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, bounceRay, bounceResult);
-
-            // Apply absorption for this segment after bounce
-            float densityThisSegment = traceRefractedRay ? densityAlongRefractRay : densityAlongReflectRay;
-
-            light += bounceResult.color.rgb
-               * Transmittance(densityThisSegment); // Apply Beer's Law for the current segment
-
-            //debugNormal = bounceResult.debugNormal;
-            hitData.transmittance = bounceResult.transmittance;
-        }
-        else
-        {
-            float densityRemainder = CalculateDensityAlongRay(rayOrigin, nextRayDir, sunLightMarchSize);
-            light += gScene.envMap.eval(nextRayDir)
-              * hitData.transmittance
-              * Transmittance(densityRemainder);
+            TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, refrRay, refrHit);
+            colorRefract = refrHit.color.rgb * Transmittance(densityRefract);
         }
 
-        debugNormal += float3(1);
-        debugNormal *= 0.5f;
+        // Lancer rayon réfléchi
+        if (reflectWeight > 0)
+        {
+            RayDesc reflRay;
+            reflRay.Origin = rayOrigin;
+            reflRay.Direction = reflectDir;
+            reflRay.TMin = 0.001f;
+            reflRay.TMax = 1e6f;
 
-        float3 color = debugNormals ? debugNormal : light;
-        hitData.color = float4(color, 1.0);
+            PrimaryRayData reflHit = (PrimaryRayData)0;
+            reflHit.depth = hitData.depth + 1;
+            reflHit.transmittance = hitData.transmittance * reflectWeight;
+
+            TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, reflRay, reflHit);
+            colorReflect = reflHit.color.rgb * Transmittance(densityReflect);
+        }
+
+        // Contribution si max depth atteint
+        // if (hitData.depth >= maxRayBounce)
+        // {
+        //     float3 envRefract = gScene.envMap.eval(rayDir, 0) * Transmittance(densityRefract);
+        //     float3 envReflect = gScene.envMap.eval(rayDir, 0) * Transmittance(densityReflect);
+
+        //     colorRefract = refractWeight > 0 ? envRefract : 0;
+        //     colorReflect = reflectWeight > 0 ? envReflect : 0;
+        // }
+
+        // Combinaison pondérée
+        float3 light = reflectWeight * colorReflect + refractWeight * colorRefract;
+
+        hitData.color = float4(debugNormals ? (normal * 0.5f + 0.5f) : light, 1.0);
         hitData.hitT = RayTCurrent();
         return;
     }
@@ -792,7 +809,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
         float3 transmittance = float3(1, 1, 1);
         float3 light = float3(0, 0, 0);
 
-        for (int i = 0; i < maxRayBounce; i++)
+        for (int i = 0; i < maxRayBounce + 1; i++)
         {
             float densityStepSize = sunLightMarchSize * (i + 1); // increase step size with each iteration
 
@@ -800,7 +817,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
             // bool searchForNextFluidEntryPoint = !IsInsideFluid(ray.origin, ray.dir);
 
             SurfaceInfo surfaceInfo = FindNextSurface(ray.origin, ray.dir, searchForNextFluidEntryPoint, rngState, i == 0 ? 1 : 0, 1000);
-            
+
             if (!surfaceInfo.foundSurface) break;
 
             transmittance *= Transmittance(surfaceInfo.densityAlongRay);
@@ -826,7 +843,7 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
 
             float densityAlongRefractRay = CalculateDensityAlongRay(surfaceInfo.pos, lightResponse.refractDir, densityStepSize);
             float densityAlongReflectRay = CalculateDensityAlongRay(surfaceInfo.pos, lightResponse.reflectDir, densityStepSize);
-            
+
             bool traceRefractedRay = densityAlongRefractRay * lightResponse.refractWeight > densityAlongReflectRay * lightResponse.reflectWeight;
             travellingThroughFluid = traceRefractedRay != travellingThroughFluid;
 
@@ -858,170 +875,6 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
         return;
     }
 }
-
-//     // float densityAlongViewRay = 0.f;
-//     // densityAlongViewRay = CalculateDensityAlongRay(attribs.w_position, WorldRayDirection(), marchSize);
-
-//     // float3 totalScatteredLight;
-//     // for (float dst = 0.f; dst < attribs.tMax - attribs.tMin; dst += marchSize)
-//     // {
-//     //     float3 p = attribs.w_position + WorldRayDirection() * dst;
-        
-//     //     float densityAlongStep = SampleDensityMap(p) * DensityRayMarchMultiplier * marchSize;
-//     //     densityAlongViewRay += densityAlongStep;
-
-//     //     float3 transmittedSunLight;
-//     //     if (lightScattering)
-//     //     {
-//     //         // TODO: Not sure if it works correctly
-//     //         float densityAlongSunRay = CalculateDensityAlongRay(p, -lightDir, sunLightMarchSize);
-//     //         transmittedSunLight = exp(-densityAlongSunRay * scatteringCoeff);
-//     //     }
-//     //     else
-//     //     {
-//     //         transmittedSunLight = float3(1, 1, 1);
-//     //     }
-
-//     //     float3 inScatteredLight = transmittedSunLight * densityAlongStep * scatteringCoeff;
-//     //     float3 viewTransmittance = exp(-densityAlongViewRay * scatteringCoeff);
-//     //     totalScatteredLight += inScatteredLight * viewTransmittance;
-//     // }
-
-//     // hitData.color = float4(densityAlongViewRay.xxx, 0);
-//     // hitData.hitT = RayTCurrent();
-//     // return;
-
-//     // if (length(totalScatteredLight) <= isoLevel)
-//     // {
-//     //     totalScatteredLight = gScene.envMap.eval(WorldRayDirection());
-//     // }
-
-//     // hitData.color = float4(densityAlongViewRay.xxx, 0);
-//     // hitData.hitT = RayTCurrent();
-//     // return;
-
-//     // float3 n = attribs.w_normal;
-//     // n += float3(1, 1, 1);
-//     // n *= 0.5f;
-//     // hitData.color = float4(float3(n.x, n.y, n.z), 1);
-//     // hitData.hitT = attribs.tMax - attribs.tMin;
-//     // return;
-
-//     // if (hitData.depth >= maxRayBounce)
-//     // {
-//     //     hitData.color = float4(backgroundColor, 0);
-//     //     hitData.hitT = 0.f;
-//     //     return;
-//     // }
-
-//     // float3 rayDir = WorldRayDirection();
-//     // float currentRayT = RayTCurrent();
-
-//     // float3 reflectDir = reflect(rayDir, attribs.w_normal); // Compute the reflection direction
-
-//     // // Define reflection ray
-//     // RayDesc reflectRay;
-//     // reflectRay.Origin = attribs.w_position + reflectDir * 0.1f; // Offset to avoid self-intersection
-//     // reflectRay.Direction = reflectDir;
-//     // reflectRay.TMin = 0.001f;
-//     // reflectRay.TMax = 100000.f;
-
-//     // // Trace reflection ray
-//     // PrimaryRayData reflectedRayData = {};
-//     // reflectedRayData.depth = hitData.depth + 1;
-//     // reflectedRayData.hitT = 0;
-//     // TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, reflectRay, reflectedRayData);
-
-//     // hitData.color = reflectedRayData.color;
-//     // hitData.hitT = reflectedRayData.hitT;
-//     // return;
-
-//     // 1. Compute Fresnel reflectance
-//     // float etaI = 1.f;                                // Incident IoR (Air by default).
-//     // float etaT = IoR;                                // Tranmission IoR (the one from the medium).
-//     // bool isEntering = dot(rayDir, attribs.w_normal) > 0.0;
-//     // float eta = isEntering ? etaI / etaT : etaT / etaI;
-//     // float3 flippedShadingNormal = isEntering ? attribs.w_normal : -attribs.w_normal;
-
-//     // float F0 = pow((etaI - etaT) / (etaI + etaT), 2.0);
-//     // float F90 = 1.f;
-//     // float cosTheta = max(0.00001f, dot(flippedShadingNormal, rayDir));
-//     // float reflectionRatio = evalFresnelSchlick(F0, F90, cosTheta);
-//     // float refractionRatio = 1.f - reflectionRatio;
-
-//     // // 2. Prepare color storage
-//     // float3 reflectedColor = float3(0, 0, 0);
-//     // float3 refractedColor = float3(0, 0, 0);
-
-//     // // 3. Check for total internal reflection
-//     // bool tir = false;
-//     // float3 refractDir = rayDir; // Default if eta == 1.0
-
-//     // if (eta != 1.0)
-//     // {
-//     //     if (!refractWithTIR(rayDir, flippedShadingNormal, eta, refractDir))
-//     //         tir = true;
-//     // }
-
-//     // // 4. Trace reflection ray if needed
-//     // if (reflectionRatio > 0.001f || tir)
-//     // {
-//     //     // Handle total internal reflection
-//     //     // float3 reflectDir = reflect(rayDir, attribs.w_normal); // Compute the reflection direction
-
-//     //     // // Define reflection ray
-//     //     // RayDesc reflectRay;
-//     //     // reflectRay.Origin = attribs.w_position + reflectDir * 0.1f; // Offset to avoid self-intersection
-//     //     // reflectRay.Direction = reflectDir;
-//     //     // reflectRay.TMin = 0.001f;
-//     //     // reflectRay.TMax = 100000.f;
-
-//     //     // // Trace reflection ray
-//     //     // PrimaryRayData reflectedRayData = {};
-//     //     // reflectedRayData.depth = hitData.depth + 1;
-//     //     // reflectedRayData.hitT = 0;
-//     //     // TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, reflectRay, reflectedRayData);
-
-//     //     // reflectedColor = reflectedRayData.color.rgb;
-//     // }
-
-//     // // 5. Trace refraction ray if not TIR
-//     // if (!tir && refractionRatio > 0.001f)
-//     // {
-//     //     refractedColor = CalculateTransmittanceRaymarching(attribs, refractDir);
-
-//     //     // // Trace a refracted ray to get the color after the transmission.
-//     //     // RayDesc refractRay;
-//     //     // refractRay.Origin = attribs.w_position + refractDir * 0.001f;
-//     //     // refractRay.Direction = refractDir;
-//     //     // refractRay.TMin = 0.001f;
-//     //     // refractRay.TMax = 100000.f;
-
-//     //     // PrimaryRayData refractedRayData = {};
-//     //     // refractedRayData.depth = hitData.depth + 1;
-//     //     // refractedRayData.hitT = 0.f;
-//     //     // refractedRayData.absorptionDistance = hitData.absorptionDistance;
-//     //     // TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, rayTypeCount, 0, refractRay, refractedRayData);
-
-//     //     // refractedColor = refractedRayData.color.rgb;
-//     // }
-
-//     // //float3 extinctionCoeff = absorptionCoeff + scatteringCoeff;
-
-//     // // 6. Mix results
-//     // float3 totalLight = tir ? reflectedColor :
-//     //         reflectionRatio * reflectedColor + refractionRatio * refractedColor;
-
-//     // //float3 totalLight = CalculateTransmittanceRaymarching(attribs, rayDir);
-
-//     // reflectedColor *= reflectionRatio;
-//     // refractedColor = float3(0, 0, 1) * refractionRatio;
-
-//     // float3 finalColor = reflectedColor + refractedColor;
-
-//     // hitData.color = float4(totalLight, 1);
-//     // hitData.hitT = currentRayT;
-// }
 
 float SampleDensityMap(float3 pos)
 {
@@ -1075,6 +928,11 @@ float3 CalculateClosestFaceNormal(float3 boxSize, float3 p)
         float3(sign(p.x), 0, 0) : (o.y < o.z) ? float3(0, sign(p.y), 0) : float3(0, 0, sign(p.z));
 }
 
+float SampleSafeDensity(float3 coord) {
+    float3 clamped = clamp(coord, float3(0, 0, 0), densityMapSize - 1);
+    return SampleDensityMap(clamped);
+}
+
 float3 ComputeDensityNormal(float3 pos)
 {
     if (useTransformations)
@@ -1095,12 +953,12 @@ float3 ComputeDensityNormal(float3 pos)
         float3 posZ2 = posLocal + offsetZ;
 
         // Transform to world space before sampling
-        float dx = SampleDensityMap(mul(localToWorld, float4(posX1, 1)).xyz)
-                - SampleDensityMap(mul(localToWorld, float4(posX2, 1)).xyz);
-        float dy = SampleDensityMap(mul(localToWorld, float4(posY1, 1)).xyz)
-                - SampleDensityMap(mul(localToWorld, float4(posY2, 1)).xyz);
-        float dz = SampleDensityMap(mul(localToWorld, float4(posZ1, 1)).xyz)
-                - SampleDensityMap(mul(localToWorld, float4(posZ2, 1)).xyz);
+        float dx = SampleSafeDensity(mul(localToWorld, float4(posX1, 1)).xyz)
+                - SampleSafeDensity(mul(localToWorld, float4(posX2, 1)).xyz);
+        float dy = SampleSafeDensity(mul(localToWorld, float4(posY1, 1)).xyz)
+                - SampleSafeDensity(mul(localToWorld, float4(posY2, 1)).xyz);
+        float dz = SampleSafeDensity(mul(localToWorld, float4(posZ1, 1)).xyz)
+                - SampleSafeDensity(mul(localToWorld, float4(posZ2, 1)).xyz);
 
         float3 volumeNormal = normalize(float3(dx, dy, dz));
 
@@ -1485,125 +1343,6 @@ void AABB_SimulationIntersection()
     ReportHit(cubeHitInfo.dst, 0, attr);
 }
 
-// float3 aabb[2] = { float3(-0.5f) * simBounds, float3(0.5f) * simBounds };
-
-// float tMin = 0.f;
-// float tMax = 0.f;
-
-// if (RayAABBIntersectionTest(ray, aabb, tMin, tMax))
-// {
-//     // Ensure tMin is in the AABB when the camera is already inside it.
-//     tMin = max(tMin, RayTMin());
-//     tMax = min(tMax, RayTCurrent());
-
-//     float3 startPos = rayOrigin + rayDir * tMin;
-
-//     // float prevDensity = SampleDensityMap(startPos);
-
-//     // ReportHit(tMax - tMin, 0, attr);
-//     // return;
-// }
-
-// ReportHit(tMin, /*hitKind*/ 0, attr);
-// return;
-
-//     ReportHit(tMin, /*hitKind*/ 0, attr);
-//     return;
-
-//     float prevDensity = SampleDensityMap(startPos);
-
-//     // If the entry point intersection is already inside the fluid. ReportHit.
-//     if (prevDensity >= isoLevel)
-//     {
-//         attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * tMin);
-//         attr.w_position = startPos;
-//         // attr.tMin = tMin;
-//         // attr.tMax = tMax;
-
-//         ReportHit(tMin, /*hitKind*/ 0, attr);
-//         return;
-//     }
-
-//     for (float dst = tMin + marchSize; dst < tMax; dst += marchSize)
-//     {
-//         float3 p = rayOrigin + rayDir * dst;
-//         float currDensity = SampleDensityMap(p);
-
-//         // Detect a crossing from outside to inside fluid
-//         if (prevDensity < isoLevel && currDensity >= isoLevel)
-//         {
-//             // Optional: refine hit position with linear interpolation
-//             float alpha = (isoLevel - prevDensity) / (currDensity - prevDensity);
-//             float hitT = dst - marchSize + alpha * marchSize;
-
-//             attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
-//             attr.w_position = rayOrigin + rayDir * hitT;
-//             // attr.tMin = hitT;
-//             // attr.tMax = tMax;
-
-//             ReportHit(hitT, /*hitKind*/ 0, attr);
-//             return;
-//         }
-
-//         prevDensity = currDensity;
-//     }
-// }
-
-// bool findEntry = prevDensity < 0;
-
-// If the entry point intersection is already inside the fluid. ReportHit.
-// if (findEntry)
-// {
-//     attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * tMin);
-//     attr.w_position = startPos;
-//     // attr.tMin = tMin;
-//     // attr.tMax = tMax;
-
-//     ReportHit(tMin, /*hitKind*/ 0, attr);
-//     return;
-// }
-
-// for (float dst = tMin + marchSize; dst < tMax + marchSize; dst += marchSize)
-// {
-//     float3 p = rayOrigin + rayDir * dst;
-//     float currDensity = SampleDensityMap(p);
-
-//     // Detect a crossing from outside to inside fluid
-//     if (prevDensity < 0 && currDensity >= 0 && findEntry)
-//     {
-//         // Optional: refine hit position with linear interpolation
-//         float alpha = (0 - prevDensity) / (currDensity - prevDensity);
-//         float hitT = dst - marchSize + alpha * marchSize;
-
-//         attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
-//         attr.w_position = rayOrigin + rayDir * hitT;
-//         // attr.tMin = hitT;
-//         // attr.tMax = tMax;
-
-//         ReportHit(hitT, /*hitKind*/ 0, attr);
-//         return;
-//     }
-
-//     // Detect a crossing from inside to outside fluid
-//     if (prevDensity >= 0 && currDensity < 0 && !findEntry)
-//     {
-//         // Optional: refine hit position with linear interpolation
-//         float alpha = (0 - prevDensity) / (currDensity - prevDensity);
-//         float hitT = dst - marchSize + alpha * marchSize;
-
-//         attr.w_normal = ComputeDensityNormal(rayOrigin + rayDir * hitT);
-//         attr.w_normal = -attr.w_normal;
-//         attr.w_position = rayOrigin + rayDir * hitT;
-//         // attr.tMin = hitT;
-//         // attr.tMax = tMax;
-
-//         ReportHit(hitT, /*hitKind*/ 0, attr);
-//         return;
-//     }
-
-//     prevDensity = currDensity;
-// }
-
 [shader("miss")]
 void shadowMiss(inout ShadowRayData hitData)
 {
@@ -1619,12 +1358,6 @@ void shadowAnyHit(inout ShadowRayData hitData, BuiltInTriangleIntersectionAttrib
 [shader("anyhit")]
 void shadowAnyHitFluid(inout ShadowRayData hitData, in ImplicitGeometryAttributes attribs)
 {
-    // if (attribs.isInsideFluid)
-    // {
-    //     hitData.hit = false;
-    //     return;
-    // }
-
     hitData.hit = true;
     float density = CalculateDensityAlongRay(WorldRayOrigin(), WorldRayDirection(), sunLightMarchSize);
     hitData.color = Transmittance(density * shadowDensityMultiplier);
@@ -1639,7 +1372,7 @@ ShadowRayData traceShadowRay(RayDesc ray)
     return rayData;
 }
 
-// Ray generation (just a simple ray going through the scene)
+// Ray generation
 [shader("raygeneration")]
 void rayGen()
 {
@@ -1650,49 +1383,44 @@ void rayGen()
     RayDesc ray;
     ray = gScene.camera.computeRayPinhole(launchIndex.xy, vector<uint, 2>(viewportDims), false).toRayDesc();
 
-    PrimaryRayData hitData;
-    hitData.color = float4(0.f, 0.f, 0.f, 0.f);
-    hitData.depth = 0;
-    //hitData.uv = uv;
-    TraceRay(gScene.rtAccel, RAY_FLAG_NONE /*rayFlags*/, 0xFF, /*Test all Geometry*/ 0 /* ray index*/, rayTypeCount, 0, ray, hitData);
+    PrimaryRayData hitData = (PrimaryRayData)0;
+    TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, ray, hitData);
 
     gOutput[launchIndex.xy] = hitData.color;
 
-    // Use RayQuery to find bounds of the fluid AABB
-    // RayQuery<RAY_FLAG_NONE> rq;
-    // rq.TraceRayInline(Scene, RAY_FLAG_NONE, 0xFF, rayOrigin, 0.001f, rayDir, 1e38f);
+    return;
 
-    // float tMin = 0.0f;
-    // float tMax = 0.0f;
-    // bool fluidAABBHit = false;
+    // 1. Hit géométrie opaque uniquement
+    PrimaryRayData triangleHit = (PrimaryRayData)0;
+    TraceRay(gScene.rtAccel, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, ~0, 0, 1, 0, ray, triangleHit);
 
-    // while (rq.Proceed())
-    // {
-    //     if (rq.CandidateType() == CANDIDATE_PROCEDURAL_PRIMITIVE) // you must define this index
-    //     {
-    //         tMin = rq.(); // entry into AABB
-    //         tMax = rq.CandidateTriangleRayTMax(); // exit from AABB
-    //         fluidAABBHit = true;
-    //         rq.CommitProceduralPrimitiveHit(); // Needed to finalize hit
-    //     }
-    // }
+    // 2. Hit fluide uniquement
+    PrimaryRayData fluidHit = (PrimaryRayData)0;
+    TraceRay(gScene.rtAccel, RAY_FLAG_SKIP_TRIANGLES, ~0, 0, 1, 0, ray, fluidHit);
 
-    // if (fluidAABBHit)
-    // {
-    //     ImplicitGeometryAttributes attr = RaymarchWithRayQuery(rayOrigin, rayDir, tMin, tMax);
+    // 3. Comparer distance
+    bool hasFluid = (fluidHit.hitT > 0);
+    bool hasTriangle = (triangleHit.hitT > 0);
 
-    //     if (attr.t > 0)
-    //     {
-    //         // Fluid surface was hit → shade
-    //         gOutput[launchIndex] = float4(0.1, 0.3, 0.8, 1); // blue fluid
-    //         return;
-    //     }
-    // }
+    PrimaryRayData result;
+    if (hasFluid && hasTriangle)
+    {
+        result = (fluidHit.hitT < triangleHit.hitT) ? fluidHit : triangleHit;
+    }
+    else if (hasFluid)
+    {
+        result = fluidHit;
+    }
+    else if (hasTriangle)
+    {
+        result = triangleHit;
+    }
+    else
+    {
+        // Pas de hit : afficher environnement
+        result.color = float4(gScene.envMap.eval(ray.Direction), 1);
+        result.hitT = -1;
+    }
 
-    // // Otherwise trace scene normally
-    // PrimaryRayData payload;
-    // payload.color = float4(0, 0, 0, 0);
-    // TraceRay(Scene, RAY_FLAG_NONE, 0xFF, rayOrigin, 0.001f, rayDir, 1e38f, 0, 1, payload);
-    // gOutput[launchIndex] = payload.color;
+    gOutput[launchIndex.xy] = result.color;
 }
-

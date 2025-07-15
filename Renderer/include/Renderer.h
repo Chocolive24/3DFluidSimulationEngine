@@ -102,6 +102,8 @@ private:
     ref<Scene> scene_;
     ref<Camera> camera_;
 
+    static constexpr uint MaxTraceRecurDepth = 6;
+
     ref<Texture> rt_output_tex_;
     ref<Texture> density_3d_tex_;
     ref<Texture> marching_cube_dens_tex;
@@ -144,8 +146,8 @@ public:
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.1f;
 
-    bool useRaymarching = false;
-    bool useMarchingCubes = true;
+    bool useRaymarching = true;
+    bool useMarchingCubes = false;
     bool draw_fluid_ = true;
     bool lightScattering = false;
 
