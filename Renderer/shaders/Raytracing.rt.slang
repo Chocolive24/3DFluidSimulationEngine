@@ -249,7 +249,11 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 
             ShadowRayData shadowData = traceShadowRay(shadowRay);
 
-            finalColor *= float4(shadowData.color, 1.f);
+            // --- Beer's Law (absorption) ---
+            float3 absorb = exp(-absorptionCoeff * shadowData.absorptionDistance);
+            finalColor *= float4(absorb, 1.0f);
+
+            //finalColor *= float4(shadowData.color, 1.f);
             
         }
 
@@ -1155,14 +1159,31 @@ void shadowMiss(inout ShadowRayData hitData)
 void shadowAnyHit(inout ShadowRayData hitData, in BuiltInTriangleIntersectionAttributes attribs)
 {
     hitData.hit = true;
-    hitData.color = float3(0, 0, 0);
+
+    float3 rayDir = WorldRayDirection();
+    float currentRayDistance = RayTCurrent();
+    uint triangleIndex = PrimitiveIndex();
+
+    // --- Get intersection and shading data ---
+    const GeometryInstanceID instanceID = getGeometryInstanceID();
+    VertexData v = getVertexData(instanceID, triangleIndex, attribs);
+
+    uint materialID = gScene.getMaterialID(instanceID);
+
+    ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDir);
+
+    if (!sd.frontFacing)
+    {
+        hitData.absorptionDistance += currentRayDistance;
+    }
+
+    IgnoreHit();
 }
 
 [shader("closesthit")]
 void ShadowClosestHit(inout ShadowRayData hitData, in BuiltInTriangleIntersectionAttributes attribs)
 {
     hitData.hit = true; // Quelque chose bloque la lumière
-    hitData.color = float3(0, 0, 0);
 }
 
 [shader("anyhit")]

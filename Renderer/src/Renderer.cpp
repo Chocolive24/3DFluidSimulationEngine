@@ -46,6 +46,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
     dielectric_blue->setDoubleSided(true);
+    dielectric_blue->setAlphaMode(AlphaMode::Mask);
     dielectric_blue->setIndexOfRefraction(1.33f);
     dielectric_blue->toBasicMaterial()->setDiffuseTransmission(1.f);
 

@@ -395,7 +395,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 
             int currentIt = 0;
 
-            while (fixed_timer_ >= kFixedDeltaTime && currentIt < iterationPerFrame)
+            while (fixed_timer_ >= kFixedDeltaTime && currentIt < 2)
             {
                 SimulationStep(pRenderContext);
 
