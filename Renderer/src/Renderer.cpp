@@ -39,6 +39,8 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     {
         flags =
             SceneBuilder::Flags::UseCompressedHitInfo | SceneBuilder::Flags::RTDontMergeStatic | SceneBuilder::Flags::NonIndexedVertices;
+        shadowDensityMultiplier = 0.66f;
+        Metrics::density_map_size = 100;
     }
 
     scene_builder_ = new SceneBuilder(device_, settings, flags);
@@ -783,6 +785,7 @@ void Renderer::setPerFrameVariables(const double& currentTime) const noexcept
     var["PerFrameCB"]["backgroundColor"] = bg_clear_color;
 
     var["PerFrameCB"]["maxRayBounce"] = kMaxRayBounce;
+    var["PerFrameCB"]["useRaymarching"] = useRaymarching;
 
     var["PerFrameCB"]["absorptionCoeff"] = absorptionCoeff;
     var["PerFrameCB"]["scatteringCoeff"] = scatteringCoeff;

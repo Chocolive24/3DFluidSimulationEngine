@@ -133,8 +133,8 @@ public:
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.5f;
 
-    bool useRaymarching = false;
-    bool useMarchingCubes = true;
+    bool useRaymarching = true;
+    bool useMarchingCubes = false;
     bool useTestScene = true;
     bool draw_fluid_ = true;
 

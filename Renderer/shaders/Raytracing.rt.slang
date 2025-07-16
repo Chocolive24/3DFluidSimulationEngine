@@ -94,6 +94,7 @@ cbuffer PerFrameCB
     bool drawShadow;
 
     bool approximateSecondaryRayBounce;
+    bool useRaymarching;
 };
 
 
@@ -249,12 +250,16 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
 
             ShadowRayData shadowData = traceShadowRay(shadowRay);
 
-            // --- Beer's Law (absorption) ---
-            float3 absorb = exp(-absorptionCoeff * shadowData.absorptionDistance);
-            finalColor *= float4(absorb, 1.0f);
-
-            //finalColor *= float4(shadowData.color, 1.f);
-            
+            if (!useRaymarching)
+            {
+                // --- Beer's Law (absorption) ---
+                float3 absorb = exp(-absorptionCoeff * shadowData.absorptionDistance);
+                finalColor *= float4(absorb, 1.0f);
+            }
+            else
+            {
+                finalColor *= float4(shadowData.color, 1.f);
+            }
         }
 
         hitData.color = finalColor;
@@ -1164,17 +1169,16 @@ void shadowAnyHit(inout ShadowRayData hitData, in BuiltInTriangleIntersectionAtt
     float currentRayDistance = RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
 
-    // --- Get intersection and shading data ---
     const GeometryInstanceID instanceID = getGeometryInstanceID();
     VertexData v = getVertexData(instanceID, triangleIndex, attribs);
-
     uint materialID = gScene.getMaterialID(instanceID);
-
     ShadingData sd = gScene.materials.prepareShadingData(v, materialID, -rayDir);
+    float3 normal = getFlippedShadingNormal(sd);
 
-    if (!sd.frontFacing)
+    // Seulement si le rayon traverse vers l'intérieur du fluide
+    if (sd.frontFacing)
     {
-        hitData.absorptionDistance += currentRayDistance;
+        hitData.absorptionDistance += currentRayDistance * shadowDensityMultiplier;
     }
 
     IgnoreHit();
