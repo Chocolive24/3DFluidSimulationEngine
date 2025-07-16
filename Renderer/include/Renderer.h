@@ -127,7 +127,7 @@ private:
 
 public:
     float shadowDensityMultiplier = 1.75f;
-    bool drawShadow = false;
+    bool drawShadow = true;
 
     float DensityRayMarchMultiplier = 0.05f;
     float volumeValueOffset = 0.1f;

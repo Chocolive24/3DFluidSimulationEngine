@@ -119,8 +119,9 @@ struct PrimaryRayData
 
 struct ShadowRayData
 {
-    float3 color; 
-    bool hit;
+    float3 color = float3(1);
+    float absorptionDistance = 0.f;
+    bool hit = false;
 };
 
 struct CubeHitInfo
@@ -191,58 +192,6 @@ float3 BeerLambert(float3 absorptionCoefficient, float distanceTraveled)
     return exp(-absorptionCoefficient * distanceTraveled);
 }
 
-float PhaseHG(float cosTheta, float g) {
-    float denom = 1.0 + g * g - 2.0 * g * cosTheta;
-    return (1.0 - g * g) / (4.0 * 3.1415926538 * pow(denom, 1.5));
-}
-
-// float3 CalculateTransmittedSunLightAtPos(float3 position)
-// {
-//     float3 transmittedSunLight = lightColor;
-//     for (float sun_t = 0.f; sun_t < maxLighMarchingDistance; sun_t += sunLightMarchSize)
-//     {
-//         float3 posAlongSunRay = position + (-lightDir) * sun_t;
-//         bool isInVolume = map(posAlongSunRay, waterTurbulence, time, iFrame) < 0.001f;
-
-//         if (isInVolume)
-//         {
-//             transmittedSunLight *= exp(-absorptionCoeff * sunLightMarchSize);
-//         }
-//     }
-
-//     return transmittedSunLight;
-// }
-
-// float3 CalculateTransmittanceRaymarching(ImplicitGeometryAttributes attribs, float3 rayDir)
-// {
-//     float3 totalLight = float3(0.f, 0.f, 0.f);
-//     float3 transmittance = float3(1.f, 1.f, 1.f);
-
-//     for (float t = 0.f; t < maxRaymarchingDistance; t += marchSize)
-//     {
-//         float3 position = attribs.pos + rayDir * t;
-//         bool isInVolume = map(position, waterTurbulence, time, iFrame) < 0.001f;
-
-//         if (isInVolume)
-//         {
-//             float3 transmittedSunLight = CalculateTransmittedSunLightAtPos(position);
-
-//             float cosTheta = dot(lightDir, -rayDir);
-//             float phase = PhaseHG(cosTheta, phaseG);
-//             float3 scattered = transmittedSunLight * phase * scatteringCoeff;
-
-//             totalLight += scattered * transmittance * marchSize;
-
-//             transmittance *= exp(-absorptionCoeff * marchSize);
-
-//             if (max(transmittance.r, max(transmittance.g, transmittance.b)) < 0.01f)
-//                 break;
-//         }
-//     }
-
-//     return totalLight;
-// }
-
 // Miss shader
 [shader("miss")]
 void miss(inout PrimaryRayData hitData)
@@ -258,11 +207,6 @@ void miss(inout PrimaryRayData hitData)
 [shader("closesthit")]
 void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
 {
-    // hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
-    // hitData.hitT = RayTCurrent();
-    // hitData.absorptionDistance = 0;
-    // return;
-
     float3 rayDir = WorldRayDirection();
     float currentRayDistance = hitData.depth == 0 ? 0 : RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
@@ -298,13 +242,15 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
         if (drawShadow)
         {
             RayDesc shadowRay;
-            shadowRay.Origin = sd.posW;
-            shadowRay.Direction = -lightDir;
+            shadowRay.Origin = sd.computeRayOrigin(true);
+            shadowRay.Direction = normalize(-lightDir);
             shadowRay.TMin = 0.001f;
-            shadowRay.TMax = 10000.f;
+            shadowRay.TMax = 1000000.f;
 
             ShadowRayData shadowData = traceShadowRay(shadowRay);
+
             finalColor *= float4(shadowData.color, 1.f);
+            
         }
 
         hitData.color = finalColor;
@@ -458,91 +404,6 @@ SurfaceInfo FindNextSurface(float3 origin, float3 rayDir, bool findNextFluidEntr
     return info;
 }
 
-// SurfaceInfo FindNextSurface(float3 origin, float3 rayDir, bool findNextFluidEntryPoint, float maxDst)
-// {
-//     SurfaceInfo info;
-//     info.pos = float3(0, 0, 0);
-//     info.densityAlongRay = 0;
-//     info.foundSurface = false;
-
-//     // Safety check
-//     if (dot(rayDir, rayDir) < 0.5) return info;
-
-//     // Compute AABB intersection
-//     float3 aabbMin = -0.5f * simBounds;
-//     float3 aabbMax = 0.5f * simBounds;
-//     float2 bounds = RayBoxDst(aabbMin, aabbMax, origin, rayDir);
-
-//     float entryT = max(bounds.x, 0.0);
-//     float travelT = bounds.y;
-//     float dstToTest = travelT - 1e-4;
-
-//     origin = origin + rayDir * entryT;
-
-//     float stepSize = marchSize;
-
-//     bool hasEnteredFluid = false;
-//     bool hasExitedFluid = false;
-//     float3 lastPosInFluid = origin;
-
-//     for (float dst = 0; dst < dstToTest; dst += stepSize)
-//     {
-//         float3 samplePos = origin + rayDir * dst;
-//         float density = SampleDensityMap(samplePos) * DensityRayMarchMultiplier * stepSize;
-//         bool insideFluid = (density > 0);
-
-//         if (insideFluid)
-//         {
-//             hasEnteredFluid = true;
-//             lastPosInFluid = samplePos;
-
-//             if (dst <= maxDst)
-//             {
-//                 info.densityAlongRay += density;
-//             }
-//         }
-//         else
-//         {
-//             hasExitedFluid = true;
-//         }
-
-//         bool found = false;
-//         if (findNextFluidEntryPoint)
-//         {
-//             found = insideFluid && hasExitedFluid;
-//         }
-//         else
-//         {
-//             bool isLastStep = (dst + stepSize >= dstToTest);
-//             found = hasEnteredFluid && (!insideFluid || isLastStep);
-//         }
-
-//         if (found)
-//         {
-//             info.pos = lastPosInFluid;
-//             info.foundSurface = true;
-//             break;
-//         }
-//     }
-
-//     return info;
-// }
-
-// bool IsInsideFluid(float3 worldPos)
-// {
-//     // Use a fake ray pointing in any direction — here +Z (doesn't matter much)
-//     float3 worldRayDir = float3(0, 0, 1);
-
-//     // Call RayBoxWithMatrix which internally transforms to local space
-//     CubeHitInfo hit = RayBoxWithMatrix(worldPos, worldRayDir, localToWorld, worldToLocal);
-
-//     // Check if the ray starts inside the box
-//     bool insideBox = hit.didHit && hit.isInside;
-
-//     // Optional: only consider "inside" if density is nonzero
-//     return insideBox && SampleDensityMap(worldPos) > 0;
-// }
-
 bool IsInsideFluid(float3 pos, float3 rayDir)
 {
     //float2 boundsDstInfo = RayBoxDst(-simBounds * 0.5, simBounds * 0.5, pos, float3(0, 0, 1));
@@ -682,8 +543,8 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
         bool traceReflect = reflectWeight > 0 && (!approximateSecondaryRayBounce || reflectWeight > refractWeight);
 
         // Rayon réfracté
-        if (traceRefract)
-        {
+        // if (traceRefract && !approximateSecondaryRayBounce)
+        // {
             RayDesc refrRay;
             refrRay.Origin = rayOrigin;
             refrRay.Direction = refractDir;
@@ -696,15 +557,15 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
 
             TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, refrRay, refrHit);
             colorRefract = refrHit.color.rgb * Transmittance(densityRefract);
-        }
-        else
-        {
-            colorRefract = envRefract;
-        }
+        // }
+        // else
+        // {
+        //     colorRefract = envRefract;
+        // }
 
         // Rayon réfléchi
-        if (traceReflect)
-        {
+        // if (traceReflect)
+        // {
             RayDesc reflRay;
             reflRay.Origin = rayOrigin;
             reflRay.Direction = reflectDir;
@@ -717,11 +578,11 @@ void RaymarchingClosestHit(inout PrimaryRayData hitData, ImplicitGeometryAttribu
 
             TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, reflRay, reflHit);
             colorReflect = reflHit.color.rgb * Transmittance(densityReflect);
-        }
-        else
-        {
-            colorReflect = envReflect;
-        }
+        // }
+        // else
+        // {
+        //     colorReflect = envReflect;
+        // }
         // Contribution si max depth atteint
         // if (hitData.depth >= maxRayBounce)
         // {
@@ -1291,16 +1152,26 @@ void shadowMiss(inout ShadowRayData hitData)
 }
 
 [shader("anyhit")]
-void shadowAnyHit(inout ShadowRayData hitData, BuiltInTriangleIntersectionAttributes attribs)
+void shadowAnyHit(inout ShadowRayData hitData, in BuiltInTriangleIntersectionAttributes attribs)
 {
     hitData.hit = true;
+    hitData.color = float3(0, 0, 0);
+}
+
+[shader("closesthit")]
+void ShadowClosestHit(inout ShadowRayData hitData, in BuiltInTriangleIntersectionAttributes attribs)
+{
+    hitData.hit = true; // Quelque chose bloque la lumière
+    hitData.color = float3(0, 0, 0);
 }
 
 [shader("anyhit")]
 void shadowAnyHitFluid(inout ShadowRayData hitData, in ImplicitGeometryAttributes attribs)
 {
     hitData.hit = true;
+
     float density = CalculateDensityAlongRay(WorldRayOrigin(), WorldRayDirection(), sunLightMarchSize);
+    hitData.absorptionDistance = density;
     hitData.color = Transmittance(density * shadowDensityMultiplier);
 }
 
@@ -1308,8 +1179,8 @@ ShadowRayData traceShadowRay(RayDesc ray)
 {
     ShadowRayData rayData;
     rayData.hit = false;
-    rayData.color = float3(1, 1, 1); 
-    TraceRay(gScene.rtAccel, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH, 0xFF, 1, rayTypeCount, 1, ray, rayData);
+    rayData.color = float3(1, 1, 1);
+    TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 1, rayTypeCount, 1, ray, rayData);
     return rayData;
 }
 
@@ -1325,43 +1196,7 @@ void rayGen()
     ray = gScene.camera.computeRayPinhole(launchIndex.xy, vector<uint, 2>(viewportDims), false).toRayDesc();
 
     PrimaryRayData hitData = (PrimaryRayData)0;
-    TraceRay(gScene.rtAccel, RAY_FLAG_NONE, ~0, 0, 1, 0, ray, hitData);
+    TraceRay(gScene.rtAccel, RAY_FLAG_NONE, 0xFF, 0, 1, 0, ray, hitData);
 
     gOutput[launchIndex.xy] = hitData.color;
-
-    return;
-
-    // 1. Hit géométrie opaque uniquement
-    PrimaryRayData triangleHit = (PrimaryRayData)0;
-    TraceRay(gScene.rtAccel, RAY_FLAG_SKIP_PROCEDURAL_PRIMITIVES, ~0, 0, 1, 0, ray, triangleHit);
-
-    // 2. Hit fluide uniquement
-    PrimaryRayData fluidHit = (PrimaryRayData)0;
-    TraceRay(gScene.rtAccel, RAY_FLAG_SKIP_TRIANGLES, ~0, 0, 1, 0, ray, fluidHit);
-
-    // 3. Comparer distance
-    bool hasFluid = (fluidHit.hitT > 0);
-    bool hasTriangle = (triangleHit.hitT > 0);
-
-    PrimaryRayData result;
-    if (hasFluid && hasTriangle)
-    {
-        result = (fluidHit.hitT < triangleHit.hitT) ? fluidHit : triangleHit;
-    }
-    else if (hasFluid)
-    {
-        result = fluidHit;
-    }
-    else if (hasTriangle)
-    {
-        result = triangleHit;
-    }
-    else
-    {
-        // Pas de hit : afficher environnement
-        result.color = float4(gScene.envMap.eval(ray.Direction), 1);
-        result.hitT = -1;
-    }
-
-    gOutput[launchIndex.xy] = result.color;
 }

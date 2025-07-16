@@ -28,12 +28,18 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     Settings settings{};
 
     // Create the SceneBuilder
- /*   SceneBuilder::Flags flags = SceneBuilder::Flags::RTDontMergeStatic | SceneBuilder::Flags::RTDontMergeDynamic |
-                                SceneBuilder::Flags::RTDontMergeInstanced | SceneBuilder::Flags::DontOptimizeGraph;*/
+    SceneBuilder::Flags flags;
 
-    SceneBuilder::Flags flags =
-        SceneBuilder::Flags::UseCompressedHitInfo | SceneBuilder::Flags::RTDontMergeStatic |
-        SceneBuilder::Flags::NonIndexedVertices;
+    if (!useMarchingCubes)
+    {
+        flags = SceneBuilder::Flags::RTDontMergeStatic | SceneBuilder::Flags::RTDontMergeDynamic |
+                SceneBuilder::Flags::RTDontMergeInstanced | SceneBuilder::Flags::DontOptimizeGraph;
+    }
+    else
+    {
+        flags =
+            SceneBuilder::Flags::UseCompressedHitInfo | SceneBuilder::Flags::RTDontMergeStatic | SceneBuilder::Flags::NonIndexedVertices;
+    }
 
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
@@ -72,7 +78,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
 
         auto cube_mesh = TriangleMesh::createCube(float3(Metrics::WALLDIST / 4.f, Metrics::WALLDIST * 2.5f, Metrics::WALLDIST / 4.f));
         cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertianCube);
-
+        
         auto node = SceneBuilder::Node();
         const std::string name = "Cube ";
         node.name = name;
@@ -103,25 +109,25 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         scene_builder_->addMeshInstance(node_id_p, plane_mesh_id);
     }
 
-    if (!useMarchingCubes && !useRaymarching)
-    {
-        auto m = TriangleMesh::createCube(float3(Metrics::sim_bounds));
-        auto mi = scene_builder_->addTriangleMesh(m, dielectric_blue);
+    //if (!useMarchingCubes && !useRaymarching)
+    //{
+    //    auto m = TriangleMesh::createCube(float3(Metrics::sim_bounds));
+    //    auto mi = scene_builder_->addTriangleMesh(m, dielectric_blue);
 
-        auto node2 = SceneBuilder::Node();
-        const std::string name2 = "Cube ";
-        node2.name = name2;
-        auto transform2 = Transform();
-        transform2.setTranslation(float3(0, 0, 0));
-        transform2.setRotationEuler(float3(0, 0.f, 0.f));
-        transform2.setScaling(float3(1, 1, 1));
-        node2.transform = transform2.getMatrix();
-        const auto node_id2 = scene_builder_->addNode(node2);
+    //    auto node2 = SceneBuilder::Node();
+    //    const std::string name2 = "Cube ";
+    //    node2.name = name2;
+    //    auto transform2 = Transform();
+    //    transform2.setTranslation(float3(0, 0, 0));
+    //    transform2.setRotationEuler(float3(0, 0.f, 0.f));
+    //    transform2.setScaling(float3(1, 1, 1));
+    //    node2.transform = transform2.getMatrix();
+    //    const auto node_id2 = scene_builder_->addNode(node2);
 
-        
-        // Add Mesh Instances
-        scene_builder_->addMeshInstance(node_id2, mi);
-    }
+    //    
+    //    // Add Mesh Instances
+    //    scene_builder_->addMeshInstance(node_id2, mi);
+    //}
 
 
     if (!useMarchingCubes && useRaymarching)
@@ -625,7 +631,11 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
 
     scene_ = scene_builder_->getScene();
 
-    scene_->setBlasUpdateMode(Scene::UpdateMode::Rebuild);
+    if (useMarchingCubes)
+    {
+        scene_->setBlasUpdateMode(Scene::UpdateMode::Rebuild);
+    }
+    
 
     camera_ = scene_->getCamera();
 
@@ -664,10 +674,9 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     sbt->setMiss(0, rtProgDesc.addMiss("miss"));
     sbt->setMiss(1, rtProgDesc.addMiss("shadowMiss"));
 
-    const auto primary = rtProgDesc.addHitGroup("closestHit", "");
+    const auto primary = rtProgDesc.addHitGroup("closestHit");
+    const auto shadow = rtProgDesc.addHitGroup("ShadowClosestHit", "shadowAnyHit");
     sbt->setHitGroup(0, scene_->getGeometryIDs(Scene::GeometryType::TriangleMesh), primary);
-
-    const auto shadow = rtProgDesc.addHitGroup("", "shadowAnyHit");
     sbt->setHitGroup(1, scene_->getGeometryIDs(Scene::GeometryType::TriangleMesh), shadow);
 
     const auto raymarching_hit_group = rtProgDesc.addHitGroup(
