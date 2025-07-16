@@ -413,10 +413,10 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         }
     }
 
-    if (cubeConfiguration == 0 || cubeConfiguration == 255)
-    {
-        return; // Cellule complètement vide ou pleine → pas de surface ici
-    }
+    // if (cubeConfiguration == 0 || cubeConfiguration == 255)
+    // {
+    //     return; // Cellule complètement vide ou pleine → pas de surface ici
+    // }
 
     // Read edges for this configuration
     int edgeIndices[16] = triangulation[cubeConfiguration];

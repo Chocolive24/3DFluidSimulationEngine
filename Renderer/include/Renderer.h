@@ -133,8 +133,8 @@ public:
     float volumeValueOffset = 0.1f;
     float normalOffset = 0.5f;
 
-    bool useRaymarching = true;
-    bool useMarchingCubes = false;
+    bool useRaymarching = false;
+    bool useMarchingCubes = true;
     bool useTestScene = true;
     bool draw_fluid_ = true;
 
@@ -168,7 +168,7 @@ public:
 
     uint kMaxRayBounce = 2;
 
-    float3 absorptionCoeff = float3(0.1, 0.05, 0.01);
+    float3 absorptionCoeff = float3(0.05, 0.015, 0.001);
     float3 scatteringCoeff = float3(2.19, 0.75, 0.55);
 
     float kMarchSize = 0.1f; //*Metrics::voxelSize;
