@@ -1,12 +1,25 @@
-Fluid simulation engine in colaboration between Cochta and Chocolive 24 as a Bachelor main Project for SAE Institute
+# 3D Fluid Simulation Engine
 
-Olivier TODO:
-- Faire une classe Renderer -> peut être mieux
-- Faire un sample graphique raster et un rt
-- Faire un dossier PhysicsEngine avec les libs Common, Physics et PhysicsSamples
+This application is the result of a **Bachelor thesis project** in real-time rendering, developed in collaboration between **Olivier Pachoud** and **Constantin Verine** at **SAE Institute Geneva**.
 
-Constantin TODO:
-- Attendre Olivier
+It features a real-time simulation and rendering of a **fluid based on Smoothed Particle Hydrodynamics (SPH)**, using two different rendering techniques:
+
+- **Ray Marching** through a volumetric density texture
+- **Marching Cubes** for surface reconstruction from the fluid volume
+
+Two separate `.bat` files are included to launch the application using either algorithm.
+
+## 🛠 Features
+
+- **Recursive Ray Tracing**
+- **Ray Marching** for volumetric rendering
+- **Marching Cubes** for mesh-based representation
+- **Smoothed Particle Hydrodynamics (SPH)** for fluid dynamics developped by Constantin Verine
+
+## Controls
+- `F` — Start / Stop the fluid simulation
+- `W`, `A`, `S`, `D` — Move the camera
+- Mouse movement — Rotate the camera
 
 # Build prerequisites.
 ## For Falcor:
