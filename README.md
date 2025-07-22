@@ -1,4 +1,4 @@
-# 3D Fluid Simulation Engine
+# Ray Tracing SPH Fluid Rendering using Ray Marching and Marching Cubes
 
 This application is the result of a **Bachelor thesis project** in real-time rendering, developed in collaboration between **Olivier Pachoud** and **Constantin Verine** at **SAE Institute Geneva**.
 
@@ -11,10 +11,10 @@ Two separate `.bat` files are included to launch the application using either al
 
 ## 🛠 Features
 
-- **Recursive Ray Tracing**
-- **Ray Marching** for volumetric rendering
-- **Marching Cubes** for mesh-based representation
-- **Smoothed Particle Hydrodynamics (SPH)** for fluid dynamics developped by Constantin Verine
+- **Recursive Ray Tracing** (Olivier Pachoud)
+- **Ray Marching** for volumetric rendering (Olivier Pachoud)
+- **Marching Cubes** for mesh-based representation (Olivier Pachoud)
+- **Smoothed Particle Hydrodynamics (SPH)** for fluid dynamics (Constantin Verine)
 
 ## Controls
 - `F` — Start / Stop the fluid simulation
