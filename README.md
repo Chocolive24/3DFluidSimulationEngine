@@ -1,5 +1,8 @@
 # Ray Tracing SPH Fluid Rendering using Ray Marching and Marching Cubes
 
+![Ray Marching](screenshots/raymarching.png)
+![MarchingCubes](screenshots/marchingcubes.png)
+
 This application is the result of a **Bachelor thesis project** in real-time rendering, developed in collaboration between **Olivier Pachoud** and **Constantin Verine** at **SAE Institute Geneva**.
 
 It features a real-time simulation and rendering of a **fluid based on Smoothed Particle Hydrodynamics (SPH)**, using two different rendering techniques:
@@ -9,7 +12,7 @@ It features a real-time simulation and rendering of a **fluid based on Smoothed 
 
 Two separate `.bat` files are included to launch the application using either algorithm.
 
-## 🛠 Features
+## Features
 
 - **Recursive Ray Tracing** (Olivier Pachoud)
 - **Ray Marching** for volumetric rendering (Olivier Pachoud)
