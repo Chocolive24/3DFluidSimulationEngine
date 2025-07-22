@@ -1,12 +1,28 @@
-Fluid simulation engine in colaboration between Cochta and Chocolive 24 as a Bachelor main Project for SAE Institute
+# Ray Tracing SPH Fluid Rendering using Ray Marching and Marching Cubes
 
-Olivier TODO:
-- Faire une classe Renderer -> peut être mieux
-- Faire un sample graphique raster et un rt
-- Faire un dossier PhysicsEngine avec les libs Common, Physics et PhysicsSamples
+![Ray Marching](screenshots/raymarching.png)
+![MarchingCubes](screenshots/marchingcubes.png)
 
-Constantin TODO:
-- Attendre Olivier
+This application is the result of a **Bachelor thesis project** in real-time rendering, developed in collaboration between **Olivier Pachoud** and **Constantin Verine** at **SAE Institute Geneva**.
+
+It features a real-time simulation and rendering of a **fluid based on Smoothed Particle Hydrodynamics (SPH)**, using two different rendering techniques:
+
+- **Ray Marching** through a volumetric density texture
+- **Marching Cubes** for surface reconstruction from the fluid volume
+
+Two separate `.bat` files are included to launch the application using either algorithm.
+
+## Features
+
+- **Recursive Ray Tracing** (Olivier Pachoud)
+- **Ray Marching** for volumetric rendering (Olivier Pachoud)
+- **Marching Cubes** for mesh-based representation (Olivier Pachoud)
+- **Smoothed Particle Hydrodynamics (SPH)** for fluid dynamics (Constantin Verine)
+
+## Controls
+- `F` — Start / Stop the fluid simulation
+- `W`, `A`, `S`, `D` — Move the camera
+- Mouse movement — Rotate the camera
 
 # Build prerequisites.
 ## For Falcor:
