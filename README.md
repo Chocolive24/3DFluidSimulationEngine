@@ -1,6 +1,11 @@
 # Ray Tracing SPH Fluid Rendering using Ray Marching and Marching Cubes
 
+## Preview
+
+Below is a real-time capture of the fluid rendering using ray marching:
 ![Ray Marching](screenshots/raymarching.png)
+
+You can also compare it with the Marching Cubes version:
 ![MarchingCubes](screenshots/marchingcubes.png)
 
 This application is the result of a **Bachelor thesis project** in real-time rendering, developed in collaboration between **Olivier Pachoud** and **Constantin Verine** at **SAE Institute Geneva**.
