@@ -42,6 +42,9 @@ FluidApplication::FluidApplication(const SampleAppConfig& config) : SampleApp(co
 
 void FluidApplication::onLoad(RenderContext* pRenderContext)
 {
+    //Logger::setVerbosity(Logger::Level::Disabled);
+    Logger::setOutputs(Logger::OutputFlags::None);
+
     renderer_ = std::make_unique<Renderer>(getDevice(), getTargetFbo());
 
     sample_manager_.SetUp();
@@ -302,7 +305,8 @@ uint32_t NextPowerOfTwo(int n)
     return n + 1;
 }
 
-void FluidApplication::SimulationStep(RenderContext* pRenderContext) {
+void FluidApplication::SimulationStep(RenderContext* pRenderContext)
+{
     executeParticleComputePass(compute_external_forces_pass_, pRenderContext, totalThreadsX);
     executeParticleComputePass(update_spatial_hash_pass_, pRenderContext, totalThreadsX);
 
@@ -356,12 +360,14 @@ void FluidApplication::SimulationStep(RenderContext* pRenderContext) {
 
 void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fbo>& pTargetFbo)
 {
-    static bool debugLateStart = true;
+    /*static bool debugLateStart = true;
     if (getGlobalClock().getTime() > 7.f && debugLateStart)
     {
         start_simul_ = true;
         debugLateStart = false;
-    }
+    }*/
+
+    
 
     {
         FALCOR_PROFILE(pRenderContext, "SPH Simulation Update");
@@ -372,6 +378,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
             regenrate_particles_ = false;
         }
 
+        static bool firstFrame = true;
         static constexpr int iterationPerFrame = 3;
 
         float timeDeltaTime = getGlobalClock().getDelta();
@@ -383,8 +390,9 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
 
         deltaTime = subStepDeltaTime;
 
-        if (start_simul_)
+        if (start_simul_ || firstFrame)
         {
+            firstFrame = false;
             /*for (int i = 0; i < iterationPerFrame; i++)
             {
                 SimulationStep(pRenderContext);
@@ -468,6 +476,13 @@ void FluidApplication::onGuiRender(Gui* pGui)
     Gui::Window w(pGui, "Raytracing Fluid Rendering", {250, 200});
     renderGlobalUI(pGui);
 
+    w.textWrapped("Press [F] or button below to Start / Stop Simulation.");
+
+    if (w.button("Start / Stop Simulation", false))
+    {
+        start_simul_ = !start_simul_;
+    }
+
     renderer_->RenderUI(pGui, &w, getRenderContext());
 
     renderPhysicsSampleGui();
@@ -482,10 +497,10 @@ bool FluidApplication::onKeyEvent(const KeyboardEvent& keyEvent)
             start_simul_ = !start_simul_;
             sample_manager_.StopSample();
         }
-        else if (keyEvent.key == Input::Key::R)
+        /*else if (keyEvent.key == Input::Key::R)
         {
             sample_manager_.RegenerateSample();
-        }
+        }*/
     }
 
     return renderer_->onKeyEvent(keyEvent);

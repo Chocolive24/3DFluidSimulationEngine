@@ -88,7 +88,7 @@ private:
     ref<Scene> scene_;
     ref<Camera> camera_;
 
-    static constexpr uint MaxTraceRecurDepth = 6;
+    static constexpr uint MaxTraceRecurDepth = 7;
 
     ref<Texture> rt_output_tex_;
     ref<Texture> density_3d_tex_;
@@ -107,6 +107,7 @@ private:
     ref<TriangleMesh> sphere;
     ref<Material> lambertianCube;
     ref<Material> lambertianSphere;
+    ref<Material> dielectric_blue;
 
     ref<Buffer> appendPositionBuffer ;
     ref<Buffer> vertexCounter;
@@ -131,10 +132,10 @@ public:
 
     float DensityRayMarchMultiplier = 0.05f;
     float volumeValueOffset = 0.1f;
-    float normalOffset = 0.5f;
+    float normalOffset = 0.33f;
 
-    bool useRaymarching = false;
-    bool useMarchingCubes = true;
+    bool useRaymarching = true;
+    bool useMarchingCubes = false;
     bool useTestScene = true;
     bool draw_fluid_ = true;
 
@@ -166,12 +167,12 @@ public:
 
     float3 bg_clear_color = float3(1, 1, 1);
 
-    uint kMaxRayBounce = 2;
+    uint kMaxRayBounce = 3;
 
-    float3 absorptionCoeff = float3(0.05, 0.015, 0.001);
+    float3 absorptionCoeff = float3(0.03, 0.003, 0.001);
     float3 scatteringCoeff = float3(2.19, 0.75, 0.55);
 
-    float kMarchSize = 0.1f; //*Metrics::voxelSize;
+    float kMarchSize = 0.05f; //*Metrics::voxelSize;
     float sunLightMarchSize = 0.5f;
 
     Transform transfrom{};

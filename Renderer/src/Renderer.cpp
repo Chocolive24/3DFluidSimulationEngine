@@ -40,12 +40,12 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         flags =
             SceneBuilder::Flags::UseCompressedHitInfo | SceneBuilder::Flags::RTDontMergeStatic | SceneBuilder::Flags::NonIndexedVertices;
         shadowDensityMultiplier = 0.66f;
-        Metrics::density_map_size = 100;
+        //Metrics::density_map_size = 100;
     }
 
     scene_builder_ = new SceneBuilder(device_, settings, flags);
 
-    ref<Material> dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
+    dielectric_blue = StandardMaterial::create(device_, "DielecBlue");
     dielectric_blue->toBasicMaterial()->setBaseColor3(float3(0.05f, 0.05f, 1.0f));
     dielectric_blue->setDoubleSided(true);
     dielectric_blue->setAlphaMode(AlphaMode::Mask);
@@ -95,7 +95,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
         // Add Mesh Instances
         scene_builder_->addMeshInstance(node_id, cube_mesh_id);
 
-        auto plan_mesh = TriangleMesh::createQuad(float2(500, 500));
+        auto plan_mesh = TriangleMesh::createQuad(float2(200, 200));
         plane_mesh_id = scene_builder_->addTriangleMesh(plan_mesh, lambertianTexture);
 
         auto node_p = SceneBuilder::Node();
@@ -368,20 +368,25 @@ void Renderer::RenderFrame(
     pRenderContext->clearFbo(target_fbo_.get(),
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
+
+    //static float3 rotationDt = float3(0, 0, 0);
+    //rotationDt += float3(0, 10 * Metrics::kFixedDeltaTime, 0);
+    //fluid_transform.setRotationEulerDeg(rotationDt);
     
     if (!useMarchingCubes && useRaymarching)
     {
-        {
+        /*{
             FALCOR_PROFILE(pRenderContext, "Reset raymarching custom primitve masks");
 
             cutomPrimitveMasks->setBlob(masks.data(), 0, masks.size() * sizeof(uint32_t));
-        }
+        }*/
 
         {
             FALCOR_PROFILE(pRenderContext, "Update Raymarching custom primitve transformation");
 
             const AABB fluid_AABB = AABB(float3(-1), float3(1));
             //const AABB fluid_AABB = AABB(float3(-Metrics::WALLDIST), float3(Metrics::WALLDIST));
+
             const AABB transformed_aabb = fluid_AABB.transform(fluid_transform.getMatrix());
 
             scene_->updateCustomPrimitive(0, transformed_aabb);
@@ -474,78 +479,89 @@ void Renderer::RenderFrame(
 
 void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* render_context) noexcept
 {
-    app_gui_window->rgbColor("Background color", bg_clear_color);
+    app_gui_window->rgbColor("Box color", bg_clear_color);
     lambertianCube->toBasicMaterial()->setBaseColor3(bg_clear_color);
 
-     if (app_gui_window->button("Reload Scene"))
-     {
-         Init(render_context, true);
-         auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
+     //if (app_gui_window->button("Reload Scene"))
+     //{
+     //    Init(render_context, true);
+     //    auto sphere_mesh = TriangleMesh::createSphere(Metrics::PARTICLESIZE);
 
-         lambertianCube = StandardMaterial::create(device_, "Lambertian");
-         lambertianCube->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
-         lambertianCube->setRoughnessMollification(1.f);
-         lambertianCube->setIndexOfRefraction(0.f);
+     //    lambertianCube = StandardMaterial::create(device_, "Lambertian");
+     //    lambertianCube->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
+     //    lambertianCube->setRoughnessMollification(1.f);
+     //    lambertianCube->setIndexOfRefraction(0.f);
 
-         sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianCube, true);
+     //    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianCube, true);
 
-         auto node = SceneBuilder::Node();
-         std::string name = "Sphere " /* + std::to_string(i)*/;
-         node.name = name;
-         auto transform = Transform();
-         transform.setTranslation(float3(50.f, 0.f, 0.f));
-         transform.setRotationEuler(float3(0.f, 0.f, 0.f));
-         transform.setScaling(float3(20, 20, 20));
-         node.transform = transform.getMatrix();
-         sphere_node_id_ = scene_builder_->addNode(node);
+     //    auto node = SceneBuilder::Node();
+     //    std::string name = "Sphere " /* + std::to_string(i)*/;
+     //    node.name = name;
+     //    auto transform = Transform();
+     //    transform.setTranslation(float3(50.f, 0.f, 0.f));
+     //    transform.setRotationEuler(float3(0.f, 0.f, 0.f));
+     //    transform.setScaling(float3(20, 20, 20));
+     //    node.transform = transform.getMatrix();
+     //    sphere_node_id_ = scene_builder_->addNode(node);
 
-         scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
+     //    scene_builder_->addMeshInstance(sphere_node_id_, sphere_mesh_id);
 
-         /*scene_->setMeshVertices(
-             tri_id,
-             {
-                 {"positions", b_pos},
-                 {"normals", b_normal},
-                 {"tangents", b_tang},
-                 {"texcrds", b_uv},
-             }
-         );*/
+     //    /*scene_->setMeshVertices(
+     //        tri_id,
+     //        {
+     //            {"positions", b_pos},
+     //            {"normals", b_normal},
+     //            {"tangents", b_tang},
+     //            {"texcrds", b_uv},
+     //        }
+     //    );*/
 
-         //scene_ = scene_builder_->getScene();
-         CreateRaytracingProgram(render_context);
-     }
+     //    //scene_ = scene_builder_->getScene();
+     //    CreateRaytracingProgram(render_context);
+     //}
 
-    app_gui_window->var("densityGraphicsMultiplier",
-        Metrics::densityGraphicsMultiplier);
-    app_gui_window->var("volumeValueOffset", volumeValueOffset, 0.f, 100.f);
-    app_gui_window->var("DensityRayMarchMultiplier", DensityRayMarchMultiplier);
+    if (useRaymarching)
+    {
+        app_gui_window->var("Surface Density Graphics Multiplier", Metrics::densityGraphicsMultiplier);
+        app_gui_window->var("Fluid Iso Level", volumeValueOffset, 0.f, 100.f);
+        app_gui_window->var("RayMarch Density Multiplier", DensityRayMarchMultiplier);
+    }
+
     app_gui_window->checkbox("Draw Shadow ?", drawShadow);
     if (drawShadow)
     {
-        app_gui_window->var("shadowDensityMultiplier", shadowDensityMultiplier);
+        app_gui_window->var("Shadow Density Multiplier", shadowDensityMultiplier);
     }
-    
-    //app_gui_window->var("SphereRadius", SphereRadius, 0.f, 200.f);
 
-    app_gui_window->var("ISO Level", IsoLevel);
-    app_gui_window->var("normalOffset", normalOffset);
-    app_gui_window->var("smoothDst", smoothDst);
-    app_gui_window->var("smoothPow", smoothPow);
+    if (useMarchingCubes)
+    {
+        app_gui_window->var("ISO Level", IsoLevel);
+    }
 
-    app_gui_window->checkbox("useVoxelOpti", useVoxelOpti);
-    app_gui_window->checkbox("debugVoxelGrid", debugVoxelGrid);
+    if (useRaymarching)
+    {
+        app_gui_window->var("Normal Offset", normalOffset);
+        app_gui_window->var("Normal SmoothDst", smoothDst);
+        app_gui_window->var("Normal SmoothPow", smoothPow);
+    }
 
-    app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
-    app_gui_window->checkbox("Use Transformations ?", useTransformations);
-    app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
-    app_gui_window->checkbox("approximateSecondaryRayBounce", approximateSecondaryRayBounce);
-    app_gui_window->checkbox("Use Debug Normals ?", debugNormals);
+    //app_gui_window->checkbox("useVoxelOpti", useVoxelOpti);
+    //app_gui_window->checkbox("debugVoxelGrid", debugVoxelGrid);
+
+    //app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
+    //app_gui_window->checkbox("Use Transformations ?", useTransformations);
+    //app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
+    //app_gui_window->checkbox("approximateSecondaryRayBounce", approximateSecondaryRayBounce);
+    //app_gui_window->checkbox("Use Debug Normals ?", debugNormals);
     
 
     const auto oldDensityMapSize = Metrics::density_map_size;
 
-    app_gui_window->var("Density Texture Size", Metrics::density_map_size, 1, 500);
-
+    if (useRaymarching)
+    {
+        app_gui_window->var("Density Texture Size", Metrics::density_map_size, 1, 500);
+    }
+    
     if (oldDensityMapSize != Metrics::density_map_size)
     {
         density_3d_tex_ = device_->createTexture3D(
@@ -559,15 +575,15 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
         );
     }
 
-    app_gui_window->slider("translation", translation, -500.f, 500.f);
-    app_gui_window->slider("rotation", rotation, 0.f, 360.f);
-    app_gui_window->slider("scale", scale, 1.f, 500.f);
+    //app_gui_window->slider("translation", translation, -500.f, 500.f);
+    //app_gui_window->slider("rotation", rotation, 0.f, 360.f);
+    //app_gui_window->slider("scale", scale, 1.f, 500.f);
 
-    app_gui_window->slider("march_mesh_scale", march_mesh_scale, 0.1f, 100.f);
+    //app_gui_window->slider("march_mesh_scale", march_mesh_scale, 0.1f, 100.f);
 
-    fluid_transform.setTranslation(translation);
+    /*fluid_transform.setTranslation(translation);
     fluid_transform.setRotationEulerDeg(rotation);
-    fluid_transform.setScaling(scale);
+    fluid_transform.setScaling(scale);*/
 
     //scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
 
@@ -578,18 +594,30 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
         
         app_gui_window->var("MaxRayBounce", kMaxRayBounce, 0u, MaxTraceRecurDepth - 1);
 
-        app_gui_window->var("absorptionCoeff", absorptionCoeff);
-        app_gui_window->var("scatteringCoeff", scatteringCoeff);
+        if (useMarchingCubes)
+        {
+            app_gui_window->var("absorption Coeff", absorptionCoeff);
+        }
 
-        app_gui_window->var("MarchSize", kMarchSize);
-        app_gui_window->var("sunLightMarchSize", sunLightMarchSize);
+        if (useRaymarching)
+        {
+            app_gui_window->var("absorption Coeff", scatteringCoeff);
+            app_gui_window->var("MarchSize", kMarchSize, 0.01f, 10.f);
+            app_gui_window->var("sunLightMarchSize", sunLightMarchSize);
+        }
 
-        app_gui_window->rgbColor("Light color", lightColor);
+        //app_gui_window->rgbColor("Light color", lightColor);
         static float3 ImGUI_LightDir = lightDir;
         app_gui_window->var("Light Direction", ImGUI_LightDir);
         lightDir = math::normalize(ImGUI_LightDir);
 
         app_gui_window->var("IoR", IoR);
+        if (dielectric_blue != nullptr)
+        {
+            dielectric_blue->setIndexOfRefraction(IoR);
+        }
+        
+        
 
         // app_gui_window->checkbox("Use Depth of Field", mUseDOF);
     //}
@@ -662,7 +690,8 @@ void Renderer::CreateRaytracingProgram(RenderContext* render_context) noexcept
     shaderModules.emplace_back(s_module);
     rtProgDesc.addShaderModules(shaderModules);
     rtProgDesc.addShaderLibrary("Samples/3DFluidSimulationEngine/Renderer/shaders/Raytracing.rt.slang");
-    rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo); // Ajoute le debug Slang
+    //rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo); // Ajoute le debug Slang
+    rtProgDesc.setCompilerFlags(SlangCompilerFlags::None); 
     //rtProgDesc.setCompilerFlags(SlangCompilerFlags::GenerateDebugInfo | SlangCompilerFlags::DumpIntermediates); // Ajoute le debug Slang
  /*   std::vector<std::string> args{"-g"};
     rtProgDesc.addCompilerArguments(args);*/

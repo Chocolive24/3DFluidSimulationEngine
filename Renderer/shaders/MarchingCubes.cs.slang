@@ -314,7 +314,6 @@ struct Triangle {
 };
 
 RWStructuredBuffer<float3> outPositions;
-/// AppendStructuredBuffer<float3> appendPositions;
 RWStructuredBuffer<float3> outNormals;
 RWStructuredBuffer<uint> counter;
 
@@ -413,11 +412,6 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         }
     }
 
-    // if (cubeConfiguration == 0 || cubeConfiguration == 255)
-    // {
-    //     return; // Cellule complètement vide ou pleine → pas de surface ici
-    // }
-
     // Read edges for this configuration
     int edgeIndices[16] = triangulation[cubeConfiguration];
 
@@ -450,20 +444,8 @@ void ProcessCube(uint3 threadID: SV_DispatchThreadID)
         outPositions[baseIndex + 1] = vertexB.position;
         outPositions[baseIndex + 2] = vertexC.position;
 
-        // appendPositions.Append(vertexA.position);
-        // appendPositions.Append(vertexB.position);
-        // appendPositions.Append(vertexC.position);
-
         outNormals[baseIndex + 0] = vertexA.normal;
         outNormals[baseIndex + 1] = vertexB.normal;
         outNormals[baseIndex + 2] = vertexC.normal;
-
-        // outPositions.Append(vertexA.position);
-        // outPositions.Append(vertexB.position);
-        // outPositions.Append(vertexC.position);
-
-        // outNormals.Append(vertexA.normal);
-        // outNormals.Append(vertexB.normal);
-        // outNormals.Append(vertexC.normal);
     }
 }

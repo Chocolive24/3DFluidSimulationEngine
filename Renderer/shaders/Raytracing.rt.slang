@@ -234,7 +234,7 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
     // Handle non-dielectric materials (fallback to base color texture with optional shadows)
     float matIoR = gScene.materials.evalIoR(sd.materialID);
 
-    if (matIoR < 1.01f) // Considered non-refractive
+    if (matIoR <= 0.f) // Considered non-refractive
     {
         BasicMaterialData matData = gScene.materials.getBasicMaterialData(materialID);
         float4 baseColor = gScene.materials.sampleTexture(
@@ -334,7 +334,7 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
         float3 envColor = gScene.envMap.eval(rayDir, 0);
         hitData.color = float4(envColor, 1);
         hitData.hitT = currentRayDistance;
-        hitData.absorptionDistance = hitData.absorptionDistance + currentRayDistance;
+        //hitData.absorptionDistance = hitData.absorptionDistance + currentRayDistance;
         return;
     }
 
@@ -1121,7 +1121,7 @@ void shadowAnyHit(inout ShadowRayData hitData, in BuiltInTriangleIntersectionAtt
 [shader("closesthit")]
 void ShadowClosestHit(inout ShadowRayData hitData, in BuiltInTriangleIntersectionAttributes attribs)
 {
-    hitData.hit = true; // Quelque chose bloque la lumière
+    hitData.hit = true; 
 }
 
 [shader("anyhit")]
