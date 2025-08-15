@@ -81,7 +81,7 @@ private:
     std::unique_ptr<Renderer> renderer_ = nullptr;
     SampleManager sample_manager_;
 
-    bool profiling = true;
+    bool profiling = false;
 
     std::vector<NodeID> sphereNodeIDs;
 

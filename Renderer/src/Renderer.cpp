@@ -55,15 +55,20 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     // cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, dielectric_blue);
 
     // Create a lambertian material
-    lambertianSphere = StandardMaterial::create(device_, "LambertianSphere");
-    lambertianSphere->toBasicMaterial()->setBaseColor3(float3(0.1f, 0.33f, 0.9f));
-    lambertianSphere->setRoughnessMollification(1.f);
-    lambertianSphere->setIndexOfRefraction(0.f);
+    ref<Material> lambertianPhysics = StandardMaterial::create(device_, "LambertianPhysics");
+    lambertianPhysics->toBasicMaterial()->setBaseColor3(float3(0.1f, 0.33f, 0.9f));
+    lambertianPhysics->setRoughnessMollification(1.f);
+    lambertianPhysics->setIndexOfRefraction(0.f);
+
+    //lambertianSphere = StandardMaterial::create(device_, "LambertianSphere");
+    //lambertianSphere->toBasicMaterial()->setBaseColor3(float3(0.1f, 0.33f, 0.9f));
+    //lambertianSphere->setRoughnessMollification(1.f);
+    //lambertianSphere->setIndexOfRefraction(0.5f);
 
     lambertianCube = StandardMaterial::create(device_, "LambertianCube");
     lambertianCube->toBasicMaterial()->setBaseColor3(float3(0.2f, 0.9f, 0.1f));
     lambertianCube->setRoughnessMollification(1.f);
-    lambertianCube->setIndexOfRefraction(0.f);
+    lambertianCube->setIndexOfRefraction(0.5f);
 
     ref<Material> lambertianTexture = StandardMaterial::create(device_, "LambertianTexture");
     auto texture = Texture::createFromFile(device_, "data/images/CheckerTile_BaseColor.png", true, false);
@@ -72,13 +77,13 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
            true, false);*/
     lambertianTexture->toBasicMaterial()->setBaseColorTexture(texture);
     lambertianTexture->setRoughnessMollification(1.f);
-    lambertianTexture->setIndexOfRefraction(0.f);
+    lambertianTexture->setIndexOfRefraction(0.5f);
+
+    auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
+    sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianPhysics);
 
     if (useTestScene)
     {
-        /*  auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
-          sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianSphere);*/
-
         auto cube_mesh = TriangleMesh::createCube(float3(Metrics::WALLDIST / 4.f, Metrics::WALLDIST * 2.5f, Metrics::WALLDIST / 4.f));
         cube_mesh_id = scene_builder_->addTriangleMesh(cube_mesh, lambertianCube);
         
@@ -215,7 +220,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     scene_builder_->setEnvMap(envMap);
 
     ref<Camera> camera = ref<Camera>(new Camera("Camera"));
-    camera->setPosition(float3(0, 0.0, -100));
+    camera->setPosition(float3(0, 0.0, -125));
     camera->setTarget(float3(0, 0.0, 0));
     camera->setUpVector(float3(0, 1, 0));
     camera->setFocalLength(35);
@@ -369,8 +374,25 @@ void Renderer::RenderFrame(
         float4(bg_clear_color, 1), 1.0f, 0,
         FboAttachmentType::All);
 
+    // ===================================================================================
+    //                              Showcase Camera code.
+    // ===================================================================================
+
+
+ /*    camera_.position_.x = radius * cos(angle);
+     camera_.position_.z = radius * sin(angle);*/
+    // Calculate yaw and pitch to look at the origin
+     //float3 direction = math::normalize(center - camera_->getPosition());  // Vector from camera position to origin
+     //auto yaw_ = math::degrees(atan2(direction.z, direction.x));
+     //auto pitch_ = math::degrees(
+     //    atan2(direction.y, math::length(float2(direction.x, direction.z)))) - 10.5f;
+     //camera_->setTarget(float3(pitch_, yaw_, 0));
+
+    // ===================================================================================
+
     //static float3 rotationDt = float3(0, 0, 0);
-    //rotationDt += float3(0, 10 * Metrics::kFixedDeltaTime, 0);
+    //rotationDt += 120 * Metrics::kFixedDeltaTime;
+    //camera_->setPosition()
     //fluid_transform.setRotationEulerDeg(rotationDt);
     
     if (!useMarchingCubes && useRaymarching)
@@ -548,7 +570,7 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     //app_gui_window->checkbox("useVoxelOpti", useVoxelOpti);
     //app_gui_window->checkbox("debugVoxelGrid", debugVoxelGrid);
 
-    //app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
+    app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
     //app_gui_window->checkbox("Use Transformations ?", useTransformations);
     //app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
     //app_gui_window->checkbox("approximateSecondaryRayBounce", approximateSecondaryRayBounce);
@@ -575,15 +597,15 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
         );
     }
 
-    //app_gui_window->slider("translation", translation, -500.f, 500.f);
-    //app_gui_window->slider("rotation", rotation, 0.f, 360.f);
-    //app_gui_window->slider("scale", scale, 1.f, 500.f);
+    app_gui_window->slider("translation", translation, -500.f, 500.f);
+    app_gui_window->slider("rotation", rotation, 0.f, 360.f);
+    app_gui_window->slider("scale", scale, 1.f, 500.f);
 
-    //app_gui_window->slider("march_mesh_scale", march_mesh_scale, 0.1f, 100.f);
+    app_gui_window->slider("march_mesh_scale", march_mesh_scale, 0.1f, 100.f);
 
-    /*fluid_transform.setTranslation(translation);
+    fluid_transform.setTranslation(translation);
     fluid_transform.setRotationEulerDeg(rotation);
-    fluid_transform.setScaling(scale);*/
+    fluid_transform.setScaling(scale);
 
     //scene_->updateNodeTransform(raymarching_node_id.get(), fluid_transform.getMatrix());
 

@@ -214,13 +214,6 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
     float currentRayDistance = hitData.depth == 0 ? 0 : RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
 
-    if (!drawFluid)
-    {
-        hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
-        hitData.hitT = currentRayDistance;
-        hitData.absorptionDistance = 0;
-        return;
-    }
 
     // --- Get intersection and shading data ---
     const GeometryInstanceID instanceID = getGeometryInstanceID();
@@ -234,7 +227,15 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
     // Handle non-dielectric materials (fallback to base color texture with optional shadows)
     float matIoR = gScene.materials.evalIoR(sd.materialID);
 
-    if (matIoR <= 0.f) // Considered non-refractive
+    if (!drawFluid && matIoR <= 0.1f) // Physics spheres debug.
+    {
+        hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
+        hitData.hitT = currentRayDistance;
+        hitData.absorptionDistance = 0;
+        return;
+    }
+
+    if (matIoR <= 0.5f) // Considered non-refractive
     {
         BasicMaterialData matData = gScene.materials.getBasicMaterialData(materialID);
         float4 baseColor = gScene.materials.sampleTexture(

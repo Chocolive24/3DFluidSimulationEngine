@@ -65,6 +65,7 @@ public:
     bool debugVoxelGrid = false;
     Transform fluid_transform;
     ref<RasterPass> raster_pass_;
+    ref<Camera> camera_;
 
 private:
     void setPerFrameVariables(const double& currentTime) const noexcept;
@@ -86,7 +87,7 @@ private:
 
     SceneBuilder* scene_builder_ = nullptr;
     ref<Scene> scene_;
-    ref<Camera> camera_;
+   
 
     static constexpr uint MaxTraceRecurDepth = 7;
 
@@ -136,8 +137,8 @@ public:
 
     bool useRaymarching = true;
     bool useMarchingCubes = false;
-    bool useTestScene = true;
-    bool draw_fluid_ = true;
+    bool useTestScene = false;
+    bool draw_fluid_ = false;
 
     float smoothDst = 1.f;
     float smoothPow = 5.f;
@@ -172,7 +173,7 @@ public:
     float3 absorptionCoeff = float3(0.03, 0.003, 0.001);
     float3 scatteringCoeff = float3(2.19, 0.75, 0.55);
 
-    float kMarchSize = 0.05f; //*Metrics::voxelSize;
+    float kMarchSize = 0.1f; //*Metrics::voxelSize;
     float sunLightMarchSize = 0.5f;
 
     Transform transfrom{};

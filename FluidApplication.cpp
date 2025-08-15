@@ -367,7 +367,14 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         debugLateStart = false;
     }*/
 
-    
+    float timeDeltaTime = getGlobalClock().getDelta();
+
+    /*
+    constexpr auto radius = 100.f;
+    constexpr auto center = float3(0.f, 0.f, 0.f);
+    static float angle = 0.f;
+    angle += 0.2f * timeDeltaTime;
+    renderer_->camera_->setPosition(float3(radius * cos(angle), 0, radius * sin(angle)));*/
 
     {
         FALCOR_PROFILE(pRenderContext, "SPH Simulation Update");
@@ -376,12 +383,11 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
         {
             pRenderContext->copyResource(bodies_buffer_.get(), regenrated_particles_.get());
             regenrate_particles_ = false;
+            start_simul_ = false;
         }
 
         static bool firstFrame = true;
-        static constexpr int iterationPerFrame = 3;
-
-        float timeDeltaTime = getGlobalClock().getDelta();
+        static constexpr int iterationPerFrame = 1;
 
         float maxDeltaTime = 1.f / 60.f;
         float dt = std::min(timeDeltaTime, maxDeltaTime);
@@ -481,6 +487,7 @@ void FluidApplication::onGuiRender(Gui* pGui)
     if (w.button("Start / Stop Simulation", false))
     {
         start_simul_ = !start_simul_;
+        
     }
 
     renderer_->RenderUI(pGui, &w, getRenderContext());
@@ -495,6 +502,7 @@ bool FluidApplication::onKeyEvent(const KeyboardEvent& keyEvent)
         if (keyEvent.key == Input::Key::F)
         {
             start_simul_ = !start_simul_;
+            
             sample_manager_.StopSample();
         }
         /*else if (keyEvent.key == Input::Key::R)
@@ -574,13 +582,22 @@ void FluidApplication::renderPhysicsSampleGui()
                     float yp = XMVectorGetY(pos);
                     float zp = XMVectorGetZ(pos);
                     body.Position = float3(xp, yp, zp);
+
+                    body.Mass = 1.f; //(type == BodyType::FLUID) ? 1 : 10;
+
+                    float xv = Random::Range(-1, 1);
+                    float yv = Random::Range(-1, 1);
+                    float zv = Random::Range(-1, 1);
+
+                    body.Velocity = float3(xv, yv, zv);
+
                     particlePositions[currentNbrParticles] = body;
 
                     currentNbrParticles++;
                 }
 
         regenrated_particles_->setBlob(particlePositions.data(), 0, particlePositions.size() * sizeof(float3));
-
+        start_simul_ = false;
         //std::vector<XMVECTOR> particlePositions;
 
         //for (size_t i = 0; i < NbParticles;)

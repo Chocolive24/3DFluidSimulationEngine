@@ -32,10 +32,10 @@ namespace Metrics // Meter in physical world != meter irl
     ////static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
     //static constexpr float PARTICLESPACING = Metrics::MetersToPixels(0.05f);
 
-    constexpr inline int NbParticles = 20'000;
+    constexpr inline int NbParticles = 40'000;
 
     static constexpr float WALLSIZE = Metrics::MetersToPixels(0.25f);
-    static constexpr float WALLDIST = Metrics::MetersToPixels(0.3f);
+    static constexpr float WALLDIST = Metrics::MetersToPixels(0.4f);
     static float PARTICLESIZE = SPH::SmoothingRadius * 0.5f;
     //static constexpr float PARTICLESIZE = Metrics::MetersToPixels(0.005f);
 
