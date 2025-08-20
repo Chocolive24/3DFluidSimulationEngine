@@ -386,8 +386,7 @@ void FluidApplication::onFrameRender(RenderContext* pRenderContext, const ref<Fb
             start_simul_ = false;
         }
 
-        static bool firstFrame = true;
-        static constexpr int iterationPerFrame = 1;
+        int iterationPerFrame = renderer_->draw_fluid_ ? 3 : 1;
 
         float maxDeltaTime = 1.f / 60.f;
         float dt = std::min(timeDeltaTime, maxDeltaTime);
@@ -598,6 +597,7 @@ void FluidApplication::renderPhysicsSampleGui()
 
         regenrated_particles_->setBlob(particlePositions.data(), 0, particlePositions.size() * sizeof(float3));
         start_simul_ = false;
+        firstFrame = true;
         //std::vector<XMVECTOR> particlePositions;
 
         //for (size_t i = 0; i < NbParticles;)

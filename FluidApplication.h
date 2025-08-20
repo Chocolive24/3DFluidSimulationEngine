@@ -94,6 +94,7 @@ private:
     World* world_ = nullptr;
 
     bool start_simul_ = false;
+    bool firstFrame = true;
     bool regenrate_particles_ = false;
 
     float fixed_timer_ = kFixedDeltaTime;

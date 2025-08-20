@@ -214,7 +214,6 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
     float currentRayDistance = hitData.depth == 0 ? 0 : RayTCurrent();
     uint triangleIndex = PrimitiveIndex();
 
-
     // --- Get intersection and shading data ---
     const GeometryInstanceID instanceID = getGeometryInstanceID();
     VertexData v = getVertexData(instanceID, triangleIndex, attribs);
@@ -227,9 +226,27 @@ void closestHit(inout PrimaryRayData hitData, BuiltInTriangleIntersectionAttribu
     // Handle non-dielectric materials (fallback to base color texture with optional shadows)
     float matIoR = gScene.materials.evalIoR(sd.materialID);
 
-    if (!drawFluid && matIoR <= 0.1f) // Physics spheres debug.
+    if (!drawFluid && matIoR <= 0.1f) // Physics spheres debug
     {
-        hitData.color = float4(0.1f, 0.2f, 1.f, 1.f);
+        float3 V = normalize(-rayDir);
+        float3 N = normalize(normal);
+
+        float rim = pow(saturate(1.0 - abs(dot(N, V))), 3.0);
+
+        float3 baseCol = float3(0.10, 0.20, 1.00);
+
+        // spec basique
+        float3 L = normalize(float3(0.5, 0.8, 0.2));
+        float3 H = normalize(L + V);
+        float ndl = saturate(dot(N, L));
+        float ndh = saturate(dot(N, H));
+        float spec = pow(ndh, 64.0) * 0.4;
+
+        float3 edgeCol = float3(0.90, 0.95, 1.00);
+        float3 shaded = lerp(baseCol, edgeCol, rim);
+        shaded = shaded * (0.4 + 0.6 * ndl) + spec;
+
+        hitData.color = float4(shaded, 1.0);
         hitData.hitT = currentRayDistance;
         hitData.absorptionDistance = 0;
         return;

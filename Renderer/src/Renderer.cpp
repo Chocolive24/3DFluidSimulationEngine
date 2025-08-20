@@ -79,7 +79,7 @@ void Renderer::Init(RenderContext* render_context, bool rebuildBvh) noexcept
     lambertianTexture->setRoughnessMollification(1.f);
     lambertianTexture->setIndexOfRefraction(0.5f);
 
-    auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius);
+    auto sphere_mesh = TriangleMesh::createSphere(SPH::SmoothingRadius * 0.5f);
     sphere_mesh_id = scene_builder_->addTriangleMesh(sphere_mesh, lambertianPhysics);
 
     if (useTestScene)
@@ -571,10 +571,10 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
     //app_gui_window->checkbox("debugVoxelGrid", debugVoxelGrid);
 
     app_gui_window->checkbox("Draw Fluid ?", draw_fluid_);
-    //app_gui_window->checkbox("Use Transformations ?", useTransformations);
-    //app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
+    app_gui_window->checkbox("Use Transformations ?", useTransformations);
+    app_gui_window->checkbox("Use Recursive Raytracing ?", useRecursiveRaytracing);
     //app_gui_window->checkbox("approximateSecondaryRayBounce", approximateSecondaryRayBounce);
-    //app_gui_window->checkbox("Use Debug Normals ?", debugNormals);
+    app_gui_window->checkbox("Use Debug Normals ?", debugNormals);
     
 
     const auto oldDensityMapSize = Metrics::density_map_size;
@@ -597,9 +597,9 @@ void Renderer::RenderUI(Gui* pGui, Gui::Window* app_gui_window, RenderContext* r
         );
     }
 
-    app_gui_window->slider("translation", translation, -500.f, 500.f);
+    app_gui_window->slider("translation", translation, -100.f, 100.f);
     app_gui_window->slider("rotation", rotation, 0.f, 360.f);
-    app_gui_window->slider("scale", scale, 1.f, 500.f);
+    app_gui_window->slider("scale", scale, 30.f, 100.f);
 
     app_gui_window->slider("march_mesh_scale", march_mesh_scale, 0.1f, 100.f);
 
